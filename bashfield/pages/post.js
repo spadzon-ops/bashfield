@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations'
 import { useTranslation } from 'next-i18next'
 import { supabase, CITIES } from '../lib/supabase'
+import MapPicker from '../components/MapPicker'
 
 export default function Post() {
   const { t } = useTranslation('common')
@@ -12,10 +13,17 @@ export default function Post() {
     title: '',
     description: '',
     price: '',
+    currency: 'USD',
     city: 'erbil',
     rooms: 1,
+    phone: '',
+    latitude: null,
+    longitude: null,
+    address: '',
     images: []
   })
+  const [showMap, setShowMap] = useState(false)
+  const [mapCenter, setMapCenter] = useState([36.1911, 44.0093]) // Erbil coordinates
 
   useEffect(() => {
     const getUser = async () => {
@@ -50,6 +58,13 @@ export default function Post() {
     e.preventDefault()
     setLoading(true)
 
+    // Validate required fields
+    if (!formData.latitude || !formData.longitude) {
+      alert('Please select a location on the map')
+      setLoading(false)
+      return
+    }
+
     const { error } = await supabase
       .from('listings')
       .insert([{
@@ -61,18 +76,22 @@ export default function Post() {
 
     if (error) {
       console.error('Error creating listing:', error)
+      alert('Error submitting listing. Please try again.')
     } else {
-      setSuccess(true)
-      setFormData({
-        title: '',
-        description: '',
-        price: '',
-        city: 'erbil',
-        rooms: 1,
-        images: []
-      })
+      // Redirect to success page
+      window.location.href = '/post-success'
     }
     setLoading(false)
+  }
+
+  const handleMapClick = (lat, lng, address) => {
+    setFormData(prev => ({
+      ...prev,
+      latitude: lat,
+      longitude: lng,
+      address: address || `${lat.toFixed(6)}, ${lng.toFixed(6)}`
+    }))
+    setShowMap(false)
   }
 
   if (!user) {
@@ -144,22 +163,47 @@ export default function Post() {
 
               <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-3">
-                  💰 {t('post.form.price')}
+                  💰 Monthly Rent
                 </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    required
-                    min="1"
-                    placeholder="500000"
-                    value={formData.price}
-                    onChange={(e) => setFormData(prev => ({ ...prev, price: e.target.value }))}
-                    className="input-field pr-16"
-                  />
-                  <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 font-medium">
-                    IQD/month
-                  </span>
+                <div className="flex space-x-3">
+                  <select
+                    value={formData.currency}
+                    onChange={(e) => setFormData(prev => ({ ...prev, currency: e.target.value }))}
+                    className="input-field w-24"
+                  >
+                    <option value="USD">USD</option>
+                    <option value="IQD">IQD</option>
+                  </select>
+                  <div className="relative flex-1">
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      placeholder={formData.currency === 'USD' ? '500' : '500000'}
+                      value={formData.price}
+                      onChange={(e) => setFormData(prev => ({ ...prev, price: e.target.value }))}
+                      className="input-field pr-16"
+                    />
+                    <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 font-medium">
+                      {formData.currency}/month
+                    </span>
+                  </div>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-3">
+                  📱 WhatsApp Phone Number
+                </label>
+                <input
+                  type="tel"
+                  required
+                  placeholder="+964 750 123 4567"
+                  value={formData.phone}
+                  onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                  className="input-field"
+                />
+                <p className="text-xs text-gray-500 mt-1">Include country code (e.g., +964 for Iraq)</p>
               </div>
 
               <div>
@@ -177,7 +221,7 @@ export default function Post() {
                 </select>
               </div>
 
-              <div className="md:col-span-2">
+              <div>
                 <label className="block text-sm font-semibold text-gray-700 mb-3">
                   📍 {t('post.form.city')}
                 </label>
@@ -190,6 +234,35 @@ export default function Post() {
                     <option key={city} value={city}>{t(`cities.${city}`)}</option>
                   ))}
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-3">
+                  🗺️ Property Location
+                </label>
+                <div className="space-y-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowMap(true)}
+                    className={`w-full p-4 border-2 border-dashed rounded-lg text-center transition-colors ${
+                      formData.latitude ? 'border-green-300 bg-green-50' : 'border-gray-300 hover:border-blue-400'
+                    }`}
+                  >
+                    {formData.latitude ? (
+                      <div>
+                        <span className="text-2xl block mb-2">✅</span>
+                        <p className="font-medium text-green-800">Location Selected</p>
+                        <p className="text-sm text-green-600">{formData.address}</p>
+                      </div>
+                    ) : (
+                      <div>
+                        <span className="text-2xl block mb-2">🗺️</span>
+                        <p className="font-medium text-gray-700">Click to Select Location on Map</p>
+                        <p className="text-sm text-gray-500">Required for listing approval</p>
+                      </div>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -257,6 +330,14 @@ export default function Post() {
           </div>
         </form>
       </div>
+
+      {/* Map Picker Modal */}
+      <MapPicker
+        isOpen={showMap}
+        onClose={() => setShowMap(false)}
+        onLocationSelect={handleMapClick}
+        initialCenter={mapCenter}
+      />
     </div>
   )
 }
