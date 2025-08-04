@@ -37,7 +37,7 @@ CREATE POLICY "Admin can do everything" ON public.listings
     EXISTS (
       SELECT 1 FROM auth.users 
       WHERE auth.users.id = auth.uid() 
-      AND auth.users.email = 'your-gmail@gmail.com'
+      AND auth.users.email = 'spadzon@gmail.com'
     )
   );
 
