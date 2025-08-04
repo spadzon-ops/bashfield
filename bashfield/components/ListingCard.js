@@ -52,20 +52,48 @@ export default function ListingCard({ listing, showActions = false, onApprove, o
           </div>
         </div>
         
-        <div className="flex justify-between items-center pt-4 border-t border-gray-100">
-          <div>
-            <span className="text-2xl font-bold text-blue-600">
-              {listing.price.toLocaleString()}
-            </span>
-            <span className="text-gray-500 text-sm ml-1">{t('listing.price')}</span>
+        <div className="pt-4 border-t border-gray-100">
+          <div className="flex justify-between items-center mb-4">
+            <div>
+              <span className="text-2xl font-bold text-blue-600">
+                {listing.currency === 'USD' ? '$' : ''}{listing.price.toLocaleString()}
+              </span>
+              <span className="text-gray-500 text-sm ml-1">
+                {listing.currency === 'USD' ? 'USD' : 'IQD'}/month
+              </span>
+            </div>
+            
+            <div className="flex items-center space-x-2">
+              <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                <span className="text-blue-600 text-sm font-semibold">{listing.user_email[0].toUpperCase()}</span>
+              </div>
+              <span className="text-xs text-gray-500">{listing.user_email.split('@')[0]}</span>
+            </div>
           </div>
           
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-              <span className="text-blue-600 text-sm font-semibold">{listing.user_email[0].toUpperCase()}</span>
+          {/* Contact Buttons */}
+          {!showActions && (
+            <div className="flex space-x-2">
+              {listing.phone && (
+                <a
+                  href={`https://wa.me/${listing.phone.replace(/[^0-9]/g, '')}?text=Hi! I'm interested in your property: ${listing.title}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center space-x-1"
+                >
+                  <span>💬</span>
+                  <span>WhatsApp</span>
+                </a>
+              )}
+              <button
+                onClick={() => window.open(`/chat/${listing.id}`, '_blank')}
+                className="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center space-x-1"
+              >
+                <span>💬</span>
+                <span>Chat</span>
+              </button>
             </div>
-            <span className="text-xs text-gray-500">{listing.user_email.split('@')[0]}</span>
-          </div>
+          )}
         </div>
         
         {showActions && (
