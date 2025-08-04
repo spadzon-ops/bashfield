@@ -85,55 +85,56 @@ export default function Admin() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <h1 className="text-3xl font-bold text-white mb-8">{t('admin.title')}</h1>
-
-      <div className="flex space-x-4 mb-8">
-        {['pending', 'approved', 'rejected'].map(tab => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 rounded-md font-medium ${
-              activeTab === tab
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-            }`}
-          >
-            {t(`admin.${tab}`)} ({listings[tab].length})
-          </button>
-        ))}
+      <div className="text-center mb-12">
+        <h1 className="text-4xl font-bold text-gray-900 mb-4">{t('admin.title')}</h1>
+        <p className="text-xl text-gray-600">Manage and moderate property listings</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {listings[activeTab].map(listing => (
-          <div key={listing.id} className="relative">
-            <ListingCard listing={listing} />
-            <div className="absolute top-2 right-2 flex space-x-1">
-              {activeTab === 'pending' && (
-                <>
-                  <button
-                    onClick={() => updateListingStatus(listing.id, 'approved')}
-                    className="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs"
-                  >
-                    {t('admin.approve')}
-                  </button>
-                  <button
-                    onClick={() => updateListingStatus(listing.id, 'rejected')}
-                    className="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs"
-                  >
-                    {t('admin.reject')}
-                  </button>
-                </>
-              )}
-              <button
-                onClick={() => deleteListing(listing.id)}
-                className="bg-gray-600 hover:bg-gray-700 text-white px-2 py-1 rounded text-xs"
-              >
-                {t('admin.delete')}
-              </button>
-            </div>
+      <div className="card p-6 mb-8">
+        <div className="flex flex-wrap gap-4 justify-center">
+          {['pending', 'approved', 'rejected'].map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-6 py-3 rounded-lg font-semibold transition-all duration-200 ${
+                activeTab === tab
+                  ? 'bg-blue-600 text-white shadow-lg'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              <span className="mr-2">
+                {tab === 'pending' ? '⏳' : tab === 'approved' ? '✅' : '❌'}
+              </span>
+              {t(`admin.${tab}`)} ({listings[tab].length})
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {listings[activeTab].length === 0 ? (
+        <div className="text-center py-20">
+          <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <span className="text-4xl">
+              {activeTab === 'pending' ? '⏳' : activeTab === 'approved' ? '✅' : '❌'}
+            </span>
           </div>
-        ))}
-      </div>
+          <h3 className="text-2xl font-bold text-gray-900 mb-4">No {activeTab} listings</h3>
+          <p className="text-gray-600">All caught up! No {activeTab} listings to show.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {listings[activeTab].map(listing => (
+            <ListingCard 
+              key={listing.id} 
+              listing={listing} 
+              showActions={true}
+              onApprove={() => updateListingStatus(listing.id, 'approved')}
+              onReject={() => updateListingStatus(listing.id, 'rejected')}
+              onDelete={() => deleteListing(listing.id)}
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
