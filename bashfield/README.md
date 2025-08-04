@@ -1,4 +1,4 @@
-# Bashfield - House Rentals in Iraq
+# Bashfield - House Rentals in Iraq 
 
 A modern, multilingual house rental platform for Iraq, especially Erbil. Built with Next.js, Supabase, and Tailwind CSS.
 
