@@ -67,3 +67,30 @@ $$ language 'plpgsql';
 
 CREATE TRIGGER update_listings_updated_at BEFORE UPDATE ON public.listings
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Create messages table for chat
+CREATE TABLE IF NOT EXISTS public.messages (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  listing_id UUID REFERENCES public.listings(id) ON DELETE CASCADE,
+  sender_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  sender_email TEXT NOT NULL,
+  message TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Enable RLS for messages
+ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
+
+-- Messages policies
+CREATE POLICY "Users can view messages for listings they're involved in" ON public.messages
+  FOR SELECT USING (
+    sender_id = auth.uid() OR 
+    EXISTS (
+      SELECT 1 FROM public.listings 
+      WHERE listings.id = messages.listing_id 
+      AND listings.user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Users can send messages" ON public.messages
+  FOR INSERT WITH CHECK (sender_id = auth.uid());
