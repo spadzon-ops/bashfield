@@ -1,16 +1,89 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCenter = [36.1911, 44.0093] }) {
   const [selectedLocation, setSelectedLocation] = useState(null)
   const [address, setAddress] = useState('')
+  const mapRef = useRef(null)
+  const [mapLoaded, setMapLoaded] = useState(false)
+
+  useEffect(() => {
+    if (isOpen && !mapLoaded) {
+      loadGoogleMaps()
+    }
+  }, [isOpen])
+
+  const loadGoogleMaps = () => {
+    if (window.google) {
+      initializeMap()
+      return
+    }
+
+    const script = document.createElement('script')
+    script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dOWTgHz-TK7VFC&libraries=places`
+    script.async = true
+    script.defer = true
+    script.onload = () => {
+      initializeMap()
+    }
+    document.head.appendChild(script)
+  }
+
+  const initializeMap = () => {
+    if (!mapRef.current) return
+
+    const map = new window.google.maps.Map(mapRef.current, {
+      center: { lat: initialCenter[0], lng: initialCenter[1] },
+      zoom: 13,
+      mapTypeId: 'roadmap',
+      styles: [
+        {
+          featureType: 'poi',
+          elementType: 'labels',
+          stylers: [{ visibility: 'on' }]
+        }
+      ]
+    })
+
+    let marker = new window.google.maps.Marker({
+      position: { lat: initialCenter[0], lng: initialCenter[1] },
+      map: map,
+      draggable: true,
+      title: 'Property Location'
+    })
+
+    const geocoder = new window.google.maps.Geocoder()
+
+    const updateLocation = (lat, lng) => {
+      setSelectedLocation({ lat, lng })
+      geocoder.geocode({ location: { lat, lng } }, (results, status) => {
+        if (status === 'OK' && results[0]) {
+          setAddress(results[0].formatted_address)
+        } else {
+          setAddress(`${lat.toFixed(6)}, ${lng.toFixed(6)}`)
+        }
+      })
+    }
+
+    map.addListener('click', (event) => {
+      const lat = event.latLng.lat()
+      const lng = event.latLng.lng()
+      marker.setPosition({ lat, lng })
+      updateLocation(lat, lng)
+    })
+
+    marker.addListener('dragend', (event) => {
+      const lat = event.latLng.lat()
+      const lng = event.latLng.lng()
+      updateLocation(lat, lng)
+    })
+
+    setMapLoaded(true)
+  }
 
   if (!isOpen) return null
 
-  const handleMapClick = (e) => {
-    const lat = 36.1911 + (Math.random() - 0.5) * 0.1 // Simulate map click
-    const lng = 44.0093 + (Math.random() - 0.5) * 0.1
-    setSelectedLocation({ lat, lng })
-    setAddress(`${lat.toFixed(6)}, ${lng.toFixed(6)}`)
+  const handleMapClick = () => {
+    // This is now handled by Google Maps
   }
 
   const handleConfirm = () => {
@@ -36,43 +109,37 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
         </div>
 
         <div className="p-6">
-          {/* Simplified Map Placeholder */}
-          <div 
-            className="w-full h-96 bg-gradient-to-br from-green-100 to-blue-100 rounded-lg border-2 border-gray-200 relative cursor-crosshair"
-            onClick={handleMapClick}
-          >
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="text-center">
-                <span className="text-6xl block mb-4">🗺️</span>
-                <p className="text-lg font-semibold text-gray-700">Interactive Map</p>
-                <p className="text-gray-500">Click anywhere to select location</p>
-                {selectedLocation && (
-                  <div className="mt-4 p-3 bg-white rounded-lg shadow-lg">
-                    <p className="font-medium text-green-600">📍 Location Selected</p>
-                    <p className="text-sm text-gray-600">{address}</p>
-                  </div>
-                )}
-              </div>
-            </div>
-            
-            {/* Simulated map markers for Iraqi cities */}
-            <div className="absolute top-1/4 left-1/3 w-4 h-4 bg-red-500 rounded-full border-2 border-white shadow-lg"></div>
-            <div className="absolute top-1/3 left-1/2 w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-lg"></div>
-            <div className="absolute top-1/2 left-2/3 w-4 h-4 bg-green-500 rounded-full border-2 border-white shadow-lg"></div>
-            
-            {selectedLocation && (
-              <div 
-                className="absolute w-6 h-6 bg-yellow-500 rounded-full border-3 border-white shadow-lg animate-bounce"
-                style={{ 
-                  top: '45%', 
-                  left: '55%',
-                  transform: 'translate(-50%, -50%)'
-                }}
-              >
-                <span className="text-white text-xs">📍</span>
+          {/* Google Maps */}
+          <div className="w-full h-96 rounded-lg border-2 border-gray-200 overflow-hidden">
+            {!mapLoaded && (
+              <div className="w-full h-full bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center">
+                <div className="text-center">
+                  <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                  <p className="text-gray-600">Loading interactive map...</p>
+                </div>
               </div>
             )}
+            <div 
+              ref={mapRef}
+              className="w-full h-full"
+              style={{ display: mapLoaded ? 'block' : 'none' }}
+            />
           </div>
+          
+          {selectedLocation && (
+            <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-start space-x-3">
+                <span className="text-green-500 text-xl mt-1">📍</span>
+                <div>
+                  <p className="font-medium text-green-800">Location Selected</p>
+                  <p className="text-sm text-green-600 mt-1">{address}</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Coordinates: {selectedLocation.lat.toFixed(6)}, {selectedLocation.lng.toFixed(6)}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Address Input */}
           <div className="mt-4">
