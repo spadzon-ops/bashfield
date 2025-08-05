@@ -34,4 +34,10 @@
     "eslint": "^8",
     "eslint-config-next": "14.0.4"
   }
+    "dependencies": {
+    ...
+    "@supabase/auth-helpers-nextjs": "^0.8.2",
+    "@supabase/auth-helpers-react": "^0.4.3"
+  }
+
 }
