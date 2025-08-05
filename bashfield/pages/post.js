@@ -58,29 +58,48 @@ export default function Post() {
     e.preventDefault()
     setLoading(true)
 
-    // Validate required fields
-    if (!formData.latitude || !formData.longitude) {
-      alert('Please select a location on the map')
-      setLoading(false)
-      return
-    }
+    try {
+      // Validate required fields
+      if (!formData.phone || formData.phone.trim() === '') {
+        alert('Please enter your phone number')
+        setLoading(false)
+        return
+      }
 
-    const { error } = await supabase
-      .from('listings')
-      .insert([{
-        ...formData,
+      // Set default location if not selected
+      const listingData = {
+        title: formData.title,
+        description: formData.description,
         price: parseInt(formData.price),
+        currency: formData.currency,
+        city: formData.city,
+        rooms: parseInt(formData.rooms),
+        phone: formData.phone,
+        latitude: formData.latitude || 36.1911, // Default to Erbil
+        longitude: formData.longitude || 44.0093,
+        address: formData.address || `${formData.city}, Iraq`,
+        images: formData.images,
         user_id: user.id,
-        user_email: user.email
-      }])
+        user_email: user.email,
+        status: 'pending'
+      }
 
-    if (error) {
-      console.error('Error creating listing:', error)
-      alert('Error submitting listing. Please try again.')
-    } else {
-      // Redirect to success page
-      window.location.href = '/post-success'
+      const { error } = await supabase
+        .from('listings')
+        .insert([listingData])
+
+      if (error) {
+        console.error('Error creating listing:', error)
+        alert('Error submitting listing: ' + error.message)
+      } else {
+        // Redirect to success page
+        window.location.href = '/post-success'
+      }
+    } catch (err) {
+      console.error('Unexpected error:', err)
+      alert('Unexpected error occurred. Please try again.')
     }
+    
     setLoading(false)
   }
 
@@ -123,14 +142,37 @@ export default function Post() {
         </div>
       )}
 
-      <div className="card p-8">
-        <form onSubmit={handleSubmit} className="space-y-8">
-          {/* Basic Information */}
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
-              <span className="mr-3">🏠</span>
-              Property Details
-            </h2>
+      {/* Progress Steps */}
+      <div className="card p-6 mb-8">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold">1</div>
+            <span className="font-medium text-gray-900">Property Details</span>
+          </div>
+          <div className="flex-1 h-1 bg-gray-200 mx-4"></div>
+          <div className="flex items-center space-x-2">
+            <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold">2</div>
+            <span className="font-medium text-gray-900">Location & Images</span>
+          </div>
+          <div className="flex-1 h-1 bg-gray-200 mx-4"></div>
+          <div className="flex items-center space-x-2">
+            <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold">3</div>
+            <span className="font-medium text-gray-900">Review & Submit</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Main Form */}
+        <div className="lg:col-span-2">
+          <div className="card p-8">
+            <form onSubmit={handleSubmit} className="space-y-8">
+              {/* Basic Information */}
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+                  <span className="mr-3">🏠</span>
+                  Property Details
+                </h2>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="md:col-span-2">
@@ -258,7 +300,7 @@ export default function Post() {
                       <div>
                         <span className="text-2xl block mb-2">🗺️</span>
                         <p className="font-medium text-gray-700">Click to Select Location on Map</p>
-                        <p className="text-sm text-gray-500">Required for listing approval</p>
+                        <p className="text-sm text-gray-500">Optional - defaults to city center</p>
                       </div>
                     )}
                   </button>
@@ -328,7 +370,48 @@ export default function Post() {
               Your listing will be reviewed by our team before going live
             </p>
           </div>
-        </form>
+            </form>
+          </div>
+        </div>
+
+        {/* Sidebar */}
+        <div className="lg:col-span-1">
+          <div className="card p-6 mb-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">📊 Listing Tips</h3>
+            <div className="space-y-3 text-sm">
+              <div className="flex items-start space-x-2">
+                <span className="text-green-500 mt-1">✓</span>
+                <span>Add 5-10 high-quality photos</span>
+              </div>
+              <div className="flex items-start space-x-2">
+                <span className="text-green-500 mt-1">✓</span>
+                <span>Write detailed descriptions</span>
+              </div>
+              <div className="flex items-start space-x-2">
+                <span className="text-green-500 mt-1">✓</span>
+                <span>Set competitive pricing</span>
+              </div>
+              <div className="flex items-start space-x-2">
+                <span className="text-green-500 mt-1">✓</span>
+                <span>Include WhatsApp number</span>
+              </div>
+              <div className="flex items-start space-x-2">
+                <span className="text-green-500 mt-1">✓</span>
+                <span>Mark exact location on map</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="card p-6">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">🚀 Why Choose Bashfield?</h3>
+            <div className="space-y-3 text-sm text-gray-600">
+              <div>🌍 <strong>Wide Reach:</strong> Thousands of active users</div>
+              <div>📱 <strong>Direct Contact:</strong> WhatsApp integration</div>
+              <div>⚙️ <strong>Easy Management:</strong> Simple dashboard</div>
+              <div>🔒 <strong>Secure:</strong> Verified listings only</div>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Map Picker Modal */}
