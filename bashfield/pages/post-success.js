@@ -26,12 +26,12 @@ export default function PostSuccess() {
           </div>
           
           <h1 className="text-3xl font-bold text-gray-900 mb-4">
-            Listing Submitted Successfully!
+            🎉 Listing Submitted Successfully!
           </h1>
           
           <p className="text-gray-600 mb-6 leading-relaxed">
-            Thank you for posting your property! Your listing has been submitted and is now under review by our team. 
-            You'll receive an email notification once it's approved and goes live.
+            Thank you for posting your property on Bashfield! Your listing has been submitted and is now under review by our admin team. 
+            Once approved, it will be visible to thousands of potential renters across Iraq.
           </p>
           
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
