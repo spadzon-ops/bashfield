@@ -1,7 +1,10 @@
 [build]
   base = "bashfield"
-  publish = "bashfield/.next"
   command = "npm install --legacy-peer-deps && npm run build"
+  publish = ".next"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
+
+[build.environment]
+  NODE_VERSION = "18"
