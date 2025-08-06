@@ -8,6 +8,7 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
   const [currentLayer, setCurrentLayer] = useState('street')
   const mapInstanceRef = useRef(null)
   const layersRef = useRef({})
+  const markerRef = useRef(null)
 
   // City coordinates
   const cityCoordinates = {
@@ -27,8 +28,25 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
   }
 
   useEffect(() => {
-    if (isOpen && !mapLoaded) {
-      loadLeafletMap()
+    if (isOpen) {
+      if (!mapLoaded) {
+        loadLeafletMap()
+      } else if (mapInstanceRef.current) {
+        // Refresh map when reopened
+        setTimeout(() => {
+          mapInstanceRef.current.invalidateSize()
+        }, 100)
+      }
+    }
+  }, [isOpen])
+
+  useEffect(() => {
+    // Reset map when closed
+    if (!isOpen && mapInstanceRef.current) {
+      setMapLoaded(false)
+      mapInstanceRef.current = null
+      layersRef.current = {}
+      markerRef.current = null
     }
   }, [isOpen])
 
@@ -74,7 +92,7 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
       maxZoom: 19
     })
 
-    const hybridLayer = window.L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+    const satelliteLabelsLayer = window.L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
       attribution: '© Esri',
       maxZoom: 19
     })
@@ -83,16 +101,17 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
     layersRef.current = {
       street: streetLayer,
       satellite: satelliteLayer,
-      hybrid: hybridLayer
+      satelliteLabels: satelliteLabelsLayer
     }
 
     // Add default layer
     streetLayer.addTo(map)
 
     // Add marker
-    let marker = window.L.marker(center, {
+    const marker = window.L.marker(center, {
       draggable: true
     }).addTo(map)
+    markerRef.current = marker
 
     // Update location when marker is moved
     const updateLocation = (lat, lng) => {
@@ -109,8 +128,10 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
     // Handle map click
     map.on('click', function(e) {
       const { lat, lng } = e.latlng
-      marker.setLatLng([lat, lng])
-      updateLocation(lat, lng)
+      if (markerRef.current) {
+        markerRef.current.setLatLng([lat, lng])
+        updateLocation(lat, lng)
+      }
     })
 
     // Set initial location
@@ -133,9 +154,7 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
       layersRef.current.street.addTo(map)
     } else if (layerType === 'satellite') {
       layersRef.current.satellite.addTo(map)
-    } else if (layerType === 'hybrid') {
-      layersRef.current.satellite.addTo(map)
-      layersRef.current.hybrid.addTo(map)
+      layersRef.current.satelliteLabels.addTo(map)
     }
 
     setCurrentLayer(layerType)
@@ -188,16 +207,6 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
                 }`}
               >
                 🛰️ Satellite
-              </button>
-              <button
-                onClick={() => switchMapLayer('hybrid')}
-                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
-                  currentLayer === 'hybrid'
-                    ? 'bg-blue-600 text-white'
-                    : 'text-gray-700 hover:bg-gray-100'
-                }`}
-              >
-                🌍 Hybrid
               </button>
             </div>
           </div>
