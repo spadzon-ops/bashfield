@@ -33,7 +33,6 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
       if (!mapLoaded) {
         loadLeafletMap()
       } else if (mapInstanceRef.current) {
-        // Refresh map when reopened
         setTimeout(() => {
           mapInstanceRef.current.invalidateSize()
         }, 100)
@@ -42,7 +41,6 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
   }, [isOpen])
 
   useEffect(() => {
-    // Reset map when closed
     if (!isOpen && mapInstanceRef.current) {
       setMapLoaded(false)
       mapInstanceRef.current = null
@@ -52,7 +50,6 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
   }, [isOpen])
 
   const loadLeafletMap = () => {
-    // Load Leaflet CSS
     if (!document.querySelector('link[href*="leaflet"]')) {
       const link = document.createElement('link')
       link.rel = 'stylesheet'
@@ -60,7 +57,6 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
       document.head.appendChild(link)
     }
 
-    // Load Leaflet JS
     if (!window.L) {
       const script = document.createElement('script')
       script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
@@ -77,12 +73,9 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
     if (!mapRef.current || !window.L) return
 
     const center = getCityCenter()
-    
-    // Create map
     const map = window.L.map(mapRef.current).setView(center, 13)
     mapInstanceRef.current = map
 
-    // Define map layers
     const streetLayer = window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap contributors',
       maxZoom: 19
@@ -98,36 +91,30 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
       maxZoom: 19
     })
 
-    // Store layers
     layersRef.current = {
       street: streetLayer,
       satellite: satelliteLayer,
       satelliteLabels: satelliteLabelsLayer
     }
 
-    // Add default layer
     streetLayer.addTo(map)
 
-    // Add marker
     const marker = window.L.marker(center, {
       draggable: true
     }).addTo(map)
     markerRef.current = marker
 
-    // Update location when marker is moved
     const updateLocation = (lat, lng) => {
       setSelectedLocation({ lat, lng })
       setAddress(`${lat.toFixed(6)}, ${lng.toFixed(6)}`)
-      setLocationConfirmed(false) // Reset confirmation when location changes
+      setLocationConfirmed(false)
     }
 
-    // Handle marker drag
     marker.on('dragend', function(e) {
       const position = e.target.getLatLng()
       updateLocation(position.lat, position.lng)
     })
 
-    // Handle map click
     map.on('click', function(e) {
       const { lat, lng } = e.latlng
       if (markerRef.current) {
@@ -136,7 +123,6 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
       }
     })
 
-    // Set initial location
     updateLocation(center[0], center[1])
     setMapLoaded(true)
   }
@@ -146,12 +132,10 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
 
     const map = mapInstanceRef.current
     
-    // Remove current layers
     Object.values(layersRef.current).forEach(layer => {
       map.removeLayer(layer)
     })
 
-    // Add new layer(s)
     if (layerType === 'street') {
       layersRef.current.street.addTo(map)
     } else if (layerType === 'satellite') {
@@ -171,7 +155,6 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
   }
 
   const handleClose = () => {
-    // Auto-confirm location if selected but not confirmed
     if (selectedLocation && !locationConfirmed) {
       setLocationConfirmed(true)
     }
@@ -195,7 +178,6 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
         </div>
 
         <div className="p-4 sm:p-6">
-          {/* Map Controls */}
           <div className="flex justify-center mb-4">
             <div className="bg-white border border-gray-300 rounded-lg p-1 shadow-sm">
               <button
@@ -221,7 +203,6 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
             </div>
           </div>
           
-          {/* Real Map */}
           <div className="w-full h-64 sm:h-80 md:h-96 rounded-lg border-2 border-gray-200 overflow-hidden relative">
             {!mapLoaded && (
               <div className="absolute inset-0 bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center z-10">
@@ -236,8 +217,6 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
               className="w-full h-full"
             />
           </div>
-          
-
           
           {selectedLocation && (
             <div className={`mt-4 p-3 border rounded-lg ${
@@ -275,23 +254,10 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
             </div>
           )}
 
-          {/* Address Input */}
           <div className="mt-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Property Address
             </label>
-            <input
-              type="text"
-              placeholder="e.g., Street Name, Building Number"
-              value={address}
-              onChange={(e) => setAddress(e.target.value)}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Drag the red marker to your exact building location
-            </p>
-          </div>
-        </div>el>
             <input
               type="text"
               placeholder="e.g., Street Name, Building Number"
