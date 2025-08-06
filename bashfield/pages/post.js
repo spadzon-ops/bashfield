@@ -420,6 +420,7 @@ export default function Post() {
         onClose={() => setShowMap(false)}
         onLocationSelect={handleMapClick}
         initialCenter={mapCenter}
+        selectedCity={formData.city}
       />
     </div>
   )
