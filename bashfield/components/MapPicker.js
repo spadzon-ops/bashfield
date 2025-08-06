@@ -65,37 +65,34 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
         <div className="p-6">
           {/* Simple Map */}
           <div 
-            className="w-full h-96 rounded-lg border-2 border-gray-200 overflow-hidden cursor-crosshair relative"
+            className="w-full h-96 rounded-lg border-2 border-gray-200 overflow-hidden cursor-crosshair relative bg-gradient-to-br from-blue-50 to-blue-100"
             onClick={handleMapClick}
-            style={{
-              backgroundImage: `url('data:image/svg+xml,${encodeURIComponent(`
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300">
-                  <rect width="400" height="300" fill="#f0f9ff"/>
-                  <g stroke="#e5e7eb" stroke-width="1" fill="none">
-                    ${Array.from({length: 20}, (_, i) => `<line x1="${i*20}" y1="0" x2="${i*20}" y2="300"/>`).join('')}
-                    ${Array.from({length: 15}, (_, i) => `<line x1="0" y1="${i*20}" x2="400" y2="${i*20}"/>`).join('')}
-                  </g>
-                  <circle cx="200" cy="150" r="8" fill="#3b82f6" stroke="white" stroke-width="2"/>
-                  <text x="200" y="170" text-anchor="middle" fill="#3b82f6" font-size="12" font-family="Arial">${getCurrentCity().name}</text>
-                  <g fill="#6b7280" font-size="10" font-family="Arial">
-                    <text x="10" y="20">🏢 City Center</text>
-                    <text x="10" y="35">🏠 Residential Areas</text>
-                    <text x="10" y="50">🛣️ Main Roads</text>
-                  </g>
-                </svg>
-              `)}')`),
-              backgroundSize: 'cover',
-              backgroundPosition: 'center'
-            }}
           >
+            {/* City Center Marker */}
+            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+              <div className="w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-lg"></div>
+              <div className="absolute top-6 left-1/2 transform -translate-x-1/2 bg-blue-500 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+                📍 {getCurrentCity().name} Center
+              </div>
+            </div>
+            
+            {/* Grid Pattern */}
+            <div className="absolute inset-0 opacity-20">
+              <div className="w-full h-full" style={{
+                backgroundImage: 'linear-gradient(rgba(0,0,0,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.1) 1px, transparent 1px)',
+                backgroundSize: '20px 20px'
+              }}></div>
+            </div>
+            
+            {/* Selected Location Marker */}
             {selectedLocation && (
               <div 
-                className="absolute w-6 h-6 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+                className="absolute w-6 h-6 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none z-10"
                 style={{ left: `${clickPosition.x}%`, top: `${clickPosition.y}%` }}
               >
                 <div className="w-6 h-6 bg-red-500 rounded-full border-2 border-white shadow-lg animate-pulse"></div>
-                <div className="absolute top-6 left-1/2 transform -translate-x-1/2 bg-black text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-                  📍 Selected Location
+                <div className="absolute top-6 left-1/2 transform -translate-x-1/2 bg-red-500 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+                  📍 Property Location
                 </div>
               </div>
             )}
