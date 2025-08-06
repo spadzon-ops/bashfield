@@ -63,36 +63,57 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
         </div>
 
         <div className="p-6">
-          {/* Simple Map */}
+          {/* Visual Map */}
           <div 
-            className="w-full h-96 rounded-lg border-2 border-gray-200 overflow-hidden cursor-crosshair relative bg-gradient-to-br from-blue-50 to-blue-100"
+            className="w-full h-96 rounded-lg border-2 border-gray-200 overflow-hidden cursor-crosshair relative"
             onClick={handleMapClick}
+            style={{
+              background: 'linear-gradient(135deg, #e8f4fd 0%, #b8e6b8 50%, #f0f9ff 100%)'
+            }}
           >
-            {/* City Center Marker */}
+            {/* Main Roads */}
+            <div className="absolute inset-0">
+              {/* Horizontal Roads */}
+              <div className="absolute w-full h-2 bg-gray-400 top-1/4 opacity-60"></div>
+              <div className="absolute w-full h-3 bg-gray-500 top-1/2 opacity-70"></div>
+              <div className="absolute w-full h-2 bg-gray-400 top-3/4 opacity-60"></div>
+              
+              {/* Vertical Roads */}
+              <div className="absolute h-full w-2 bg-gray-400 left-1/4 opacity-60"></div>
+              <div className="absolute h-full w-3 bg-gray-500 left-1/2 opacity-70"></div>
+              <div className="absolute h-full w-2 bg-gray-400 left-3/4 opacity-60"></div>
+            </div>
+            
+            {/* Buildings/Areas */}
+            <div className="absolute top-4 left-4 w-12 h-8 bg-red-300 rounded opacity-40"></div>
+            <div className="absolute top-6 right-8 w-16 h-12 bg-blue-300 rounded opacity-40"></div>
+            <div className="absolute bottom-8 left-8 w-20 h-10 bg-green-300 rounded opacity-40"></div>
+            <div className="absolute bottom-4 right-4 w-14 h-14 bg-yellow-300 rounded-full opacity-40"></div>
+            
+            {/* City Center */}
             <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-              <div className="w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-lg"></div>
-              <div className="absolute top-6 left-1/2 transform -translate-x-1/2 bg-blue-500 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-                📍 {getCurrentCity().name} Center
+              <div className="w-6 h-6 bg-blue-600 rounded-full border-2 border-white shadow-lg"></div>
+              <div className="absolute top-8 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+                🏛️ {getCurrentCity().name} Center
               </div>
             </div>
             
-            {/* Grid Pattern */}
-            <div className="absolute inset-0 opacity-20">
-              <div className="w-full h-full" style={{
-                backgroundImage: 'linear-gradient(rgba(0,0,0,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(0,0,0,0.1) 1px, transparent 1px)',
-                backgroundSize: '20px 20px'
-              }}></div>
-            </div>
+            {/* Landmarks */}
+            <div className="absolute top-6 left-1/3 text-xs text-gray-600">🏢 Business</div>
+            <div className="absolute top-1/4 right-1/4 text-xs text-gray-600">🏥 Hospital</div>
+            <div className="absolute bottom-1/4 left-1/4 text-xs text-gray-600">🏫 School</div>
+            <div className="absolute bottom-6 right-1/3 text-xs text-gray-600">🛒 Market</div>
+            
             
             {/* Selected Location Marker */}
             {selectedLocation && (
               <div 
-                className="absolute w-6 h-6 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none z-10"
+                className="absolute transform -translate-x-1/2 -translate-y-1/2 pointer-events-none z-20"
                 style={{ left: `${clickPosition.x}%`, top: `${clickPosition.y}%` }}
               >
-                <div className="w-6 h-6 bg-red-500 rounded-full border-2 border-white shadow-lg animate-pulse"></div>
-                <div className="absolute top-6 left-1/2 transform -translate-x-1/2 bg-red-500 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-                  📍 Property Location
+                <div className="w-8 h-8 bg-red-500 rounded-full border-3 border-white shadow-xl animate-bounce"></div>
+                <div className="absolute top-10 left-1/2 transform -translate-x-1/2 bg-red-500 text-white text-xs px-3 py-1 rounded-full whitespace-nowrap shadow-lg">
+                  🏠 Your Property
                 </div>
               </div>
             )}
