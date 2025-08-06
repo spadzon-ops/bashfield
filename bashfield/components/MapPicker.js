@@ -1,106 +1,44 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
 
 export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCenter = [36.1911, 44.0093], selectedCity = 'erbil' }) {
   const [selectedLocation, setSelectedLocation] = useState(null)
   const [address, setAddress] = useState('')
-  const mapRef = useRef(null)
-  const [mapLoaded, setMapLoaded] = useState(false)
+  const [clickPosition, setClickPosition] = useState({ x: 50, y: 50 })
 
-  // City coordinates
-  const cityCoordinates = {
-    erbil: [36.1911, 44.0093],
-    baghdad: [33.3152, 44.3661],
-    basra: [30.5085, 47.7804],
-    mosul: [36.3350, 43.1189],
-    sulaymaniyah: [35.5650, 45.4347],
-    najaf: [32.0000, 44.3333],
-    karbala: [32.6160, 44.0242],
-    kirkuk: [35.4681, 44.3922],
-    duhok: [36.8617, 42.9789]
+  // City coordinates and info
+  const cityData = {
+    erbil: { coords: [36.1911, 44.0093], name: 'Erbil' },
+    baghdad: { coords: [33.3152, 44.3661], name: 'Baghdad' },
+    basra: { coords: [30.5085, 47.7804], name: 'Basra' },
+    mosul: { coords: [36.3350, 43.1189], name: 'Mosul' },
+    sulaymaniyah: { coords: [35.5650, 45.4347], name: 'Sulaymaniyah' },
+    najaf: { coords: [32.0000, 44.3333], name: 'Najaf' },
+    karbala: { coords: [32.6160, 44.0242], name: 'Karbala' },
+    kirkuk: { coords: [35.4681, 44.3922], name: 'Kirkuk' },
+    duhok: { coords: [36.8617, 42.9789], name: 'Duhok' }
   }
 
-  const getCityCenter = () => {
-    return cityCoordinates[selectedCity] || initialCenter
+  const getCurrentCity = () => {
+    return cityData[selectedCity] || { coords: initialCenter, name: 'Selected City' }
   }
 
-  useEffect(() => {
-    if (isOpen && !mapLoaded) {
-      loadGoogleMaps()
-    }
-  }, [isOpen])
-
-  const loadGoogleMaps = () => {
-    if (window.google) {
-      initializeMap()
-      return
-    }
-
-    const script = document.createElement('script')
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places&loading=async`
-    script.async = true
-    script.defer = true
-    script.onload = () => {
-      initializeMap()
-    }
-    document.head.appendChild(script)
-  }
-
-  const initializeMap = () => {
-    if (!mapRef.current) return
-
-    const center = getCityCenter()
-    const map = new window.google.maps.Map(mapRef.current, {
-      center: { lat: center[0], lng: center[1] },
-      zoom: 14,
-      mapTypeId: 'roadmap',
-      mapTypeControl: true,
-      streetViewControl: true,
-      fullscreenControl: true,
-      zoomControl: true
-    })
-
-    let marker = new window.google.maps.Marker({
-      position: { lat: center[0], lng: center[1] },
-      map: map,
-      draggable: true,
-      title: 'Drag me to your property location',
-      animation: window.google.maps.Animation.DROP
-    })
-
-    const geocoder = new window.google.maps.Geocoder()
-
-    const updateLocation = (lat, lng) => {
-      setSelectedLocation({ lat, lng })
-      geocoder.geocode({ location: { lat, lng } }, (results, status) => {
-        if (status === 'OK' && results[0]) {
-          setAddress(results[0].formatted_address)
-        } else {
-          setAddress(`${lat.toFixed(6)}, ${lng.toFixed(6)}`)
-        }
-      })
-    }
-
-    map.addListener('click', (event) => {
-      const lat = event.latLng.lat()
-      const lng = event.latLng.lng()
-      marker.setPosition({ lat, lng })
-      updateLocation(lat, lng)
-    })
-
-    marker.addListener('dragend', (event) => {
-      const lat = event.latLng.lat()
-      const lng = event.latLng.lng()
-      updateLocation(lat, lng)
-    })
-
-    setMapLoaded(true)
+  const handleMapClick = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect()
+    const x = ((e.clientX - rect.left) / rect.width) * 100
+    const y = ((e.clientY - rect.top) / rect.height) * 100
+    
+    setClickPosition({ x, y })
+    
+    // Convert click position to approximate coordinates
+    const city = getCurrentCity()
+    const lat = city.coords[0] + (50 - y) * 0.01 // Rough conversion
+    const lng = city.coords[1] + (x - 50) * 0.01
+    
+    setSelectedLocation({ lat, lng })
+    setAddress(`${city.name}, Iraq (${lat.toFixed(4)}, ${lng.toFixed(4)})`)
   }
 
   if (!isOpen) return null
-
-  const handleMapClick = () => {
-    // This is now handled by Google Maps
-  }
 
   const handleConfirm = () => {
     if (selectedLocation) {
@@ -121,25 +59,46 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
               ×
             </button>
           </div>
-          <p className="text-gray-600 mt-2">Click on the map or drag the red marker to mark your property's exact location</p>
+          <p className="text-gray-600 mt-2">Click on the map to mark your property's approximate location in {getCurrentCity().name}</p>
         </div>
 
         <div className="p-6">
-          {/* Google Maps */}
-          <div className="w-full h-96 rounded-lg border-2 border-gray-200 overflow-hidden">
-            {!mapLoaded && (
-              <div className="w-full h-full bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center">
-                <div className="text-center">
-                  <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                  <p className="text-gray-600">Loading interactive map...</p>
+          {/* Simple Map */}
+          <div 
+            className="w-full h-96 rounded-lg border-2 border-gray-200 overflow-hidden cursor-crosshair relative"
+            onClick={handleMapClick}
+            style={{
+              backgroundImage: `url('data:image/svg+xml,${encodeURIComponent(`
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300">
+                  <rect width="400" height="300" fill="#f0f9ff"/>
+                  <g stroke="#e5e7eb" stroke-width="1" fill="none">
+                    ${Array.from({length: 20}, (_, i) => `<line x1="${i*20}" y1="0" x2="${i*20}" y2="300"/>`).join('')}
+                    ${Array.from({length: 15}, (_, i) => `<line x1="0" y1="${i*20}" x2="400" y2="${i*20}"/>`).join('')}
+                  </g>
+                  <circle cx="200" cy="150" r="8" fill="#3b82f6" stroke="white" stroke-width="2"/>
+                  <text x="200" y="170" text-anchor="middle" fill="#3b82f6" font-size="12" font-family="Arial">${getCurrentCity().name}</text>
+                  <g fill="#6b7280" font-size="10" font-family="Arial">
+                    <text x="10" y="20">🏢 City Center</text>
+                    <text x="10" y="35">🏠 Residential Areas</text>
+                    <text x="10" y="50">🛣️ Main Roads</text>
+                  </g>
+                </svg>
+              `)}')`),
+              backgroundSize: 'cover',
+              backgroundPosition: 'center'
+            }}
+          >
+            {selectedLocation && (
+              <div 
+                className="absolute w-6 h-6 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+                style={{ left: `${clickPosition.x}%`, top: `${clickPosition.y}%` }}
+              >
+                <div className="w-6 h-6 bg-red-500 rounded-full border-2 border-white shadow-lg animate-pulse"></div>
+                <div className="absolute top-6 left-1/2 transform -translate-x-1/2 bg-black text-white text-xs px-2 py-1 rounded whitespace-nowrap">
+                  📍 Selected Location
                 </div>
               </div>
             )}
-            <div 
-              ref={mapRef}
-              className="w-full h-full"
-              style={{ display: mapLoaded ? 'block' : 'none' }}
-            />
           </div>
           
           {selectedLocation && (
@@ -160,15 +119,16 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
           {/* Address Input */}
           <div className="mt-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">
-              Property Address (Optional)
+              Property Address
             </label>
             <input
               type="text"
-              placeholder="e.g., 123 Main Street, Erbil"
+              placeholder={`e.g., Street Name, ${getCurrentCity().name}`}
               value={address}
               onChange={(e) => setAddress(e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
+            <p className="text-xs text-gray-500 mt-1">Click on the map above to set approximate coordinates</p>
           </div>
         </div>
 
