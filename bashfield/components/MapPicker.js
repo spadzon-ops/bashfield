@@ -5,6 +5,9 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
   const [address, setAddress] = useState('')
   const mapRef = useRef(null)
   const [mapLoaded, setMapLoaded] = useState(false)
+  const [currentLayer, setCurrentLayer] = useState('street')
+  const mapInstanceRef = useRef(null)
+  const layersRef = useRef({})
 
   // City coordinates
   const cityCoordinates = {
@@ -58,12 +61,33 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
     
     // Create map
     const map = window.L.map(mapRef.current).setView(center, 13)
+    mapInstanceRef.current = map
 
-    // Add OpenStreetMap tiles (FREE)
-    window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    // Define map layers
+    const streetLayer = window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap contributors',
       maxZoom: 19
-    }).addTo(map)
+    })
+
+    const satelliteLayer = window.L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      attribution: '© Esri, Maxar, Earthstar Geographics',
+      maxZoom: 19
+    })
+
+    const hybridLayer = window.L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+      attribution: '© Esri',
+      maxZoom: 19
+    })
+
+    // Store layers
+    layersRef.current = {
+      street: streetLayer,
+      satellite: satelliteLayer,
+      hybrid: hybridLayer
+    }
+
+    // Add default layer
+    streetLayer.addTo(map)
 
     // Add marker
     let marker = window.L.marker(center, {
@@ -94,6 +118,29 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
     setMapLoaded(true)
   }
 
+  const switchMapLayer = (layerType) => {
+    if (!mapInstanceRef.current || !layersRef.current) return
+
+    const map = mapInstanceRef.current
+    
+    // Remove current layers
+    Object.values(layersRef.current).forEach(layer => {
+      map.removeLayer(layer)
+    })
+
+    // Add new layer(s)
+    if (layerType === 'street') {
+      layersRef.current.street.addTo(map)
+    } else if (layerType === 'satellite') {
+      layersRef.current.satellite.addTo(map)
+    } else if (layerType === 'hybrid') {
+      layersRef.current.satellite.addTo(map)
+      layersRef.current.hybrid.addTo(map)
+    }
+
+    setCurrentLayer(layerType)
+  }
+
   if (!isOpen) return null
 
   const handleConfirm = () => {
@@ -119,6 +166,42 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
         </div>
 
         <div className="p-6">
+          {/* Map Controls */}
+          <div className="flex justify-center mb-4">
+            <div className="bg-white border border-gray-300 rounded-lg p-1 shadow-sm">
+              <button
+                onClick={() => switchMapLayer('street')}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                  currentLayer === 'street'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                🗺️ Street
+              </button>
+              <button
+                onClick={() => switchMapLayer('satellite')}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                  currentLayer === 'satellite'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                🛰️ Satellite
+              </button>
+              <button
+                onClick={() => switchMapLayer('hybrid')}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                  currentLayer === 'hybrid'
+                    ? 'bg-blue-600 text-white'
+                    : 'text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                🌍 Hybrid
+              </button>
+            </div>
+          </div>
+          
           {/* Real Map */}
           <div className="w-full h-96 rounded-lg border-2 border-gray-200 overflow-hidden relative">
             {!mapLoaded && (
