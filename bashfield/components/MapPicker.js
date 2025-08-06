@@ -1,41 +1,97 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCenter = [36.1911, 44.0093], selectedCity = 'erbil' }) {
   const [selectedLocation, setSelectedLocation] = useState(null)
   const [address, setAddress] = useState('')
-  const [clickPosition, setClickPosition] = useState({ x: 50, y: 50 })
+  const mapRef = useRef(null)
+  const [mapLoaded, setMapLoaded] = useState(false)
 
-  // City coordinates and info
-  const cityData = {
-    erbil: { coords: [36.1911, 44.0093], name: 'Erbil' },
-    baghdad: { coords: [33.3152, 44.3661], name: 'Baghdad' },
-    basra: { coords: [30.5085, 47.7804], name: 'Basra' },
-    mosul: { coords: [36.3350, 43.1189], name: 'Mosul' },
-    sulaymaniyah: { coords: [35.5650, 45.4347], name: 'Sulaymaniyah' },
-    najaf: { coords: [32.0000, 44.3333], name: 'Najaf' },
-    karbala: { coords: [32.6160, 44.0242], name: 'Karbala' },
-    kirkuk: { coords: [35.4681, 44.3922], name: 'Kirkuk' },
-    duhok: { coords: [36.8617, 42.9789], name: 'Duhok' }
+  // City coordinates
+  const cityCoordinates = {
+    erbil: [36.1911, 44.0093],
+    baghdad: [33.3152, 44.3661],
+    basra: [30.5085, 47.7804],
+    mosul: [36.3350, 43.1189],
+    sulaymaniyah: [35.5650, 45.4347],
+    najaf: [32.0000, 44.3333],
+    karbala: [32.6160, 44.0242],
+    kirkuk: [35.4681, 44.3922],
+    duhok: [36.8617, 42.9789]
   }
 
-  const getCurrentCity = () => {
-    return cityData[selectedCity] || { coords: initialCenter, name: 'Selected City' }
+  const getCityCenter = () => {
+    return cityCoordinates[selectedCity] || initialCenter
   }
 
-  const handleMapClick = (e) => {
-    const rect = e.currentTarget.getBoundingClientRect()
-    const x = ((e.clientX - rect.left) / rect.width) * 100
-    const y = ((e.clientY - rect.top) / rect.height) * 100
+  useEffect(() => {
+    if (isOpen && !mapLoaded) {
+      loadLeafletMap()
+    }
+  }, [isOpen])
+
+  const loadLeafletMap = () => {
+    // Load Leaflet CSS
+    if (!document.querySelector('link[href*="leaflet"]')) {
+      const link = document.createElement('link')
+      link.rel = 'stylesheet'
+      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
+      document.head.appendChild(link)
+    }
+
+    // Load Leaflet JS
+    if (!window.L) {
+      const script = document.createElement('script')
+      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
+      script.onload = () => {
+        initializeMap()
+      }
+      document.head.appendChild(script)
+    } else {
+      initializeMap()
+    }
+  }
+
+  const initializeMap = () => {
+    if (!mapRef.current || !window.L) return
+
+    const center = getCityCenter()
     
-    setClickPosition({ x, y })
-    
-    // Convert click position to approximate coordinates
-    const city = getCurrentCity()
-    const lat = city.coords[0] + (50 - y) * 0.01 // Rough conversion
-    const lng = city.coords[1] + (x - 50) * 0.01
-    
-    setSelectedLocation({ lat, lng })
-    setAddress(`${city.name}, Iraq (${lat.toFixed(4)}, ${lng.toFixed(4)})`)
+    // Create map
+    const map = window.L.map(mapRef.current).setView(center, 13)
+
+    // Add OpenStreetMap tiles (FREE)
+    window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors',
+      maxZoom: 19
+    }).addTo(map)
+
+    // Add marker
+    let marker = window.L.marker(center, {
+      draggable: true
+    }).addTo(map)
+
+    // Update location when marker is moved
+    const updateLocation = (lat, lng) => {
+      setSelectedLocation({ lat, lng })
+      setAddress(`${lat.toFixed(6)}, ${lng.toFixed(6)}`)
+    }
+
+    // Handle marker drag
+    marker.on('dragend', function(e) {
+      const position = e.target.getLatLng()
+      updateLocation(position.lat, position.lng)
+    })
+
+    // Handle map click
+    map.on('click', function(e) {
+      const { lat, lng } = e.latlng
+      marker.setLatLng([lat, lng])
+      updateLocation(lat, lng)
+    })
+
+    // Set initial location
+    updateLocation(center[0], center[1])
+    setMapLoaded(true)
   }
 
   if (!isOpen) return null
@@ -59,64 +115,24 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
               ×
             </button>
           </div>
-          <p className="text-gray-600 mt-2">Click on the map to mark your property's approximate location in {getCurrentCity().name}</p>
+          <p className="text-gray-600 mt-2">Click on the map or drag the marker to your exact property location</p>
         </div>
 
         <div className="p-6">
-          {/* Visual Map */}
-          <div 
-            className="w-full h-96 rounded-lg border-2 border-gray-200 overflow-hidden cursor-crosshair relative"
-            onClick={handleMapClick}
-            style={{
-              background: 'linear-gradient(135deg, #e8f4fd 0%, #b8e6b8 50%, #f0f9ff 100%)'
-            }}
-          >
-            {/* Main Roads */}
-            <div className="absolute inset-0">
-              {/* Horizontal Roads */}
-              <div className="absolute w-full h-2 bg-gray-400 top-1/4 opacity-60"></div>
-              <div className="absolute w-full h-3 bg-gray-500 top-1/2 opacity-70"></div>
-              <div className="absolute w-full h-2 bg-gray-400 top-3/4 opacity-60"></div>
-              
-              {/* Vertical Roads */}
-              <div className="absolute h-full w-2 bg-gray-400 left-1/4 opacity-60"></div>
-              <div className="absolute h-full w-3 bg-gray-500 left-1/2 opacity-70"></div>
-              <div className="absolute h-full w-2 bg-gray-400 left-3/4 opacity-60"></div>
-            </div>
-            
-            {/* Buildings/Areas */}
-            <div className="absolute top-4 left-4 w-12 h-8 bg-red-300 rounded opacity-40"></div>
-            <div className="absolute top-6 right-8 w-16 h-12 bg-blue-300 rounded opacity-40"></div>
-            <div className="absolute bottom-8 left-8 w-20 h-10 bg-green-300 rounded opacity-40"></div>
-            <div className="absolute bottom-4 right-4 w-14 h-14 bg-yellow-300 rounded-full opacity-40"></div>
-            
-            {/* City Center */}
-            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-              <div className="w-6 h-6 bg-blue-600 rounded-full border-2 border-white shadow-lg"></div>
-              <div className="absolute top-8 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white text-xs px-2 py-1 rounded whitespace-nowrap">
-                🏛️ {getCurrentCity().name} Center
-              </div>
-            </div>
-            
-            {/* Landmarks */}
-            <div className="absolute top-6 left-1/3 text-xs text-gray-600">🏢 Business</div>
-            <div className="absolute top-1/4 right-1/4 text-xs text-gray-600">🏥 Hospital</div>
-            <div className="absolute bottom-1/4 left-1/4 text-xs text-gray-600">🏫 School</div>
-            <div className="absolute bottom-6 right-1/3 text-xs text-gray-600">🛒 Market</div>
-            
-            
-            {/* Selected Location Marker */}
-            {selectedLocation && (
-              <div 
-                className="absolute transform -translate-x-1/2 -translate-y-1/2 pointer-events-none z-20"
-                style={{ left: `${clickPosition.x}%`, top: `${clickPosition.y}%` }}
-              >
-                <div className="w-8 h-8 bg-red-500 rounded-full border-3 border-white shadow-xl animate-bounce"></div>
-                <div className="absolute top-10 left-1/2 transform -translate-x-1/2 bg-red-500 text-white text-xs px-3 py-1 rounded-full whitespace-nowrap shadow-lg">
-                  🏠 Your Property
+          {/* Real Map */}
+          <div className="w-full h-96 rounded-lg border-2 border-gray-200 overflow-hidden relative">
+            {!mapLoaded && (
+              <div className="absolute inset-0 bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center z-10">
+                <div className="text-center">
+                  <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                  <p className="text-gray-600">Loading real map...</p>
                 </div>
               </div>
             )}
+            <div 
+              ref={mapRef}
+              className="w-full h-full"
+            />
           </div>
           
           {selectedLocation && (
@@ -141,12 +157,12 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
             </label>
             <input
               type="text"
-              placeholder={`e.g., Street Name, ${getCurrentCity().name}`}
+              placeholder="e.g., Street Name, Building Number"
               value={address}
               onChange={(e) => setAddress(e.target.value)}
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
-            <p className="text-xs text-gray-500 mt-1">Click on the map above to set approximate coordinates</p>
+            <p className="text-xs text-gray-500 mt-1">Drag the red marker to your exact building location</p>
           </div>
         </div>
 
