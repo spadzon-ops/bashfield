@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react' 
+import { useState, useEffect, useRef } from 'react'
 
 export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCenter = [36.1911, 44.0093] }) {
   const [selectedLocation, setSelectedLocation] = useState(null)
