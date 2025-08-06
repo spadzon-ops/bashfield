@@ -9,7 +9,6 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
   const mapInstanceRef = useRef(null)
   const layersRef = useRef({})
   const markerRef = useRef(null)
-  const [locationConfirmed, setLocationConfirmed] = useState(false)
 
   // City coordinates
   const cityCoordinates = {
@@ -107,7 +106,6 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
     const updateLocation = (lat, lng) => {
       setSelectedLocation({ lat, lng })
       setAddress(`${lat.toFixed(6)}, ${lng.toFixed(6)}`)
-      setLocationConfirmed(false)
     }
 
     marker.on('dragend', function(e) {
@@ -154,13 +152,6 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
     }
   }
 
-  const handleClose = () => {
-    if (selectedLocation && !locationConfirmed) {
-      setLocationConfirmed(true)
-    }
-    onClose()
-  }
-
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
       <div className="bg-white rounded-xl max-w-4xl w-full h-full sm:h-auto sm:max-h-[95vh] overflow-y-auto">
@@ -168,7 +159,7 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
           <div className="flex justify-between items-center">
             <h2 className="text-xl sm:text-2xl font-bold text-gray-900">📍 Select Property Location</h2>
             <button 
-              onClick={handleClose}
+              onClick={onClose}
               className="text-gray-500 hover:text-gray-700 text-2xl"
             >
               ×
@@ -219,36 +210,11 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
           </div>
           
           {selectedLocation && (
-            <div className={`mt-4 p-3 border rounded-lg ${
-              locationConfirmed 
-                ? 'bg-green-50 border-green-200' 
-                : 'bg-yellow-50 border-yellow-200'
-            }`}>
-              <div className="flex items-start space-x-3">
-                <span className={`text-lg mt-1 ${
-                  locationConfirmed ? 'text-green-500' : 'text-yellow-500'
-                }`}>
-                  {locationConfirmed ? '✅' : '📍'}
-                </span>
+            <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
+              <div className="flex items-center space-x-2">
+                <span className="text-blue-500">📍</span>
                 <div className="flex-1">
-                  <p className={`font-medium text-sm ${
-                    locationConfirmed ? 'text-green-800' : 'text-yellow-800'
-                  }`}>
-                    {locationConfirmed ? 'Location Confirmed!' : 'Location Selected - Please Confirm'}
-                  </p>
-                  <p className={`text-xs mt-1 ${
-                    locationConfirmed ? 'text-green-600' : 'text-yellow-600'
-                  }`}>
-                    {address}
-                  </p>
-                  {!locationConfirmed && (
-                    <button
-                      onClick={() => setLocationConfirmed(true)}
-                      className="mt-2 px-3 py-1 bg-blue-600 text-white text-xs font-medium rounded hover:bg-blue-700 transition-colors"
-                    >
-                      ✓ Confirm This Location
-                    </button>
-                  )}
+                  <p className="text-sm text-gray-700">{address}</p>
                 </div>
               </div>
             </div>
@@ -273,22 +239,20 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
 
         <div className="p-4 sm:p-6 border-t border-gray-200 flex flex-col sm:flex-row justify-end space-y-2 sm:space-y-0 sm:space-x-3">
           <button 
-            onClick={handleClose}
+            onClick={onClose}
             className="w-full sm:w-auto px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
           >
             Cancel
           </button>
           <button 
             onClick={handleConfirm}
-            disabled={!selectedLocation || !locationConfirmed}
+            disabled={!selectedLocation}
             className="w-full sm:w-auto px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center space-x-2"
           >
             {!selectedLocation ? (
               <span>📍 Select Location First</span>
-            ) : !locationConfirmed ? (
-              <span>⏳ Confirm Location Above</span>
             ) : (
-              <span>✅ Use This Location</span>
+              <span>✅ Confirm Location</span>
             )}
           </button>
         </div>
