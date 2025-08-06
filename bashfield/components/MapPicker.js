@@ -1,10 +1,27 @@
 import { useState, useEffect, useRef } from 'react'
 
-export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCenter = [36.1911, 44.0093] }) {
+export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCenter = [36.1911, 44.0093], selectedCity = 'erbil' }) {
   const [selectedLocation, setSelectedLocation] = useState(null)
   const [address, setAddress] = useState('')
   const mapRef = useRef(null)
   const [mapLoaded, setMapLoaded] = useState(false)
+
+  // City coordinates
+  const cityCoordinates = {
+    erbil: [36.1911, 44.0093],
+    baghdad: [33.3152, 44.3661],
+    basra: [30.5085, 47.7804],
+    mosul: [36.3350, 43.1189],
+    sulaymaniyah: [35.5650, 45.4347],
+    najaf: [32.0000, 44.3333],
+    karbala: [32.6160, 44.0242],
+    kirkuk: [35.4681, 44.3922],
+    duhok: [36.8617, 42.9789]
+  }
+
+  const getCityCenter = () => {
+    return cityCoordinates[selectedCity] || initialCenter
+  }
 
   useEffect(() => {
     if (isOpen && !mapLoaded) {
@@ -19,7 +36,7 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
     }
 
     const script = document.createElement('script')
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places`
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places&loading=async`
     script.async = true
     script.defer = true
     script.onload = () => {
@@ -31,24 +48,23 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
   const initializeMap = () => {
     if (!mapRef.current) return
 
+    const center = getCityCenter()
     const map = new window.google.maps.Map(mapRef.current, {
-      center: { lat: initialCenter[0], lng: initialCenter[1] },
-      zoom: 13,
+      center: { lat: center[0], lng: center[1] },
+      zoom: 14,
       mapTypeId: 'roadmap',
-      styles: [
-        {
-          featureType: 'poi',
-          elementType: 'labels',
-          stylers: [{ visibility: 'on' }]
-        }
-      ]
+      mapTypeControl: true,
+      streetViewControl: true,
+      fullscreenControl: true,
+      zoomControl: true
     })
 
     let marker = new window.google.maps.Marker({
-      position: { lat: initialCenter[0], lng: initialCenter[1] },
+      position: { lat: center[0], lng: center[1] },
       map: map,
       draggable: true,
-      title: 'Property Location'
+      title: 'Drag me to your property location',
+      animation: window.google.maps.Animation.DROP
     })
 
     const geocoder = new window.google.maps.Geocoder()
@@ -105,7 +121,7 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
               ×
             </button>
           </div>
-          <p className="text-gray-600 mt-2">Click on the map to mark your property's exact location</p>
+          <p className="text-gray-600 mt-2">Click on the map or drag the red marker to mark your property's exact location</p>
         </div>
 
         <div className="p-6">
