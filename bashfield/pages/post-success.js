@@ -46,15 +46,15 @@ export default function PostSuccess() {
           
           <div className="space-y-3">
             <button 
-              onClick={() => router.push('/profile')}
-              className="w-full btn-primary"
+              onClick={() => router.push('/profile?tab=listings')}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
             >
               📊 View My Listings
             </button>
             
             <button 
               onClick={() => router.push('/post')}
-              className="w-full btn-secondary"
+              className="w-full bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
             >
               🏠 Post Another Property
             </button>

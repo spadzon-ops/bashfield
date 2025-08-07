@@ -20,6 +20,13 @@ export default function Profile() {
 
   useEffect(() => {
     checkAuth()
+    
+    // Check for tab parameter
+    const urlParams = new URLSearchParams(window.location.search)
+    const tab = urlParams.get('tab')
+    if (tab && ['profile', 'listings'].includes(tab)) {
+      setActiveTab(tab)
+    }
   }, [])
 
   const checkAuth = async () => {
@@ -36,16 +43,38 @@ export default function Profile() {
   }
 
   const fetchProfile = async (user) => {
-    const { data, error } = await supabase
-      .from('user_profiles')
-      .select('*')
-      .eq('user_id', user.id)
-      .single()
+    try {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .single()
 
-    if (data) {
-      setProfile(data)
-      setDisplayName(data.display_name)
-      setProfilePicture(data.profile_picture)
+      if (data && !error) {
+        setProfile(data)
+        setDisplayName(data.display_name)
+        setProfilePicture(data.profile_picture)
+      } else {
+        // Create profile with Google full name
+        const defaultName = user.user_metadata?.full_name || user.user_metadata?.name || user.email.split('@')[0]
+        
+        const { data: newProfile, error: createError } = await supabase
+          .from('user_profiles')
+          .insert({
+            user_id: user.id,
+            email: user.email,
+            display_name: defaultName
+          })
+          .select()
+          .single()
+
+        if (newProfile && !createError) {
+          setProfile(newProfile)
+          setDisplayName(newProfile.display_name)
+        }
+      }
+    } catch (err) {
+      console.error('Profile fetch error:', err)
     }
     setLoading(false)
   }
