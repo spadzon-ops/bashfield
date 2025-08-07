@@ -44,7 +44,7 @@ export default function ListingDetail() {
         
         setListing({
           ...data,
-          user_profiles: profileData
+          owner_name: profileData?.display_name || data.user_email?.split('@')[0] || 'Property Owner'
         })
       }
     } catch (err) {
@@ -223,7 +223,7 @@ export default function ListingDetail() {
                 </div>
                 <div className="flex items-center space-x-1">
                   <span>👤</span>
-                  <span>By {listing.user_profiles?.display_name || 'Property Owner'}</span>
+                  <span>By {listing.owner_name || 'Property Owner'}</span>
                 </div>
               </div>
 
@@ -239,18 +239,32 @@ export default function ListingDetail() {
                   <h3 className="text-lg font-semibold text-gray-900 mb-3">Location</h3>
                   <p className="text-gray-700 mb-4">{listing.address}</p>
                   
-                  {/* View on Map Button */}
+                  {/* Embedded Map */}
                   {(listing.latitude && listing.longitude) && (
-                    <button
-                      onClick={() => {
-                        const mapUrl = `https://www.openstreetmap.org/?mlat=${listing.latitude}&mlon=${listing.longitude}&zoom=15`
-                        window.open(mapUrl, '_blank')
-                      }}
-                      className="inline-flex items-center space-x-2 bg-blue-100 hover:bg-blue-200 text-blue-700 px-4 py-2 rounded-lg transition-colors text-sm font-medium"
-                    >
-                      <span>🗺️</span>
-                      <span>View on Map</span>
-                    </button>
+                    <div className="mt-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-md font-semibold text-gray-900">Property Location</h4>
+                        <button
+                          onClick={() => {
+                            const mapUrl = `https://www.openstreetmap.org/?mlat=${listing.latitude}&mlon=${listing.longitude}&zoom=15`
+                            window.open(mapUrl, '_blank')
+                          }}
+                          className="inline-flex items-center space-x-1 bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1 rounded-lg transition-colors text-sm font-medium"
+                        >
+                          <span>🗺️</span>
+                          <span>Open in Maps</span>
+                        </button>
+                      </div>
+                      <div className="w-full h-64 rounded-lg overflow-hidden border border-gray-200">
+                        <iframe
+                          src={`https://www.openstreetmap.org/export/embed.html?bbox=${listing.longitude-0.01},${listing.latitude-0.01},${listing.longitude+0.01},${listing.latitude+0.01}&layer=mapnik&marker=${listing.latitude},${listing.longitude}`}
+                          width="100%"
+                          height="100%"
+                          style={{ border: 0 }}
+                          title="Property Location"
+                        />
+                      </div>
+                    </div>
                   )}
                 </div>
               )}
