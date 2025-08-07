@@ -68,22 +68,45 @@ export default function Profile() {
     setSaving(true)
     
     try {
-      const { error } = await supabase
+      // First check if profile exists
+      const { data: existingProfile } = await supabase
         .from('user_profiles')
-        .upsert({
-          user_id: user.id,
-          email: user.email,
-          display_name: displayName.trim(),
-          profile_picture: profilePicture,
-          updated_at: new Date().toISOString()
-        })
+        .select('id')
+        .eq('user_id', user.id)
+        .single()
 
-      if (error) {
-        throw error
+      let result
+      if (existingProfile) {
+        // Update existing profile
+        result = await supabase
+          .from('user_profiles')
+          .update({
+            display_name: displayName.trim(),
+            profile_picture: profilePicture,
+            updated_at: new Date().toISOString()
+          })
+          .eq('user_id', user.id)
+      } else {
+        // Insert new profile
+        result = await supabase
+          .from('user_profiles')
+          .insert({
+            user_id: user.id,
+            email: user.email,
+            display_name: displayName.trim(),
+            profile_picture: profilePicture
+          })
+      }
+
+      if (result.error) {
+        throw result.error
       }
       
       alert('Profile updated successfully!')
       await fetchProfile(user)
+      
+      // Force refresh the layout to update profile everywhere
+      window.location.reload()
     } catch (error) {
       console.error('Error updating profile:', error)
       alert('Error updating profile: ' + (error.message || 'Unknown error'))
@@ -99,16 +122,26 @@ export default function Profile() {
     setUploading(true)
     
     try {
+      // Delete old profile picture if exists
+      if (profilePicture) {
+        await supabase.storage
+          .from('house-images')
+          .remove([profilePicture])
+      }
+
       const fileExt = file.name.split('.').pop()
-      const fileName = `${user.id}-${Date.now()}.${fileExt}`
+      const fileName = `profiles/${user.id}-${Date.now()}.${fileExt}`
       
       const { error: uploadError } = await supabase.storage
         .from('house-images')
-        .upload(`profiles/${fileName}`, file)
+        .upload(fileName, file)
 
       if (uploadError) throw uploadError
 
-      setProfilePicture(`profiles/${fileName}`)
+      setProfilePicture(fileName)
+      
+      // Auto-save the profile picture
+      await handleSave()
     } catch (error) {
       console.error('Error uploading image:', error)
       alert('Error uploading image: ' + error.message)
@@ -171,22 +204,24 @@ export default function Profile() {
         {/* Profile Header */}
         <div className="bg-white rounded-xl shadow-sm p-6 sm:p-8 mb-8">
           <div className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-6">
-            <div className="relative">
-              {profilePicture ? (
-                <img
-                  src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/house-images/${profilePicture}`}
-                  alt="Profile"
-                  className="w-20 h-20 rounded-full object-cover"
-                />
-              ) : (
-                <div className="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center">
-                  <span className="text-white text-2xl font-bold">
-                    {profile?.display_name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || '?'}
-                  </span>
+            <div className="relative group">
+              <label className="cursor-pointer block">
+                {profilePicture ? (
+                  <img
+                    src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/house-images/${profilePicture}`}
+                    alt="Profile"
+                    className="w-20 h-20 rounded-full object-cover group-hover:opacity-75 transition-opacity"
+                  />
+                ) : (
+                  <div className="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center group-hover:bg-blue-700 transition-colors">
+                    <span className="text-white text-2xl font-bold">
+                      {profile?.display_name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || '?'}
+                    </span>
+                  </div>
+                )}
+                <div className="absolute inset-0 rounded-full bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all flex items-center justify-center">
+                  <span className="text-white text-sm opacity-0 group-hover:opacity-100 transition-opacity">📷 Change</span>
                 </div>
-              )}
-              <label className="absolute bottom-0 right-0 w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center cursor-pointer hover:bg-blue-700 transition-colors">
-                <span className="text-white text-xs">📷</span>
                 <input
                   type="file"
                   accept="image/*"
@@ -195,6 +230,11 @@ export default function Profile() {
                   disabled={uploading}
                 />
               </label>
+              {uploading && (
+                <div className="absolute inset-0 rounded-full bg-black bg-opacity-50 flex items-center justify-center">
+                  <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              )}
             </div>
             <div className="text-center sm:text-left">
               <h1 className="text-2xl font-bold text-gray-900 mb-2">
