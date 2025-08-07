@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useTranslation } from 'next-i18next'
 import { useRouter } from 'next/router'
 
@@ -6,6 +6,8 @@ export default function ListingCard({ listing, showActions = false, onApprove, o
   const { t } = useTranslation('common')
   const router = useRouter()
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
+  const touchStartX = useRef(0)
+  const touchEndX = useRef(0)
 
   const nextImage = (e) => {
     e.stopPropagation()
@@ -32,13 +34,42 @@ export default function ListingCard({ listing, showActions = false, onApprove, o
     window.open(whatsappUrl, '_blank')
   }
 
+  const handleTouchStart = (e) => {
+    touchStartX.current = e.touches[0].clientX
+  }
+
+  const handleTouchMove = (e) => {
+    touchEndX.current = e.touches[0].clientX
+  }
+
+  const handleTouchEnd = (e) => {
+    e.stopPropagation()
+    if (!touchStartX.current || !touchEndX.current) return
+    
+    const distance = touchStartX.current - touchEndX.current
+    const isLeftSwipe = distance > 50
+    const isRightSwipe = distance < -50
+
+    if (isLeftSwipe && listing.images.length > 1) {
+      nextImage(e)
+    }
+    if (isRightSwipe && listing.images.length > 1) {
+      prevImage(e)
+    }
+  }
+
   return (
     <div 
       className="bg-white rounded-xl shadow-sm overflow-hidden group hover:shadow-lg transition-all duration-300 cursor-pointer"
       onClick={openListing}
     >
       {/* Image Carousel */}
-      <div className="relative h-48 sm:h-56 bg-gray-100 overflow-hidden">
+      <div 
+        className="relative h-48 sm:h-56 bg-gray-100 overflow-hidden"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
         {listing.images && listing.images.length > 0 ? (
           <>
             <img 
