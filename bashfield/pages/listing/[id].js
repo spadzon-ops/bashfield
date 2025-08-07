@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/router'
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations'
 import { useTranslation } from 'next-i18next'
@@ -11,6 +11,9 @@ export default function ListingDetail() {
   const [listing, setListing] = useState(null)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const touchStartX = useRef(0)
+  const touchEndX = useRef(0)
 
   useEffect(() => {
     if (id) {
@@ -29,9 +32,9 @@ export default function ListingDetail() {
       .eq('status', 'approved')
       .single()
 
-    if (error) {
+    if (error || !data) {
       console.error('Error fetching listing:', error)
-      router.push('/404')
+      setError('Listing not found or no longer available')
     } else {
       setListing(data)
     }
@@ -56,6 +59,29 @@ export default function ListingDetail() {
     window.open(whatsappUrl, '_blank')
   }
 
+  const handleTouchStart = (e) => {
+    touchStartX.current = e.touches[0].clientX
+  }
+
+  const handleTouchMove = (e) => {
+    touchEndX.current = e.touches[0].clientX
+  }
+
+  const handleTouchEnd = () => {
+    if (!touchStartX.current || !touchEndX.current) return
+    
+    const distance = touchStartX.current - touchEndX.current
+    const isLeftSwipe = distance > 50
+    const isRightSwipe = distance < -50
+
+    if (isLeftSwipe && listing.images.length > 1) {
+      nextImage()
+    }
+    if (isRightSwipe && listing.images.length > 1) {
+      prevImage()
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -67,16 +93,20 @@ export default function ListingDetail() {
     )
   }
 
-  if (!listing) {
+  if (error || (!loading && !listing)) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">Property Not Found</h1>
+          <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <span className="text-4xl">❌</span>
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">{error || 'Property Not Found'}</h1>
+          <p className="text-gray-600 mb-6">This property may have been removed or is no longer available.</p>
           <button 
             onClick={() => router.push('/')}
             className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors"
           >
-            Back to Homepage
+            ← Back to Homepage
           </button>
         </div>
       </div>
@@ -97,7 +127,12 @@ export default function ListingDetail() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2">
             <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-              <div className="relative h-96 bg-gray-200">
+              <div 
+                className="relative h-96 bg-gray-200"
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+              >
                 {listing.images && listing.images.length > 0 ? (
                   <>
                     <img
