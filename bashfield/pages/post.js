@@ -8,7 +8,7 @@ export default function Post() {
   const { t } = useTranslation('common')
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(false)
-  const [success, setSuccess] = useState(false)
+  const [currentStep, setCurrentStep] = useState(1)
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -23,7 +23,6 @@ export default function Post() {
     images: []
   })
   const [showMap, setShowMap] = useState(false)
-  const [mapCenter, setMapCenter] = useState([36.1911, 44.0093]) // Erbil coordinates
 
   useEffect(() => {
     const getUser = async () => {
@@ -35,10 +34,21 @@ export default function Post() {
 
   const handleImageUpload = async (e) => {
     const files = Array.from(e.target.files)
+    if (files.length > 10) {
+      alert('Maximum 10 images allowed')
+      return
+    }
+
+    setLoading(true)
     const uploadedImages = []
 
     for (const file of files) {
-      const fileName = `${Date.now()}-${file.name}`
+      if (file.size > 5 * 1024 * 1024) {
+        alert(`${file.name} is too large. Maximum 5MB per image.`)
+        continue
+      }
+
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}-${file.name}`
       const { data, error } = await supabase.storage
         .from('house-images')
         .upload(fileName, file)
@@ -52,6 +62,14 @@ export default function Post() {
       ...prev,
       images: [...prev.images, ...uploadedImages]
     }))
+    setLoading(false)
+  }
+
+  const removeImage = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      images: prev.images.filter((_, i) => i !== index)
+    }))
   }
 
   const handleSubmit = async (e) => {
@@ -59,14 +77,18 @@ export default function Post() {
     setLoading(true)
 
     try {
-      // Validate required fields
-      if (!formData.phone || formData.phone.trim() === '') {
-        alert('Please enter your phone number')
+      if (!formData.phone?.trim()) {
+        alert('Please enter your WhatsApp number')
         setLoading(false)
         return
       }
 
-      // Set default location if not selected
+      if (formData.images.length === 0) {
+        alert('Please upload at least one image')
+        setLoading(false)
+        return
+      }
+
       const listingData = {
         title: formData.title,
         description: formData.description,
@@ -75,7 +97,7 @@ export default function Post() {
         city: formData.city,
         rooms: parseInt(formData.rooms),
         phone: formData.phone,
-        latitude: formData.latitude || 36.1911, // Default to Erbil
+        latitude: formData.latitude || 36.1911,
         longitude: formData.longitude || 44.0093,
         address: formData.address || `${formData.city}, Iraq`,
         images: formData.images,
@@ -92,7 +114,6 @@ export default function Post() {
         console.error('Error creating listing:', error)
         alert('Error submitting listing: ' + error.message)
       } else {
-        // Redirect to success page
         window.location.href = '/post-success'
       }
     } catch (err) {
@@ -113,176 +134,195 @@ export default function Post() {
     setShowMap(false)
   }
 
+  const nextStep = () => {
+    if (currentStep === 1) {
+      if (!formData.title || !formData.description || !formData.price || !formData.phone) {
+        alert('Please fill in all required fields')
+        return
+      }
+    }
+    setCurrentStep(prev => Math.min(prev + 1, 3))
+  }
+
+  const prevStep = () => {
+    setCurrentStep(prev => Math.max(prev - 1, 1))
+  }
+
   if (!user) {
     return (
-      <div className="max-w-2xl mx-auto px-4 py-8">
-        <div className="text-center">
-          <p className="text-gray-400 text-lg">{t('post.loginRequired')}</p>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center">
+          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <span className="text-2xl">🔐</span>
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Login Required</h2>
+          <p className="text-gray-600 mb-6">Please sign in with Google to post your property</p>
+          <button 
+            onClick={() => window.location.href = '/'}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+          >
+            Go to Homepage
+          </button>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      <div className="text-center mb-12">
-        <h1 className="text-4xl font-bold text-gray-900 mb-4">{t('post.title')}</h1>
-        <p className="text-xl text-gray-600">Share your property with thousands of potential tenants</p>
-      </div>
-
-      {success && (
-        <div className="card p-6 mb-8 border-l-4 border-green-500 bg-green-50">
-          <div className="flex items-center">
-            <span className="text-2xl mr-3">✅</span>
-            <div>
-              <h3 className="font-semibold text-green-800">Success!</h3>
-              <p className="text-green-700">{t('post.success')}</p>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white shadow-sm">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="text-center">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">List Your Property</h1>
+            <p className="text-gray-600">Reach thousands of potential tenants</p>
+          </div>
+          
+          {/* Progress Bar */}
+          <div className="mt-8">
+            <div className="flex items-center justify-between">
+              {[1, 2, 3].map((step) => (
+                <div key={step} className="flex items-center">
+                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                    step <= currentStep 
+                      ? 'bg-blue-600 text-white' 
+                      : 'bg-gray-200 text-gray-600'
+                  }`}>
+                    {step}
+                  </div>
+                  <div className={`hidden sm:block ml-2 text-sm font-medium ${
+                    step <= currentStep ? 'text-blue-600' : 'text-gray-500'
+                  }`}>
+                    {step === 1 && 'Details'}
+                    {step === 2 && 'Images'}
+                    {step === 3 && 'Review'}
+                  </div>
+                  {step < 3 && (
+                    <div className={`flex-1 h-1 mx-4 ${
+                      step < currentStep ? 'bg-blue-600' : 'bg-gray-200'
+                    }`}></div>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         </div>
-      )}
-
-      {/* Progress Steps */}
-      <div className="card p-6 mb-8">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold">1</div>
-            <span className="font-medium text-gray-900">Property Details</span>
-          </div>
-          <div className="flex-1 h-1 bg-gray-200 mx-4"></div>
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold">2</div>
-            <span className="font-medium text-gray-900">Location & Images</span>
-          </div>
-          <div className="flex-1 h-1 bg-gray-200 mx-4"></div>
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-bold">3</div>
-            <span className="font-medium text-gray-900">Review & Submit</span>
-          </div>
-        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Main Form */}
-        <div className="lg:col-span-2">
-          <div className="card p-8">
-            <form onSubmit={handleSubmit} className="space-y-8">
-              {/* Basic Information */}
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
-                  <span className="mr-3">🏠</span>
-                  Property Details
-                </h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="md:col-span-2">
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
-                  🏷️ {t('post.form.title')}
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g., Beautiful 3BR Apartment in Erbil Center"
-                  value={formData.title}
-                  onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                  className="input-field"
-                />
-              </div>
+      {/* Form Content */}
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <form onSubmit={handleSubmit}>
+          {/* Step 1: Basic Details */}
+          {currentStep === 1 && (
+            <div className="bg-white rounded-xl shadow-sm p-6 sm:p-8">
+              <h2 className="text-xl font-bold text-gray-900 mb-6">Property Details</h2>
+              
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Property Title *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g., Modern 2BR Apartment in Erbil Center"
+                    value={formData.title}
+                    onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
 
-              <div className="md:col-span-2">
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
-                  📝 {t('post.form.description')}
-                </label>
-                <textarea
-                  required
-                  rows={5}
-                  placeholder="Describe your property, amenities, nearby facilities, etc."
-                  value={formData.description}
-                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                  className="input-field resize-none"
-                />
-              </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Description *
+                  </label>
+                  <textarea
+                    required
+                    rows={4}
+                    placeholder="Describe your property, amenities, nearby facilities..."
+                    value={formData.description}
+                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  />
+                </div>
 
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
-                  💰 Monthly Rent
-                </label>
-                <div className="flex space-x-3">
-                  <select
-                    value={formData.currency}
-                    onChange={(e) => setFormData(prev => ({ ...prev, currency: e.target.value }))}
-                    className="input-field w-24"
-                  >
-                    <option value="USD">USD</option>
-                    <option value="IQD">IQD</option>
-                  </select>
-                  <div className="relative flex-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Monthly Rent *
+                    </label>
+                    <div className="flex">
+                      <select
+                        value={formData.currency}
+                        onChange={(e) => setFormData(prev => ({ ...prev, currency: e.target.value }))}
+                        className="w-20 px-3 py-3 border border-gray-300 rounded-l-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      >
+                        <option value="USD">USD</option>
+                        <option value="IQD">IQD</option>
+                      </select>
+                      <input
+                        type="number"
+                        required
+                        min="1"
+                        placeholder={formData.currency === 'USD' ? '500' : '500000'}
+                        value={formData.price}
+                        onChange={(e) => setFormData(prev => ({ ...prev, price: e.target.value }))}
+                        className="flex-1 px-4 py-3 border border-l-0 border-gray-300 rounded-r-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      WhatsApp Number *
+                    </label>
                     <input
-                      type="number"
+                      type="tel"
                       required
-                      min="1"
-                      placeholder={formData.currency === 'USD' ? '500' : '500000'}
-                      value={formData.price}
-                      onChange={(e) => setFormData(prev => ({ ...prev, price: e.target.value }))}
-                      className="input-field pr-16"
+                      placeholder="+964 750 123 4567"
+                      value={formData.phone}
+                      onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     />
-                    <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 font-medium">
-                      {formData.currency}/month
-                    </span>
                   </div>
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
-                  📱 WhatsApp Phone Number
-                </label>
-                <input
-                  type="tel"
-                  required
-                  placeholder="+964 750 123 4567"
-                  value={formData.phone}
-                  onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                  className="input-field"
-                />
-                <p className="text-xs text-gray-500 mt-1">Include country code (e.g., +964 for Iraq)</p>
-              </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Number of Rooms
+                    </label>
+                    <select
+                      value={formData.rooms}
+                      onChange={(e) => setFormData(prev => ({ ...prev, rooms: parseInt(e.target.value) }))}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      {[1,2,3,4,5,6,7,8,9,10].map(num => (
+                        <option key={num} value={num}>{num} {num === 1 ? 'Room' : 'Rooms'}</option>
+                      ))}
+                    </select>
+                  </div>
 
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
-                  🛏️ {t('post.form.rooms')}
-                </label>
-                <select
-                  value={formData.rooms}
-                  onChange={(e) => setFormData(prev => ({ ...prev, rooms: parseInt(e.target.value) }))}
-                  className="input-field"
-                >
-                  {[1,2,3,4,5,6,7,8,9,10].map(num => (
-                    <option key={num} value={num}>{num} {num === 1 ? 'Room' : 'Rooms'}</option>
-                  ))}
-                </select>
-              </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      City
+                    </label>
+                    <select
+                      value={formData.city}
+                      onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      {CITIES.map(city => (
+                        <option key={city} value={city}>{t(`cities.${city}`)}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
 
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
-                  📍 {t('post.form.city')}
-                </label>
-                <select
-                  value={formData.city}
-                  onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
-                  className="input-field"
-                >
-                  {CITIES.map(city => (
-                    <option key={city} value={city}>{t(`cities.${city}`)}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
-                  🗺️ Property Location
-                </label>
-                <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Property Location
+                  </label>
                   <button
                     type="button"
                     onClick={() => setShowMap(true)}
@@ -299,119 +339,146 @@ export default function Post() {
                     ) : (
                       <div>
                         <span className="text-2xl block mb-2">🗺️</span>
-                        <p className="font-medium text-gray-700">Click to Select Location on Map</p>
-                        <p className="text-sm text-gray-500">Optional - defaults to city center</p>
+                        <p className="font-medium text-gray-700">Select Location on Map</p>
+                        <p className="text-sm text-gray-500">Optional - helps tenants find you</p>
                       </div>
                     )}
                   </button>
                 </div>
               </div>
             </div>
-          </div>
+          )}
 
-          {/* Images Section */}
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
-              <span className="mr-3">📷</span>
-              Property Images
-            </h2>
-            
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-500 transition-colors">
-              <input
-                type="file"
-                multiple
-                accept="image/*"
-                onChange={handleImageUpload}
-                className="hidden"
-                id="image-upload"
-              />
-              <label htmlFor="image-upload" className="cursor-pointer">
-                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <span className="text-2xl">📷</span>
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Upload Property Images</h3>
-                <p className="text-gray-600 mb-4">Drag and drop or click to select multiple images</p>
-                <div className="btn-secondary inline-block">
-                  Choose Images
-                </div>
-              </label>
+          {/* Step 2: Images */}
+          {currentStep === 2 && (
+            <div className="bg-white rounded-xl shadow-sm p-6 sm:p-8">
+              <h2 className="text-xl font-bold text-gray-900 mb-6">Property Images</h2>
               
-              {formData.images.length > 0 && (
-                <div className="mt-6">
-                  <p className="text-green-600 font-medium">
-                    ✓ {formData.images.length} image(s) uploaded successfully
-                  </p>
+              <div className="space-y-6">
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-500 transition-colors">
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden"
+                    id="image-upload"
+                  />
+                  <label htmlFor="image-upload" className="cursor-pointer">
+                    <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <span className="text-2xl">📷</span>
+                    </div>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">Upload Images</h3>
+                    <p className="text-gray-600 mb-4">Add up to 10 high-quality photos</p>
+                    <div className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg inline-block transition-colors">
+                      Choose Images
+                    </div>
+                  </label>
                 </div>
-              )}
-            </div>
-          </div>
 
-          {/* Submit Button */}
-          <div className="pt-6 border-t border-gray-200">
+                {formData.images.length > 0 && (
+                  <div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-4">
+                      Uploaded Images ({formData.images.length}/10)
+                    </h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                      {formData.images.map((image, index) => (
+                        <div key={index} className="relative group">
+                          <img
+                            src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/house-images/${image}`}
+                            alt={`Property ${index + 1}`}
+                            className="w-full h-24 object-cover rounded-lg"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeImage(index)}
+                            className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full text-xs hover:bg-red-600 transition-colors"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Review */}
+          {currentStep === 3 && (
+            <div className="bg-white rounded-xl shadow-sm p-6 sm:p-8">
+              <h2 className="text-xl font-bold text-gray-900 mb-6">Review & Submit</h2>
+              
+              <div className="space-y-6">
+                <div className="bg-gray-50 rounded-lg p-6">
+                  <h3 className="font-semibold text-gray-900 mb-4">Property Summary</h3>
+                  <div className="space-y-2 text-sm">
+                    <div><strong>Title:</strong> {formData.title}</div>
+                    <div><strong>Price:</strong> {formData.price} {formData.currency}/month</div>
+                    <div><strong>Rooms:</strong> {formData.rooms}</div>
+                    <div><strong>City:</strong> {t(`cities.${formData.city}`)}</div>
+                    <div><strong>WhatsApp:</strong> {formData.phone}</div>
+                    <div><strong>Images:</strong> {formData.images.length} uploaded</div>
+                  </div>
+                </div>
+
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-start space-x-3">
+                    <span className="text-blue-500 text-xl">ℹ️</span>
+                    <div>
+                      <h4 className="font-medium text-blue-900">Review Process</h4>
+                      <p className="text-blue-700 text-sm mt-1">
+                        Your listing will be reviewed by our team within 24 hours. 
+                        You'll receive an email notification once it's approved and live.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Navigation Buttons */}
+          <div className="mt-8 flex justify-between">
             <button
-              type="submit"
-              disabled={loading}
-              className="w-full btn-primary text-lg py-4 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+              type="button"
+              onClick={prevStep}
+              disabled={currentStep === 1}
+              className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {loading ? (
-                <>
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  <span>{t('post.form.submitting')}</span>
-                </>
-              ) : (
-                <>
-                  <span>🚀</span>
-                  <span>{t('post.form.submit')}</span>
-                </>
-              )}
+              Previous
             </button>
-            
-            <p className="text-center text-sm text-gray-500 mt-4">
-              Your listing will be reviewed by our team before going live
-            </p>
-          </div>
-            </form>
-          </div>
-        </div>
 
-        {/* Sidebar */}
-        <div className="lg:col-span-1">
-          <div className="card p-6 mb-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">📊 Listing Tips</h3>
-            <div className="space-y-3 text-sm">
-              <div className="flex items-start space-x-2">
-                <span className="text-green-500 mt-1">✓</span>
-                <span>Add 5-10 high-quality photos</span>
-              </div>
-              <div className="flex items-start space-x-2">
-                <span className="text-green-500 mt-1">✓</span>
-                <span>Write detailed descriptions</span>
-              </div>
-              <div className="flex items-start space-x-2">
-                <span className="text-green-500 mt-1">✓</span>
-                <span>Set competitive pricing</span>
-              </div>
-              <div className="flex items-start space-x-2">
-                <span className="text-green-500 mt-1">✓</span>
-                <span>Include WhatsApp number</span>
-              </div>
-              <div className="flex items-start space-x-2">
-                <span className="text-green-500 mt-1">✓</span>
-                <span>Mark exact location on map</span>
-              </div>
-            </div>
+            {currentStep < 3 ? (
+              <button
+                type="button"
+                onClick={nextStep}
+                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+              >
+                Next
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={loading}
+                className="px-8 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+              >
+                {loading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Submitting...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>🚀</span>
+                    <span>Submit Listing</span>
+                  </>
+                )}
+              </button>
+            )}
           </div>
-
-          <div className="card p-6">
-            <h3 className="text-lg font-bold text-gray-900 mb-4">🚀 Why Choose Bashfield?</h3>
-            <div className="space-y-3 text-sm text-gray-600">
-              <div>🌍 <strong>Wide Reach:</strong> Thousands of active users</div>
-              <div>📱 <strong>Direct Contact:</strong> WhatsApp integration</div>
-              <div>⚙️ <strong>Easy Management:</strong> Simple dashboard</div>
-              <div>🔒 <strong>Secure:</strong> Verified listings only</div>
-            </div>
-          </div>
-        </div>
+        </form>
       </div>
 
       {/* Map Picker Modal */}
@@ -419,7 +486,6 @@ export default function Post() {
         isOpen={showMap}
         onClose={() => setShowMap(false)}
         onLocationSelect={handleMapClick}
-        initialCenter={mapCenter}
         selectedCity={formData.city}
       />
     </div>
