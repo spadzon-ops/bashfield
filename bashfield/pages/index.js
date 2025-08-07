@@ -32,7 +32,7 @@ export default function Home() {
       .from('listings')
       .select(`
         *,
-        user_profiles!inner(display_name, profile_picture)
+        user_profiles(display_name, profile_picture)
       `)
       .eq('status', 'approved')
       .order('created_at', { ascending: false })
