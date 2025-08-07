@@ -193,70 +193,68 @@ export default function Home() {
       {/* Listings Section */}
       <div id="listings" className="bg-gray-50 py-12 sm:py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-12">
+          <div className="text-center mb-8">
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
               Featured Properties
             </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
+            <p className="text-lg text-gray-600 max-w-2xl mx-auto mb-6">
               Discover amazing rental opportunities across Iraq's major cities
             </p>
-          </div>
-
-          {/* View Toggle and Active Filters */}
-          <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex flex-wrap items-center gap-2">
-              {(filters.city || filters.rooms || filters.maxPrice) && (
-                <>
-                  <span className="text-sm text-gray-600">Active filters:</span>
-                  {filters.city && (
-                    <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
-                      📍 {t(`cities.${filters.city}`)}
-                    </span>
-                  )}
-                  {filters.rooms && (
-                    <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm">
-                      🛏️ {filters.rooms}+ rooms
-                    </span>
-                  )}
-                  {filters.maxPrice && (
-                    <span className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm">
-                      💰 Under {filters.maxPrice} {filters.currency}
-                    </span>
-                  )}
-                  <button
-                    onClick={clearFilters}
-                    className="text-red-600 hover:text-red-800 text-sm underline ml-2"
-                  >
-                    Clear all
-                  </button>
-                </>
-              )}
-            </div>
             
-            {/* View Mode Toggle */}
-            <div className="flex bg-gray-100 rounded-lg p-1">
+            {/* Prominent View Toggle */}
+            <div className="inline-flex bg-white rounded-xl shadow-lg p-2 border border-gray-200">
               <button
                 onClick={() => setViewMode('list')}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                className={`px-6 py-3 rounded-lg text-sm font-semibold transition-all duration-200 flex items-center space-x-2 ${
                   viewMode === 'list'
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
+                    ? 'bg-blue-600 text-white shadow-md transform scale-105'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                 }`}
               >
-                📋 List View
+                <span>📋</span>
+                <span>List View</span>
               </button>
               <button
                 onClick={() => setViewMode('map')}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                className={`px-6 py-3 rounded-lg text-sm font-semibold transition-all duration-200 flex items-center space-x-2 ${
                   viewMode === 'map'
-                    ? 'bg-white text-gray-900 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
+                    ? 'bg-blue-600 text-white shadow-md transform scale-105'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                 }`}
               >
-                🗺️ Map View
+                <span>🗺️</span>
+                <span>Map View</span>
               </button>
             </div>
           </div>
+
+          {/* Active Filters */}
+          {(filters.city || filters.rooms || filters.maxPrice) && (
+            <div className="mb-6 flex flex-wrap items-center gap-2 justify-center">
+              <span className="text-sm text-gray-600">Active filters:</span>
+              {filters.city && (
+                <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
+                  📍 {t(`cities.${filters.city}`)}
+                </span>
+              )}
+              {filters.rooms && (
+                <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm">
+                  🛏️ {filters.rooms}+ rooms
+                </span>
+              )}
+              {filters.maxPrice && (
+                <span className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm">
+                  💰 Under {filters.maxPrice} {filters.currency}
+                </span>
+              )}
+              <button
+                onClick={clearFilters}
+                className="text-red-600 hover:text-red-800 text-sm underline ml-2"
+              >
+                Clear all
+              </button>
+            </div>
+          )}
 
           {loading ? (
             <div className="flex justify-center py-20">
@@ -292,6 +290,7 @@ export default function Home() {
               <div className="mb-6 text-center">
                 <p className="text-gray-600">
                   Showing <span className="font-semibold">{filteredListings.length}</span> of <span className="font-semibold">{listings.length}</span> properties
+                  {viewMode === 'list' && <span className="ml-2">in list view</span>}
                 </p>
               </div>
               
@@ -307,25 +306,40 @@ export default function Home() {
               {/* Map View */}
               {viewMode === 'map' && (
                 <div className="space-y-6">
+                  {/* Map Header */}
+                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h3 className="text-xl font-bold text-gray-900 mb-2">🗺️ Interactive Property Map</h3>
+                        <p className="text-gray-600">Explore properties across Iraq by location</p>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-2xl font-bold text-blue-600">{filteredListings.length}</div>
+                        <div className="text-sm text-gray-500">properties shown</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-4 text-sm text-gray-600">
+                      <div className="flex items-center space-x-1">
+                        <span className="w-3 h-3 bg-blue-500 rounded border-2 border-white shadow"></span>
+                        <span>Click markers for details</span>
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <span>🔍</span>
+                        <span>Zoom to explore areas</span>
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <span>💬</span>
+                        <span>Direct WhatsApp contact</span>
+                      </div>
+                    </div>
+                  </div>
+                  
                   <MapView 
                     listings={filteredListings}
                     onListingSelect={(listing) => {
                       // Handle listing selection if needed
                     }}
                   />
-                  
-                  {/* Map Instructions */}
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <div className="flex items-start space-x-3">
-                      <span className="text-blue-600 text-lg">💡</span>
-                      <div className="text-sm">
-                        <p className="font-medium text-blue-800 mb-1">How to use the map</p>
-                        <p className="text-blue-700">
-                          Click on price markers to see property details. Use zoom controls to explore different areas.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
                 </div>
               )}
             </>
