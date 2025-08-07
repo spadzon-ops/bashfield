@@ -3,6 +3,7 @@ import { serverSideTranslations } from 'next-i18next/serverSideTranslations'
 import { useTranslation } from 'next-i18next'
 import { supabase, CITIES } from '../lib/supabase'
 import MapPicker from '../components/MapPicker'
+import AuthGuard from '../components/AuthGuard'
 
 export default function Post() {
   const { t } = useTranslation('common')
@@ -148,28 +149,9 @@ export default function Post() {
     setCurrentStep(prev => Math.max(prev - 1, 1))
   }
 
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-        <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center">
-          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-2xl">🔐</span>
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Login Required</h2>
-          <p className="text-gray-600 mb-6">Please sign in with Google to post your property</p>
-          <button 
-            onClick={() => window.location.href = '/'}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
-          >
-            Go to Homepage
-          </button>
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50">
+    <AuthGuard requireAuth={true}>
+      <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-white shadow-sm">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -488,7 +470,8 @@ export default function Post() {
         onLocationSelect={handleMapClick}
         selectedCity={formData.city}
       />
-    </div>
+      </div>
+    </AuthGuard>
   )
 }
 
