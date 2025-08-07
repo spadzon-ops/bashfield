@@ -38,12 +38,23 @@ export default function Profile() {
     }
 
     setUser(user)
-    await fetchProfile(user)
+    await initializeProfile(user)
     await fetchUserListings(user)
   }
 
-  const fetchProfile = async (user) => {
+  const initializeProfile = async (user) => {
     try {
+      // First run the init script to ensure table exists
+      await supabase.rpc('create_user_profile_if_not_exists', {
+        p_user_id: user.id,
+        p_email: user.email,
+        p_display_name: user.user_metadata?.full_name || user.user_metadata?.name || user.email.split('@')[0]
+      }).catch(() => {
+        // If RPC doesn't exist, create profile directly
+        return createProfileDirectly(user)
+      })
+
+      // Now fetch the profile
       const { data, error } = await supabase
         .from('user_profiles')
         .select('*')
@@ -55,28 +66,33 @@ export default function Profile() {
         setDisplayName(data.display_name)
         setProfilePicture(data.profile_picture)
       } else {
-        // Create profile with Google full name
-        const defaultName = user.user_metadata?.full_name || user.user_metadata?.name || user.email.split('@')[0]
-        
-        const { data: newProfile, error: createError } = await supabase
-          .from('user_profiles')
-          .insert({
-            user_id: user.id,
-            email: user.email,
-            display_name: defaultName
-          })
-          .select()
-          .single()
-
-        if (newProfile && !createError) {
-          setProfile(newProfile)
-          setDisplayName(newProfile.display_name)
-        }
+        await createProfileDirectly(user)
       }
     } catch (err) {
-      console.error('Profile fetch error:', err)
+      console.error('Profile initialization error:', err)
+      await createProfileDirectly(user)
     }
     setLoading(false)
+  }
+
+  const createProfileDirectly = async (user) => {
+    const defaultName = user.user_metadata?.full_name || user.user_metadata?.name || user.email.split('@')[0]
+    
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .upsert({
+        user_id: user.id,
+        email: user.email,
+        display_name: defaultName
+      }, { onConflict: 'user_id' })
+      .select()
+      .single()
+
+    if (data && !error) {
+      setProfile(data)
+      setDisplayName(data.display_name)
+      setProfilePicture(data.profile_picture)
+    }
   }
 
   const fetchUserListings = async (user) => {
@@ -97,48 +113,32 @@ export default function Profile() {
     setSaving(true)
     
     try {
-      // First check if profile exists
-      const { data: existingProfile } = await supabase
+      const { data, error } = await supabase
         .from('user_profiles')
-        .select('id')
-        .eq('user_id', user.id)
+        .upsert({
+          user_id: user.id,
+          email: user.email,
+          display_name: displayName.trim(),
+          profile_picture: profilePicture,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'user_id' })
+        .select()
         .single()
 
-      let result
-      if (existingProfile) {
-        // Update existing profile
-        result = await supabase
-          .from('user_profiles')
-          .update({
-            display_name: displayName.trim(),
-            profile_picture: profilePicture,
-            updated_at: new Date().toISOString()
-          })
-          .eq('user_id', user.id)
-      } else {
-        // Insert new profile
-        result = await supabase
-          .from('user_profiles')
-          .insert({
-            user_id: user.id,
-            email: user.email,
-            display_name: displayName.trim(),
-            profile_picture: profilePicture
-          })
-      }
-
-      if (result.error) {
-        throw result.error
+      if (error) {
+        throw error
       }
       
+      setProfile(data)
       alert('Profile updated successfully!')
-      await fetchProfile(user)
       
-      // Force refresh the layout to update profile everywhere
-      window.location.reload()
+      // Force refresh the entire page to update profile everywhere
+      setTimeout(() => {
+        window.location.reload()
+      }, 1000)
     } catch (error) {
       console.error('Error updating profile:', error)
-      alert('Error updating profile: ' + (error.message || 'Unknown error'))
+      alert('Error updating profile. Please try again.')
     }
     
     setSaving(false)
@@ -170,7 +170,24 @@ export default function Profile() {
       setProfilePicture(fileName)
       
       // Auto-save the profile picture
-      await handleSave()
+      const { error: updateError } = await supabase
+        .from('user_profiles')
+        .upsert({
+          user_id: user.id,
+          email: user.email,
+          display_name: displayName,
+          profile_picture: fileName,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'user_id' })
+
+      if (updateError) throw updateError
+
+      alert('Profile picture updated successfully!')
+      
+      // Force refresh to update everywhere
+      setTimeout(() => {
+        window.location.reload()
+      }, 1000)
     } catch (error) {
       console.error('Error uploading image:', error)
       alert('Error uploading image: ' + error.message)
@@ -244,7 +261,7 @@ export default function Profile() {
                 ) : (
                   <div className="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center group-hover:bg-blue-700 transition-colors">
                     <span className="text-white text-2xl font-bold">
-                      {profile?.display_name?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || '?'}
+                      {displayName?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || '?'}
                     </span>
                   </div>
                 )}
@@ -267,11 +284,11 @@ export default function Profile() {
             </div>
             <div className="text-center sm:text-left">
               <h1 className="text-2xl font-bold text-gray-900 mb-2">
-                {profile?.display_name || 'User Profile'}
+                {displayName || 'User Profile'}
               </h1>
               <p className="text-gray-600 mb-2">{user?.email}</p>
               <p className="text-sm text-gray-500">
-                Member since {new Date(profile?.created_at).toLocaleDateString()}
+                Member since {new Date(profile?.created_at || user?.created_at).toLocaleDateString()}
               </p>
             </div>
           </div>
