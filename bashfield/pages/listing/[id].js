@@ -22,21 +22,27 @@ export default function ListingDetail() {
   }, [id])
 
   const fetchListing = async () => {
-    const { data, error } = await supabase
-      .from('listings')
-      .select(`
-        *,
-        user_profiles(display_name)
-      `)
-      .eq('id', id)
-      .eq('status', 'approved')
-      .single()
+    try {
+      const { data, error } = await supabase
+        .from('listings')
+        .select(`
+          *,
+          user_profiles(display_name)
+        `)
+        .eq('id', id)
+        .single()
 
-    if (error || !data) {
-      console.error('Error fetching listing:', error)
-      setError('Listing not found or no longer available')
-    } else {
-      setListing(data)
+      if (error) {
+        console.error('Error fetching listing:', error)
+        setError('Listing not found or no longer available')
+      } else if (!data) {
+        setError('Listing not found')
+      } else {
+        setListing(data)
+      }
+    } catch (err) {
+      console.error('Fetch error:', err)
+      setError('Failed to load listing')
     }
     setLoading(false)
   }
@@ -224,7 +230,21 @@ export default function ListingDetail() {
               {listing.address && (
                 <div className="mt-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-3">Location</h3>
-                  <p className="text-gray-700">{listing.address}</p>
+                  <p className="text-gray-700 mb-4">{listing.address}</p>
+                  
+                  {/* View on Map Button */}
+                  {(listing.latitude && listing.longitude) && (
+                    <button
+                      onClick={() => {
+                        const mapUrl = `https://www.openstreetmap.org/?mlat=${listing.latitude}&mlon=${listing.longitude}&zoom=15`
+                        window.open(mapUrl, '_blank')
+                      }}
+                      className="inline-flex items-center space-x-2 bg-blue-100 hover:bg-blue-200 text-blue-700 px-4 py-2 rounded-lg transition-colors text-sm font-medium"
+                    >
+                      <span>🗺️</span>
+                      <span>View on Map</span>
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -234,7 +254,7 @@ export default function ListingDetail() {
             <div className="bg-white rounded-xl shadow-sm p-6 sticky top-8">
               <div className="text-center mb-6">
                 <div className="text-3xl font-bold text-blue-600 mb-2">
-                  {listing.price.toLocaleString()} {listing.currency}
+                  {listing?.price?.toLocaleString()} {listing?.currency}
                 </div>
                 <div className="text-gray-600">per month</div>
               </div>
