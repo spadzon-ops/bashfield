@@ -25,10 +25,7 @@ export default function ListingDetail() {
     try {
       const { data, error } = await supabase
         .from('listings')
-        .select(`
-          *,
-          user_profiles(display_name)
-        `)
+        .select('*')
         .eq('id', id)
         .single()
 
@@ -38,7 +35,17 @@ export default function ListingDetail() {
       } else if (!data) {
         setError('Listing not found')
       } else {
-        setListing(data)
+        // Get user profile separately
+        const { data: profileData } = await supabase
+          .from('user_profiles')
+          .select('display_name')
+          .eq('user_id', data.user_id)
+          .single()
+        
+        setListing({
+          ...data,
+          user_profiles: profileData
+        })
       }
     } catch (err) {
       console.error('Fetch error:', err)
