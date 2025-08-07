@@ -23,8 +23,11 @@ CREATE TABLE public.listings (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- Create user profiles table
-CREATE TABLE IF NOT EXISTS public.user_profiles (
+-- Drop and recreate user profiles table
+ALTER TABLE IF EXISTS public.user_profiles DISABLE ROW LEVEL SECURITY;
+DROP TABLE IF EXISTS public.user_profiles;
+
+CREATE TABLE public.user_profiles (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE UNIQUE,
   email TEXT NOT NULL,
