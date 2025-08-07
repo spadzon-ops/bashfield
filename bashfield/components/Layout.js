@@ -9,6 +9,7 @@ export default function Layout({ children }) {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [authChecked, setAuthChecked] = useState(false)
 
   useEffect(() => {
     getUser()
@@ -33,6 +34,7 @@ export default function Layout({ children }) {
       await getUserProfile(user)
     }
     setLoading(false)
+    setAuthChecked(true)
   }
 
   const getUserProfile = async (user) => {
@@ -45,9 +47,8 @@ export default function Layout({ children }) {
     if (profileData) {
       setProfile(profileData)
     } else {
-      // Create default profile with name from email
-      const emailName = user.email.split('@')[0]
-      const defaultName = user.user_metadata?.full_name || emailName
+      // Create default profile with Google full name or email fallback
+      const defaultName = user.user_metadata?.full_name || user.user_metadata?.name || user.email.split('@')[0]
       
       const newProfile = {
         user_id: user.id,
