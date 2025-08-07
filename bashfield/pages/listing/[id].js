@@ -25,7 +25,10 @@ export default function ListingDetail() {
     try {
       const { data, error } = await supabase
         .from('listings')
-        .select('*')
+        .select(`
+          *,
+          user_profiles!inner(display_name, profile_picture)
+        `)
         .eq('id', id)
         .single()
 
@@ -35,16 +38,9 @@ export default function ListingDetail() {
       } else if (!data) {
         setError('Listing not found')
       } else {
-        // Get user profile separately
-        const { data: profileData } = await supabase
-          .from('user_profiles')
-          .select('display_name')
-          .eq('user_id', data.user_id)
-          .single()
-        
         setListing({
           ...data,
-          owner_name: profileData?.display_name || data.user_email?.split('@')[0] || 'Property Owner'
+          owner_name: data.user_profiles?.display_name || data.user_email?.split('@')[0] || 'Property Owner'
         })
       }
     } catch (err) {
@@ -221,8 +217,16 @@ export default function ListingDetail() {
                   <span>🛏️</span>
                   <span>{listing.rooms} {listing.rooms === 1 ? 'Room' : 'Rooms'}</span>
                 </div>
-                <div className="flex items-center space-x-1">
-                  <span>👤</span>
+                <div className="flex items-center space-x-2">
+                  {listing.user_profiles?.profile_picture ? (
+                    <img
+                      src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/house-images/${listing.user_profiles.profile_picture}`}
+                      alt="Owner"
+                      className="w-5 h-5 rounded-full object-cover"
+                    />
+                  ) : (
+                    <span>👤</span>
+                  )}
                   <span>By {listing.owner_name || 'Property Owner'}</span>
                 </div>
               </div>
