@@ -2,170 +2,186 @@ import { useState, useEffect } from 'react'
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations'
 import { useTranslation } from 'next-i18next'
 import { supabase } from '../lib/supabase'
-import ListingCard from '../components/ListingCard'
 
 export default function Profile() {
   const { t } = useTranslation('common')
   const [user, setUser] = useState(null)
-  const [userListings, setUserListings] = useState([])
+  const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [stats, setStats] = useState({ total: 0, approved: 0, pending: 0, rejected: 0 })
+  const [saving, setSaving] = useState(false)
+  const [displayName, setDisplayName] = useState('')
 
   useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
-      if (user) {
-        fetchUserListings(user.id)
-      } else {
-        setLoading(false)
-      }
-    }
     getUser()
   }, [])
 
-  const fetchUserListings = async (userId) => {
-    const { data, error } = await supabase
-      .from('listings')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: false })
+  const getUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      setUser(user)
+      
+      // Extract name from email (before @)
+      const emailName = user.email.split('@')[0]
+      const defaultName = user.user_metadata?.full_name || emailName
+      
+      // Check if user has a profile
+      const { data: profileData } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .single()
 
-    if (error) {
-      console.error('Error fetching user listings:', error)
-    } else {
-      setUserListings(data || [])
-      const stats = {
-        total: data?.length || 0,
-        approved: data?.filter(l => l.status === 'approved').length || 0,
-        pending: data?.filter(l => l.status === 'pending').length || 0,
-        rejected: data?.filter(l => l.status === 'rejected').length || 0
+      if (profileData) {
+        setProfile(profileData)
+        setDisplayName(profileData.display_name)
+      } else {
+        // Create default profile
+        const newProfile = {
+          user_id: user.id,
+          email: user.email,
+          display_name: defaultName,
+          created_at: new Date().toISOString()
+        }
+        
+        const { data, error } = await supabase
+          .from('user_profiles')
+          .insert([newProfile])
+          .select()
+          .single()
+
+        if (!error) {
+          setProfile(data)
+          setDisplayName(data.display_name)
+        }
       }
-      setStats(stats)
     }
     setLoading(false)
   }
 
-  const deleteListing = async (id) => {
-    if (confirm('Are you sure you want to delete this listing?')) {
-      const { error } = await supabase
-        .from('listings')
-        .delete()
-        .eq('id', id)
+  const updateProfile = async (e) => {
+    e.preventDefault()
+    setSaving(true)
 
-      if (!error) {
-        fetchUserListings(user.id)
-      }
+    const { error } = await supabase
+      .from('user_profiles')
+      .update({ display_name: displayName })
+      .eq('user_id', user.id)
+
+    if (error) {
+      alert('Error updating profile: ' + error.message)
+    } else {
+      setProfile(prev => ({ ...prev, display_name: displayName }))
+      alert('Profile updated successfully!')
     }
+    setSaving(false)
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading profile...</p>
+        </div>
+      </div>
+    )
   }
 
   if (!user) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-12">
-        <div className="text-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center">
           <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-2xl">🔒</span>
+            <span className="text-2xl">🔐</span>
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Login Required</h2>
-          <p className="text-gray-600">Please login to view your profile and manage your listings.</p>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Login Required</h2>
+          <p className="text-gray-600 mb-6">Please sign in to view your profile</p>
+          <button 
+            onClick={() => window.location.href = '/'}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+          >
+            Go to Homepage
+          </button>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
-      {/* Profile Header */}
-      <div className="card p-8 mb-8">
-        <div className="flex items-center space-x-6">
-          <div className="w-20 h-20 bg-gradient-to-r from-blue-600 to-blue-700 rounded-full flex items-center justify-center">
-            <span className="text-white text-2xl font-bold">{user.email[0].toUpperCase()}</span>
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">Welcome back!</h1>
-            <p className="text-gray-600 text-lg">{user.email}</p>
-            <p className="text-sm text-gray-500 mt-1">Member since {new Date(user.created_at).toLocaleDateString()}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div className="card p-6 text-center">
-          <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-3">
-            <span className="text-2xl">📊</span>
-          </div>
-          <h3 className="text-2xl font-bold text-gray-900">{stats.total}</h3>
-          <p className="text-gray-600">Total Listings</p>
-        </div>
-        
-        <div className="card p-6 text-center">
-          <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-3">
-            <span className="text-2xl">✅</span>
-          </div>
-          <h3 className="text-2xl font-bold text-green-600">{stats.approved}</h3>
-          <p className="text-gray-600">Approved</p>
-        </div>
-        
-        <div className="card p-6 text-center">
-          <div className="w-12 h-12 bg-yellow-100 rounded-lg flex items-center justify-center mx-auto mb-3">
-            <span className="text-2xl">⏳</span>
-          </div>
-          <h3 className="text-2xl font-bold text-yellow-600">{stats.pending}</h3>
-          <p className="text-gray-600">Pending</p>
-        </div>
-        
-        <div className="card p-6 text-center">
-          <div className="w-12 h-12 bg-red-100 rounded-lg flex items-center justify-center mx-auto mb-3">
-            <span className="text-2xl">❌</span>
-          </div>
-          <h3 className="text-2xl font-bold text-red-600">{stats.rejected}</h3>
-          <p className="text-gray-600">Rejected</p>
-        </div>
-      </div>
-
-      {/* User Listings */}
-      <div className="card p-8">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">Your Listings</h2>
-          <button 
-            onClick={() => window.location.href = '/post'}
-            className="btn-primary"
-          >
-            + Add New Listing
-          </button>
-        </div>
-
-        {loading ? (
-          <div className="flex justify-center py-12">
-            <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-          </div>
-        ) : userListings.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span className="text-2xl">🏠</span>
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-6 py-8">
+            <div className="flex items-center space-x-4">
+              <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center">
+                <span className="text-3xl">👤</span>
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-white">{profile?.display_name}</h1>
+                <p className="text-blue-100">{user.email}</p>
+              </div>
             </div>
-            <h3 className="text-xl font-semibold text-gray-900 mb-2">No listings yet</h3>
-            <p className="text-gray-600 mb-4">Start by posting your first property listing.</p>
-            <button 
-              onClick={() => window.location.href = '/post'}
-              className="btn-primary"
-            >
-              Post Your First Listing
-            </button>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {userListings.map(listing => (
-              <ListingCard 
-                key={listing.id} 
-                listing={listing} 
-                showActions={true}
-                onDelete={deleteListing}
-              />
-            ))}
+
+          {/* Profile Form */}
+          <div className="p-6">
+            <h2 className="text-xl font-bold text-gray-900 mb-6">Profile Settings</h2>
+            
+            <form onSubmit={updateProfile} className="space-y-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Display Name
+                </label>
+                <input
+                  type="text"
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Enter your display name"
+                />
+                <p className="text-sm text-gray-500 mt-1">
+                  This name will be shown on your listings
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Email Address
+                </label>
+                <input
+                  type="email"
+                  value={user.email}
+                  disabled
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-500"
+                />
+                <p className="text-sm text-gray-500 mt-1">
+                  Email cannot be changed
+                </p>
+              </div>
+
+              <div className="flex justify-end">
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center space-x-2"
+                >
+                  {saving ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>💾</span>
+                      <span>Save Changes</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
-        )}
+        </div>
       </div>
     </div>
   )
