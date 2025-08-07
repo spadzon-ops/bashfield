@@ -6,7 +6,7 @@ export default function MapView({ listings, onListingSelect }) {
   const { t } = useTranslation('common')
   const router = useRouter()
   const [map, setMap] = useState(null)
-  const [selectedListing, setSelectedListing] = useState(null)
+  const [selectedCluster, setSelectedCluster] = useState(null)
   const [isMapLoaded, setIsMapLoaded] = useState(false)
   const [mapError, setMapError] = useState(null)
 
@@ -80,6 +80,67 @@ export default function MapView({ listings, onListingSelect }) {
     }
   }
 
+  const clusterNearbyListings = (listings) => {
+    const clusters = []
+    const processed = new Set()
+    const CLUSTER_DISTANCE = 0.005 // ~500 meters
+
+    listings.forEach((listing, index) => {
+      if (processed.has(index)) return
+
+      let lat, lng
+      if (listing.latitude && listing.longitude) {
+        lat = parseFloat(listing.latitude)
+        lng = parseFloat(listing.longitude)
+      } else if (cityCoordinates[listing.city]) {
+        [lat, lng] = cityCoordinates[listing.city]
+        // Add small random offset
+        lat += (Math.random() - 0.5) * 0.01
+        lng += (Math.random() - 0.5) * 0.01
+      } else {
+        return
+      }
+
+      const cluster = {
+        lat,
+        lng,
+        listings: [listing],
+        center: { lat, lng }
+      }
+
+      // Find nearby listings to cluster
+      listings.forEach((otherListing, otherIndex) => {
+        if (processed.has(otherIndex) || index === otherIndex) return
+
+        let otherLat, otherLng
+        if (otherListing.latitude && otherListing.longitude) {
+          otherLat = parseFloat(otherListing.latitude)
+          otherLng = parseFloat(otherListing.longitude)
+        } else if (cityCoordinates[otherListing.city]) {
+          [otherLat, otherLng] = cityCoordinates[otherListing.city]
+          otherLat += (Math.random() - 0.5) * 0.01
+          otherLng += (Math.random() - 0.5) * 0.01
+        } else {
+          return
+        }
+
+        const distance = Math.sqrt(
+          Math.pow(lat - otherLat, 2) + Math.pow(lng - otherLng, 2)
+        )
+
+        if (distance < CLUSTER_DISTANCE) {
+          cluster.listings.push(otherListing)
+          processed.add(otherIndex)
+        }
+      })
+
+      processed.add(index)
+      clusters.push(cluster)
+    })
+
+    return clusters
+  }
+
   const addMarkersToMap = () => {
     if (!map || !window.L) return
 
@@ -90,44 +151,59 @@ export default function MapView({ listings, onListingSelect }) {
       }
     })
 
-    // Add markers for each listing
-    listings.forEach((listing) => {
-      let lat, lng
+    const clusters = clusterNearbyListings(listings)
 
-      if (listing.latitude && listing.longitude) {
-        lat = parseFloat(listing.latitude)
-        lng = parseFloat(listing.longitude)
-      } else if (cityCoordinates[listing.city]) {
-        [lat, lng] = cityCoordinates[listing.city]
-        // Add small random offset to avoid overlapping markers
-        lat += (Math.random() - 0.5) * 0.01
-        lng += (Math.random() - 0.5) * 0.01
-      } else {
-        return // Skip if no coordinates available
-      }
+    clusters.forEach((cluster) => {
+      if (cluster.listings.length === 1) {
+        // Single listing marker
+        const listing = cluster.listings[0]
+        const markerHtml = `
+          <div class="bg-white border-2 border-blue-500 rounded-lg px-2 py-1 shadow-lg text-xs font-semibold text-blue-600 whitespace-nowrap">
+            ${listing.price.toLocaleString()} ${listing.currency}
+          </div>
+        `
 
-      // Create custom marker with price
-      const markerHtml = `
-        <div class="bg-white border-2 border-blue-500 rounded-lg px-2 py-1 shadow-lg text-xs font-semibold text-blue-600 whitespace-nowrap">
-          ${listing.price.toLocaleString()} ${listing.currency}
-        </div>
-      `
-
-      const customIcon = window.L.divIcon({
-        html: markerHtml,
-        className: 'custom-price-marker',
-        iconSize: [60, 30],
-        iconAnchor: [30, 30]
-      })
-
-      const marker = window.L.marker([lat, lng], { icon: customIcon })
-        .addTo(map)
-        .on('click', () => {
-          setSelectedListing(listing)
+        const customIcon = window.L.divIcon({
+          html: markerHtml,
+          className: 'custom-price-marker',
+          iconSize: [60, 30],
+          iconAnchor: [30, 30]
         })
 
-      // Store listing data with marker
-      marker.listingData = listing
+        const marker = window.L.marker([cluster.lat, cluster.lng], { icon: customIcon })
+          .addTo(map)
+          .on('click', () => {
+            setSelectedCluster({ listings: [listing], isCluster: false })
+          })
+      } else {
+        // Cluster marker
+        const minPrice = Math.min(...cluster.listings.map(l => l.price))
+        const maxPrice = Math.max(...cluster.listings.map(l => l.price))
+        const currency = cluster.listings[0].currency
+
+        const clusterHtml = `
+          <div class="bg-red-500 border-2 border-red-600 rounded-full w-10 h-10 flex items-center justify-center shadow-lg text-white font-bold text-sm">
+            ${cluster.listings.length}
+          </div>
+        `
+
+        const clusterIcon = window.L.divIcon({
+          html: clusterHtml,
+          className: 'custom-cluster-marker',
+          iconSize: [40, 40],
+          iconAnchor: [20, 20]
+        })
+
+        const marker = window.L.marker([cluster.lat, cluster.lng], { icon: clusterIcon })
+          .addTo(map)
+          .on('click', () => {
+            setSelectedCluster({ 
+              listings: cluster.listings, 
+              isCluster: true,
+              priceRange: `${minPrice.toLocaleString()}-${maxPrice.toLocaleString()} ${currency}`
+            })
+          })
+      }
     })
   }
 
@@ -136,7 +212,7 @@ export default function MapView({ listings, onListingSelect }) {
   }
 
   const closePopup = () => {
-    setSelectedListing(null)
+    setSelectedCluster(null)
   }
 
   return (
@@ -168,80 +244,102 @@ export default function MapView({ listings, onListingSelect }) {
         </div>
       )}
 
-      {/* Property Popup */}
-      {selectedListing && (
+      {/* Cluster/Listing Popup */}
+      {selectedCluster && (
         <div className="absolute top-4 left-4 right-4 z-[1000]">
-          <div className="bg-white rounded-xl shadow-2xl overflow-hidden max-w-sm mx-auto">
-            <div className="relative">
-              {selectedListing.images && selectedListing.images.length > 0 ? (
-                <img
-                  src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/house-images/${selectedListing.images[0]}`}
-                  alt={selectedListing.title}
-                  className="w-full h-32 object-cover"
-                />
-              ) : (
-                <div className="w-full h-32 bg-gradient-to-br from-blue-100 to-blue-200 flex items-center justify-center">
-                  <span className="text-3xl">🏠</span>
-                </div>
+          <div className="bg-white rounded-xl shadow-2xl overflow-hidden max-w-md mx-auto">
+            <div className="p-4 border-b border-gray-200">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-gray-900">
+                  {selectedCluster.isCluster 
+                    ? `${selectedCluster.listings.length} Properties` 
+                    : selectedCluster.listings[0].title
+                  }
+                </h3>
+                <button
+                  onClick={closePopup}
+                  className="w-8 h-8 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-full transition-all flex items-center justify-center"
+                >
+                  ×
+                </button>
+              </div>
+              {selectedCluster.isCluster && (
+                <p className="text-sm text-gray-600 mt-1">
+                  Price range: {selectedCluster.priceRange}
+                </p>
               )}
-              <button
-                onClick={closePopup}
-                className="absolute top-2 right-2 w-8 h-8 bg-black bg-opacity-50 text-white rounded-full hover:bg-opacity-70 transition-all flex items-center justify-center"
-              >
-                ×
-              </button>
             </div>
             
-            <div className="p-4">
-              <h3 className="font-bold text-gray-900 mb-2 line-clamp-2">
-                {selectedListing.title}
-              </h3>
-              
-              <div className="flex items-center justify-between mb-3">
-                <div className="text-lg font-bold text-blue-600">
-                  {selectedListing.price.toLocaleString()} {selectedListing.currency}
+            <div className="max-h-80 overflow-y-auto">
+              {selectedCluster.listings.map((listing, index) => (
+                <div key={listing.id} className={`p-4 ${index > 0 ? 'border-t border-gray-100' : ''}`}>
+                  <div className="flex space-x-3">
+                    {listing.images && listing.images.length > 0 ? (
+                      <img
+                        src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/house-images/${listing.images[0]}`}
+                        alt={listing.title}
+                        className="w-16 h-16 object-cover rounded-lg flex-shrink-0"
+                      />
+                    ) : (
+                      <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-blue-200 rounded-lg flex items-center justify-center flex-shrink-0">
+                        <span className="text-2xl">🏠</span>
+                      </div>
+                    )}
+                    
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-semibold text-gray-900 text-sm line-clamp-1 mb-1">
+                        {listing.title}
+                      </h4>
+                      
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="text-lg font-bold text-blue-600">
+                          {listing.price.toLocaleString()} {listing.currency}
+                        </div>
+                        <div className="text-xs text-gray-500">per month</div>
+                      </div>
+                      
+                      <div className="flex items-center space-x-3 mb-3 text-xs text-gray-600">
+                        <div className="flex items-center space-x-1">
+                          <span>🛏️</span>
+                          <span>{listing.rooms} {listing.rooms === 1 ? 'room' : 'rooms'}</span>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          <span>📍</span>
+                          <span>{t(`cities.${listing.city}`)}</span>
+                        </div>
+                      </div>
+                      
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => {
+                            const message = `Hi! I'm interested in your property: ${listing.title}`
+                            const whatsappUrl = `https://wa.me/${listing.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(message)}`
+                            window.open(whatsappUrl, '_blank')
+                          }}
+                          className="flex-1 bg-green-500 hover:bg-green-600 text-white px-2 py-1 rounded text-xs font-medium transition-colors flex items-center justify-center space-x-1"
+                        >
+                          <span>💬</span>
+                          <span>WhatsApp</span>
+                        </button>
+                        <button
+                          onClick={() => handleListingClick(listing)}
+                          className="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs font-medium transition-colors flex items-center justify-center space-x-1"
+                        >
+                          <span>👁️</span>
+                          <span>View</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className="text-sm text-gray-500">per month</div>
-              </div>
-              
-              <div className="flex items-center space-x-4 mb-4 text-sm text-gray-600">
-                <div className="flex items-center space-x-1">
-                  <span>🛏️</span>
-                  <span>{selectedListing.rooms} {selectedListing.rooms === 1 ? 'room' : 'rooms'}</span>
-                </div>
-                <div className="flex items-center space-x-1">
-                  <span>📍</span>
-                  <span>{t(`cities.${selectedListing.city}`)}</span>
-                </div>
-              </div>
-              
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => {
-                    const message = `Hi! I'm interested in your property: ${selectedListing.title}`
-                    const whatsappUrl = `https://wa.me/${selectedListing.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(message)}`
-                    window.open(whatsappUrl, '_blank')
-                  }}
-                  className="flex-1 bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center space-x-1"
-                >
-                  <span>💬</span>
-                  <span>WhatsApp</span>
-                </button>
-                <button
-                  onClick={() => handleListingClick(selectedListing)}
-                  className="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center space-x-1"
-                >
-                  <span>👁️</span>
-                  <span>View</span>
-                </button>
-              </div>
+              ))}
             </div>
           </div>
         </div>
       )}
 
       <style jsx>{`
-        .custom-price-marker {
+        .custom-price-marker, .custom-cluster-marker {
           background: transparent !important;
           border: none !important;
         }
