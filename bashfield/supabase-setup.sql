@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS public.user_profiles (
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE UNIQUE,
   email TEXT NOT NULL,
   display_name TEXT NOT NULL,
+  profile_picture TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
