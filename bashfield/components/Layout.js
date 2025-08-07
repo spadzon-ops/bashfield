@@ -38,34 +38,35 @@ export default function Layout({ children }) {
   }
 
   const getUserProfile = async (user) => {
-    const { data: profileData } = await supabase
-      .from('user_profiles')
-      .select('*')
-      .eq('user_id', user.id)
-      .single()
-
-    if (profileData) {
-      setProfile(profileData)
-    } else {
-      // Create default profile with Google full name or email fallback
-      const defaultName = user.user_metadata?.full_name || user.user_metadata?.name || user.email.split('@')[0]
-      
-      const newProfile = {
-        user_id: user.id,
-        email: user.email,
-        display_name: defaultName,
-        created_at: new Date().toISOString()
-      }
-      
-      const { data, error } = await supabase
+    try {
+      const { data: profileData, error: fetchError } = await supabase
         .from('user_profiles')
-        .insert([newProfile])
-        .select()
+        .select('*')
+        .eq('user_id', user.id)
         .single()
 
-      if (!error) {
-        setProfile(data)
+      if (profileData && !fetchError) {
+        setProfile(profileData)
+      } else {
+        // Create default profile with Google full name or email fallback
+        const defaultName = user.user_metadata?.full_name || user.user_metadata?.name || user.email.split('@')[0]
+        
+        const { data, error } = await supabase
+          .from('user_profiles')
+          .insert({
+            user_id: user.id,
+            email: user.email,
+            display_name: defaultName
+          })
+          .select()
+          .single()
+
+        if (!error && data) {
+          setProfile(data)
+        }
       }
+    } catch (error) {
+      console.error('Error with user profile:', error)
     }
   }
 
