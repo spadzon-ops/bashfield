@@ -23,10 +23,21 @@ CREATE TABLE public.listings (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Create user profiles table
+CREATE TABLE IF NOT EXISTS public.user_profiles (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE UNIQUE,
+  email TEXT NOT NULL,
+  display_name TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Enable RLS
 ALTER TABLE public.listings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
 
--- RLS Policies
+-- Listings RLS Policies
 CREATE POLICY "Users can view approved listings" ON public.listings
   FOR SELECT USING (status = 'approved');
 
@@ -39,12 +50,18 @@ CREATE POLICY "Users can view their own listings" ON public.listings
 -- Admin policy (replace with your Gmail)
 CREATE POLICY "Admin can do everything" ON public.listings
   FOR ALL USING (
-    EXISTS (
-      SELECT 1 FROM auth.users 
-      WHERE auth.users.id = auth.uid() 
-      AND auth.users.email = 'spadzon@gmail.com'
-    )
+    (SELECT auth.jwt() ->> 'email') = 'spadzon@gmail.com'
   );
+
+-- User profiles RLS Policies
+CREATE POLICY "Users can view all profiles" ON public.user_profiles
+  FOR SELECT USING (true);
+
+CREATE POLICY "Users can insert their own profile" ON public.user_profiles
+  FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update their own profile" ON public.user_profiles
+  FOR UPDATE USING (auth.uid() = user_id);
 
 -- Create storage bucket for images
 INSERT INTO storage.buckets (id, name, public) VALUES ('house-images', 'house-images', true);
@@ -66,6 +83,9 @@ END;
 $$ language 'plpgsql';
 
 CREATE TRIGGER update_listings_updated_at BEFORE UPDATE ON public.listings
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON public.user_profiles
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Create messages table for chat
