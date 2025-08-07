@@ -21,6 +21,7 @@ export default function Profile() {
   useEffect(() => {
     checkAuth()
     
+    // Check for tab parameter
     const urlParams = new URLSearchParams(window.location.search)
     const tab = urlParams.get('tab')
     if (tab && ['profile', 'listings'].includes(tab)) {
@@ -37,12 +38,23 @@ export default function Profile() {
     }
 
     setUser(user)
-    await fetchProfile(user)
+    await initializeProfile(user)
     await fetchUserListings(user)
   }
 
-  const fetchProfile = async (user) => {
+  const initializeProfile = async (user) => {
     try {
+      // First run the init script to ensure table exists
+      await supabase.rpc('create_user_profile_if_not_exists', {
+        p_user_id: user.id,
+        p_email: user.email,
+        p_display_name: user.user_metadata?.full_name || user.user_metadata?.name || user.email.split('@')[0]
+      }).catch(() => {
+        // If RPC doesn't exist, create profile directly
+        return createProfileDirectly(user)
+      })
+
+      // Now fetch the profile
       const { data, error } = await supabase
         .from('user_profiles')
         .select('*')
@@ -54,28 +66,33 @@ export default function Profile() {
         setDisplayName(data.display_name)
         setProfilePicture(data.profile_picture)
       } else {
-        // Create new profile
-        const defaultName = user.user_metadata?.full_name || user.user_metadata?.name || user.email.split('@')[0]
-        
-        const { data: newProfile, error: insertError } = await supabase
-          .from('user_profiles')
-          .insert({
-            user_id: user.id,
-            email: user.email,
-            display_name: defaultName
-          })
-          .select()
-          .single()
-
-        if (newProfile && !insertError) {
-          setProfile(newProfile)
-          setDisplayName(newProfile.display_name)
-        }
+        await createProfileDirectly(user)
       }
     } catch (err) {
-      console.error('Profile fetch error:', err)
+      console.error('Profile initialization error:', err)
+      await createProfileDirectly(user)
     }
     setLoading(false)
+  }
+
+  const createProfileDirectly = async (user) => {
+    const defaultName = user.user_metadata?.full_name || user.user_metadata?.name || user.email.split('@')[0]
+    
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .upsert({
+        user_id: user.id,
+        email: user.email,
+        display_name: defaultName
+      }, { onConflict: 'user_id' })
+      .select()
+      .single()
+
+    if (data && !error) {
+      setProfile(data)
+      setDisplayName(data.display_name)
+      setProfilePicture(data.profile_picture)
+    }
   }
 
   const fetchUserListings = async (user) => {
@@ -96,39 +113,27 @@ export default function Profile() {
     setSaving(true)
     
     try {
-      // First try to update existing profile
-      const { data: updateData, error: updateError } = await supabase
+      const { data, error } = await supabase
         .from('user_profiles')
-        .update({
+        .upsert({
+          user_id: user.id,
+          email: user.email,
           display_name: displayName.trim(),
           profile_picture: profilePicture
-        })
-        .eq('user_id', user.id)
+        }, { onConflict: 'user_id' })
         .select()
         .single()
 
-      if (updateError && updateError.code === 'PGRST116') {
-        // Profile doesn't exist, create it
-        const { data: insertData, error: insertError } = await supabase
-          .from('user_profiles')
-          .insert({
-            user_id: user.id,
-            email: user.email,
-            display_name: displayName.trim(),
-            profile_picture: profilePicture
-          })
-          .select()
-          .single()
-
-        if (insertError) {
-          throw insertError
-        }
-        setProfile(insertData)
-      } else if (updateError) {
-        throw updateError
-      } else {
-        setProfile(updateData)
+      if (error) {
+        throw error
       }
+      
+      setProfile(data)
+      
+      // Trigger a page refresh to update all components
+      setTimeout(() => {
+        window.location.reload()
+      }, 1000)
       
       alert('Profile updated successfully!')
     } catch (error) {
@@ -146,6 +151,13 @@ export default function Profile() {
     setUploading(true)
     
     try {
+      // Delete old profile picture if exists
+      if (profilePicture) {
+        await supabase.storage
+          .from('house-images')
+          .remove([profilePicture])
+      }
+
       const fileExt = file.name.split('.').pop()
       const fileName = `profiles/${user.id}-${Date.now()}.${fileExt}`
       
@@ -158,36 +170,26 @@ export default function Profile() {
       setProfilePicture(fileName)
       
       // Auto-save the profile picture
-      const { data: updateData, error: updateError } = await supabase
+      const { data, error: updateError } = await supabase
         .from('user_profiles')
-        .update({
+        .upsert({
+          user_id: user.id,
+          email: user.email,
+          display_name: displayName,
           profile_picture: fileName
-        })
-        .eq('user_id', user.id)
+        }, { onConflict: 'user_id' })
         .select()
         .single()
 
-      if (updateError && updateError.code === 'PGRST116') {
-        // Profile doesn't exist, create it
-        const { data: insertData, error: insertError } = await supabase
-          .from('user_profiles')
-          .insert({
-            user_id: user.id,
-            email: user.email,
-            display_name: displayName,
-            profile_picture: fileName
-          })
-          .select()
-          .single()
+      if (updateError) throw updateError
 
-        if (insertError) throw insertError
-        setProfile(insertData)
-      } else if (updateError) {
-        throw updateError
-      } else {
-        setProfile(updateData)
-      }
-
+      setProfile(data)
+      
+      // Trigger a page refresh to update all components
+      setTimeout(() => {
+        window.location.reload()
+      }, 1000)
+      
       alert('Profile picture updated successfully!')
     } catch (error) {
       console.error('Error uploading image:', error)
