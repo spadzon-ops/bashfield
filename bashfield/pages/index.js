@@ -3,6 +3,7 @@ import { serverSideTranslations } from 'next-i18next/serverSideTranslations'
 import { useTranslation } from 'next-i18next'
 import { supabase, CITIES } from '../lib/supabase'
 import ListingCard from '../components/ListingCard'
+import MapView from '../components/MapView'
 
 export default function Home() {
   const { t } = useTranslation('common')
@@ -16,6 +17,7 @@ export default function Home() {
     currency: 'USD'
   })
   const [loading, setLoading] = useState(true)
+  const [viewMode, setViewMode] = useState('list') // 'list' or 'map'
 
   useEffect(() => {
     fetchListings()
@@ -200,33 +202,61 @@ export default function Home() {
             </p>
           </div>
 
-          {/* Active Filters */}
-          {(filters.city || filters.rooms || filters.maxPrice) && (
-            <div className="mb-6 flex flex-wrap items-center gap-2">
-              <span className="text-sm text-gray-600">Active filters:</span>
-              {filters.city && (
-                <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
-                  📍 {t(`cities.${filters.city}`)}
-                </span>
+          {/* View Toggle and Active Filters */}
+          <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex flex-wrap items-center gap-2">
+              {(filters.city || filters.rooms || filters.maxPrice) && (
+                <>
+                  <span className="text-sm text-gray-600">Active filters:</span>
+                  {filters.city && (
+                    <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
+                      📍 {t(`cities.${filters.city}`)}
+                    </span>
+                  )}
+                  {filters.rooms && (
+                    <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm">
+                      🛏️ {filters.rooms}+ rooms
+                    </span>
+                  )}
+                  {filters.maxPrice && (
+                    <span className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm">
+                      💰 Under {filters.maxPrice} {filters.currency}
+                    </span>
+                  )}
+                  <button
+                    onClick={clearFilters}
+                    className="text-red-600 hover:text-red-800 text-sm underline ml-2"
+                  >
+                    Clear all
+                  </button>
+                </>
               )}
-              {filters.rooms && (
-                <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm">
-                  🛏️ {filters.rooms}+ rooms
-                </span>
-              )}
-              {filters.maxPrice && (
-                <span className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm">
-                  💰 Under {filters.maxPrice} {filters.currency}
-                </span>
-              )}
+            </div>
+            
+            {/* View Mode Toggle */}
+            <div className="flex bg-gray-100 rounded-lg p-1">
               <button
-                onClick={clearFilters}
-                className="text-red-600 hover:text-red-800 text-sm underline ml-2"
+                onClick={() => setViewMode('list')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  viewMode === 'list'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
               >
-                Clear all
+                📋 List View
+              </button>
+              <button
+                onClick={() => setViewMode('map')}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                  viewMode === 'map'
+                    ? 'bg-white text-gray-900 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                🗺️ Map View
               </button>
             </div>
-          )}
+          </div>
 
           {loading ? (
             <div className="flex justify-center py-20">
@@ -264,11 +294,40 @@ export default function Home() {
                   Showing <span className="font-semibold">{filteredListings.length}</span> of <span className="font-semibold">{listings.length}</span> properties
                 </p>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-                {filteredListings.map(listing => (
-                  <ListingCard key={listing.id} listing={listing} />
-                ))}
-              </div>
+              
+              {/* List View */}
+              {viewMode === 'list' && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+                  {filteredListings.map(listing => (
+                    <ListingCard key={listing.id} listing={listing} />
+                  ))}
+                </div>
+              )}
+              
+              {/* Map View */}
+              {viewMode === 'map' && (
+                <div className="space-y-6">
+                  <MapView 
+                    listings={filteredListings}
+                    onListingSelect={(listing) => {
+                      // Handle listing selection if needed
+                    }}
+                  />
+                  
+                  {/* Map Instructions */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex items-start space-x-3">
+                      <span className="text-blue-600 text-lg">💡</span>
+                      <div className="text-sm">
+                        <p className="font-medium text-blue-800 mb-1">How to use the map</p>
+                        <p className="text-blue-700">
+                          Click on price markers to see property details. Use zoom controls to explore different areas.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </>
           )}
         </div>
@@ -282,5 +341,6 @@ export async function getStaticProps({ locale }) {
     props: {
       ...(await serverSideTranslations(locale, ['common'])),
     },
+    revalidate: 60, // Revalidate every minute
   }
 }
