@@ -70,6 +70,37 @@ export default function Layout({ children }) {
     }
   }
 
+  // Function to refresh profile data
+  const refreshProfile = async () => {
+    if (user) {
+      await getUserProfile(user)
+    }
+  }
+
+  // Listen for profile updates
+  useEffect(() => {
+    if (user) {
+      const channel = supabase
+        .channel('profile-changes')
+        .on('postgres_changes', 
+          { 
+            event: '*', 
+            schema: 'public', 
+            table: 'user_profiles',
+            filter: `user_id=eq.${user.id}`
+          }, 
+          () => {
+            refreshProfile()
+          }
+        )
+        .subscribe()
+
+      return () => {
+        supabase.removeChannel(channel)
+      }
+    }
+  }, [user])
+
   const handleLogin = async () => {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
@@ -159,10 +190,18 @@ export default function Layout({ children }) {
                     className="flex items-center space-x-2 bg-gray-100 px-3 py-2 rounded-lg cursor-pointer hover:bg-gray-200 transition-colors"
                     onClick={() => router.push('/profile')}
                   >
-                    <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
-                      <span className="text-white text-xs font-semibold">
-                        {profile?.display_name?.[0]?.toUpperCase() || user.email[0].toUpperCase()}
-                      </span>
+                    <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center overflow-hidden">
+                      {profile?.profile_picture ? (
+                        <img
+                          src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/house-images/${profile.profile_picture}`}
+                          alt="Profile"
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <span className="text-white text-xs font-semibold">
+                          {profile?.display_name?.[0]?.toUpperCase() || user.email[0].toUpperCase()}
+                        </span>
+                      )}
                     </div>
                     <span className="text-sm font-medium text-gray-700 hidden sm:block">
                       {profile?.display_name || user.email.split('@')[0]}
