@@ -7,22 +7,66 @@ export default function Layout({ children }) {
   const { t, i18n } = useTranslation('common')
   const router = useRouter()
   const [user, setUser] = useState(null)
+  const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const getUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
-      setUser(user)
-      setLoading(false)
-    }
     getUser()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setUser(session?.user ?? null)
+      if (session?.user) {
+        setUser(session.user)
+        getUserProfile(session.user)
+      } else {
+        setUser(null)
+        setProfile(null)
+      }
     })
 
     return () => subscription.unsubscribe()
   }, [])
+
+  const getUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      setUser(user)
+      await getUserProfile(user)
+    }
+    setLoading(false)
+  }
+
+  const getUserProfile = async (user) => {
+    const { data: profileData } = await supabase
+      .from('user_profiles')
+      .select('*')
+      .eq('user_id', user.id)
+      .single()
+
+    if (profileData) {
+      setProfile(profileData)
+    } else {
+      // Create default profile with name from email
+      const emailName = user.email.split('@')[0]
+      const defaultName = user.user_metadata?.full_name || emailName
+      
+      const newProfile = {
+        user_id: user.id,
+        email: user.email,
+        display_name: defaultName,
+        created_at: new Date().toISOString()
+      }
+      
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .insert([newProfile])
+        .select()
+        .single()
+
+      if (!error) {
+        setProfile(data)
+      }
+    }
+  }
 
   const handleLogin = async () => {
     await supabase.auth.signInWithOAuth({
@@ -43,36 +87,52 @@ export default function Layout({ children }) {
   const isAdmin = user?.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <nav className="bg-white shadow-lg border-b border-gray-200">
+    <div className="min-h-screen bg-gray-50">
+      <nav className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-20">
+          <div className="flex justify-between h-16">
             <div className="flex items-center space-x-8">
               <div className="flex items-center space-x-3 cursor-pointer" onClick={() => router.push('/')}>
-                <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-xl">🏠</span>
+                <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg flex items-center justify-center">
+                  <span className="text-white font-bold text-lg">🏠</span>
                 </div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent">
+                <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent">
                   Bashfield
                 </h1>
               </div>
               <div className="hidden md:flex space-x-6">
-                <button onClick={() => router.push('/')} className="text-gray-700 hover:text-blue-600 font-medium transition-colors">
-                  {t('nav.home')}
+                <button 
+                  onClick={() => router.push('/')} 
+                  className={`text-sm font-medium transition-colors ${
+                    router.pathname === '/' 
+                      ? 'text-blue-600' 
+                      : 'text-gray-700 hover:text-blue-600'
+                  }`}
+                >
+                  Home
                 </button>
                 {user && (
-                  <button onClick={() => router.push('/post')} className="text-gray-700 hover:text-blue-600 font-medium transition-colors">
-                    {t('nav.post')}
-                  </button>
-                )}
-                {user && (
-                  <button onClick={() => router.push('/profile')} className="text-gray-700 hover:text-blue-600 font-medium transition-colors">
-                    Profile
+                  <button 
+                    onClick={() => router.push('/post')} 
+                    className={`text-sm font-medium transition-colors ${
+                      router.pathname === '/post' 
+                        ? 'text-blue-600' 
+                        : 'text-gray-700 hover:text-blue-600'
+                    }`}
+                  >
+                    List Property
                   </button>
                 )}
                 {isAdmin && (
-                  <button onClick={() => router.push('/admin')} className="text-gray-700 hover:text-blue-600 font-medium transition-colors">
-                    {t('nav.admin')}
+                  <button 
+                    onClick={() => router.push('/admin')} 
+                    className={`text-sm font-medium transition-colors ${
+                      router.pathname === '/admin' 
+                        ? 'text-blue-600' 
+                        : 'text-gray-700 hover:text-blue-600'
+                    }`}
+                  >
+                    Admin
                   </button>
                 )}
               </div>
@@ -82,30 +142,43 @@ export default function Layout({ children }) {
               <select 
                 value={i18n.language} 
                 onChange={(e) => changeLanguage(e.target.value)}
-                className="bg-white border border-gray-300 text-gray-700 px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="bg-white border border-gray-300 text-gray-700 px-3 py-1 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
               >
-                <option value="en">🇺🇸 English</option>
-                <option value="ku">🏴󠁩󠁱󠁫󠁲󠁿 کوردی</option>
-                <option value="ar">🇮🇶 العربية</option>
+                <option value="en">🇺🇸 EN</option>
+                <option value="ku">🏴 KU</option>
+                <option value="ar">🇮🇶 AR</option>
               </select>
               
               {loading ? (
-                <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
               ) : user ? (
                 <div className="flex items-center space-x-3">
-                  <div className="flex items-center space-x-2 bg-gray-100 px-3 py-2 rounded-lg">
-                    <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-                      <span className="text-white text-sm font-semibold">{user.email[0].toUpperCase()}</span>
+                  <div 
+                    className="flex items-center space-x-2 bg-gray-100 px-3 py-2 rounded-lg cursor-pointer hover:bg-gray-200 transition-colors"
+                    onClick={() => router.push('/profile')}
+                  >
+                    <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
+                      <span className="text-white text-xs font-semibold">
+                        {profile?.display_name?.[0]?.toUpperCase() || user.email[0].toUpperCase()}
+                      </span>
                     </div>
-                    <span className="text-sm font-medium text-gray-700">{user.email.split('@')[0]}</span>
+                    <span className="text-sm font-medium text-gray-700 hidden sm:block">
+                      {profile?.display_name || user.email.split('@')[0]}
+                    </span>
                   </div>
-                  <button onClick={handleLogout} className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg font-medium transition-colors">
-                    {t('nav.logout')}
+                  <button 
+                    onClick={handleLogout} 
+                    className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg font-medium transition-colors text-sm"
+                  >
+                    Logout
                   </button>
                 </div>
               ) : (
-                <button onClick={handleLogin} className="btn-primary">
-                  {t('nav.login')}
+                <button 
+                  onClick={handleLogin} 
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors text-sm"
+                >
+                  Sign In
                 </button>
               )}
             </div>
@@ -113,19 +186,21 @@ export default function Layout({ children }) {
         </div>
       </nav>
       
-      <main className="min-h-screen">{children}</main>
+      <main>{children}</main>
       
       <footer className="bg-white border-t border-gray-200 mt-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div className="col-span-2">
               <div className="flex items-center space-x-3 mb-4">
-                <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-xl">🏠</span>
+                <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg flex items-center justify-center">
+                  <span className="text-white font-bold text-lg">🏠</span>
                 </div>
                 <h3 className="text-xl font-bold text-gray-900">Bashfield</h3>
               </div>
-              <p className="text-gray-600 mb-4">Iraq's premier house rental platform. Find your perfect home in Erbil, Baghdad, and across Iraq.</p>
+              <p className="text-gray-600 mb-4">
+                Iraq's premier house rental platform. Find your perfect home across Iraq's major cities.
+              </p>
               <div className="flex space-x-4">
                 <span className="text-2xl">🇮🇶</span>
                 <span className="text-2xl">🏠</span>
@@ -135,14 +210,28 @@ export default function Layout({ children }) {
             <div>
               <h4 className="font-semibold text-gray-900 mb-4">Quick Links</h4>
               <ul className="space-y-2 text-gray-600">
-                <li><button onClick={() => router.push('/')} className="hover:text-blue-600">Home</button></li>
-                <li><button onClick={() => router.push('/post')} className="hover:text-blue-600">Post Property</button></li>
-                <li><button onClick={() => router.push('/about')} className="hover:text-blue-600">About Us</button></li>
+                <li>
+                  <button onClick={() => router.push('/')} className="hover:text-blue-600 transition-colors">
+                    Home
+                  </button>
+                </li>
+                <li>
+                  <button onClick={() => router.push('/post')} className="hover:text-blue-600 transition-colors">
+                    List Property
+                  </button>
+                </li>
+                {user && (
+                  <li>
+                    <button onClick={() => router.push('/profile')} className="hover:text-blue-600 transition-colors">
+                      Profile
+                    </button>
+                  </li>
+                )}
               </ul>
             </div>
             <div>
               <h4 className="font-semibold text-gray-900 mb-4">Contact</h4>
-              <ul className="space-y-2 text-gray-600">
+              <ul className="space-y-2 text-gray-600 text-sm">
                 <li>📧 info@bashfield.com</li>
                 <li>📱 +964 750 123 4567</li>
                 <li>📍 Erbil, Kurdistan Region</li>
