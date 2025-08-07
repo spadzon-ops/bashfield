@@ -27,7 +27,7 @@ export default function ListingDetail() {
         .from('listings')
         .select(`
           *,
-          user_profiles!inner(display_name, profile_picture)
+          user_profiles(display_name, profile_picture)
         `)
         .eq('id', id)
         .single()
