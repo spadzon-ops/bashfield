@@ -84,14 +84,27 @@ export default function Profile() {
   }
 
   const fetchUserListings = async (user) => {
-    const { data, error } = await supabase
+    const { data: listingsData, error } = await supabase
       .from('listings')
       .select('*')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
 
-    if (data) {
-      setUserListings(data)
+    if (listingsData) {
+      // Get current profile data
+      const { data: profileData } = await supabase
+        .from('user_profiles')
+        .select('display_name, profile_picture')
+        .eq('user_id', user.id)
+        .single()
+      
+      // Add profile data to listings
+      const listingsWithProfile = listingsData.map(listing => ({
+        ...listing,
+        user_profiles: profileData || null
+      }))
+      
+      setUserListings(listingsWithProfile)
     }
   }
 
@@ -122,6 +135,9 @@ export default function Profile() {
       window.dispatchEvent(new CustomEvent('profileUpdated', { 
         detail: { profile: data } 
       }))
+      
+      // Refresh user listings to show updated profile
+      await fetchUserListings(user)
       
       alert('Profile updated successfully!')
     } catch (error) {
@@ -175,6 +191,9 @@ export default function Profile() {
       window.dispatchEvent(new CustomEvent('profileUpdated', { 
         detail: { profile: data } 
       }))
+      
+      // Refresh user listings to show updated profile picture
+      await fetchUserListings(user)
       
       alert('Profile picture updated successfully!')
     } catch (error) {

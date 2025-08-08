@@ -26,7 +26,7 @@ export default function Admin() {
   }, [])
 
   const fetchListings = async () => {
-    const { data, error } = await supabase
+    const { data: listingsData, error } = await supabase
       .from('listings')
       .select('*')
       .order('created_at', { ascending: false })
@@ -34,20 +34,35 @@ export default function Admin() {
     if (error) {
       console.error('Error fetching listings:', error)
     } else {
+      // Get all unique user IDs
+      const userIds = [...new Set(listingsData?.map(l => l.user_id))]
+      
+      // Fetch profiles for all users
+      const { data: profilesData } = await supabase
+        .from('user_profiles')
+        .select('user_id, display_name, profile_picture')
+        .in('user_id', userIds)
+      
+      // Merge listings with profile data
+      const listingsWithProfiles = listingsData?.map(listing => ({
+        ...listing,
+        user_profiles: profilesData?.find(p => p.user_id === listing.user_id) || null
+      })) || []
+      
       const now = new Date()
       const oneMonthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate())
       
       const grouped = {
-        pending: data?.filter(l => l.status === 'pending') || [],
-        approved: data?.filter(l => l.status === 'approved') || [],
-        rejected: data?.filter(l => l.status === 'rejected') || [],
-        old: data?.filter(l => new Date(l.created_at) < oneMonthAgo) || []
+        pending: listingsWithProfiles.filter(l => l.status === 'pending'),
+        approved: listingsWithProfiles.filter(l => l.status === 'approved'),
+        rejected: listingsWithProfiles.filter(l => l.status === 'rejected'),
+        old: listingsWithProfiles.filter(l => new Date(l.created_at) < oneMonthAgo)
       }
       
       setListings(grouped)
       setStats({
-        total: data?.length || 0,
-        thisMonth: data?.filter(l => new Date(l.created_at) >= oneMonthAgo).length || 0,
+        total: listingsWithProfiles.length,
+        thisMonth: listingsWithProfiles.filter(l => new Date(l.created_at) >= oneMonthAgo).length,
         oldCount: grouped.old.length
       })
     }
