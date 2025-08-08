@@ -182,7 +182,7 @@ export default function MapView({ listings, onListingSelect }) {
         const currency = cluster.listings[0].currency
 
         const clusterHtml = `
-          <div class="bg-red-500 border-2 border-red-600 rounded-full w-10 h-10 flex items-center justify-center shadow-lg text-white font-bold text-sm">
+          <div class="bg-blue-500 border-2 border-blue-600 rounded-full w-10 h-10 flex items-center justify-center shadow-lg text-white font-bold text-sm">
             ${cluster.listings.length}
           </div>
         `

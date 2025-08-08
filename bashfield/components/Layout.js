@@ -153,16 +153,28 @@ export default function Layout({ children }) {
                   Home
                 </button>
                 {user && (
-                  <button 
-                    onClick={() => router.push('/post')} 
-                    className={`text-sm font-medium transition-colors ${
-                      router.pathname === '/post' 
-                        ? 'text-blue-600' 
-                        : 'text-gray-700 hover:text-blue-600'
-                    }`}
-                  >
-                    List Property
-                  </button>
+                  <>
+                    <button 
+                      onClick={() => router.push('/post')} 
+                      className={`text-sm font-medium transition-colors ${
+                        router.pathname === '/post' 
+                          ? 'text-blue-600' 
+                          : 'text-gray-700 hover:text-blue-600'
+                      }`}
+                    >
+                      List Property
+                    </button>
+                    <button 
+                      onClick={() => router.push('/messages')} 
+                      className={`text-sm font-medium transition-colors ${
+                        router.pathname === '/messages' 
+                          ? 'text-blue-600' 
+                          : 'text-gray-700 hover:text-blue-600'
+                      }`}
+                    >
+                      Messages
+                    </button>
+                  </>
                 )}
                 {isAdmin && (
                   <button 
