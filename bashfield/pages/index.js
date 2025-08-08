@@ -28,19 +28,43 @@ export default function Home() {
   }, [filters, listings])
 
   const fetchListings = async () => {
-    const { data, error } = await supabase
-      .from('listings')
-      .select(`
-        *,
-        user_profiles(display_name, profile_picture)
-      `)
-      .eq('status', 'approved')
-      .order('created_at', { ascending: false })
+    try {
+      // First get all approved listings
+      const { data: listingsData, error: listingsError } = await supabase
+        .from('listings')
+        .select('*')
+        .eq('status', 'approved')
+        .order('created_at', { ascending: false })
 
-    if (error) {
-      console.error('Error fetching listings:', error)
-    } else {
-      setListings(data || [])
+      if (listingsError) {
+        console.error('Error fetching listings:', listingsError)
+        setListings([])
+        setLoading(false)
+        return
+      }
+
+      // Then get all user profiles
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('user_profiles')
+        .select('user_id, display_name, profile_picture')
+
+      if (profilesError) {
+        console.error('Error fetching profiles:', profilesError)
+      }
+
+      // Merge the data
+      const listingsWithProfiles = listingsData.map(listing => {
+        const profile = profilesData?.find(p => p.user_id === listing.user_id)
+        return {
+          ...listing,
+          user_profiles: profile || null
+        }
+      })
+
+      setListings(listingsWithProfiles || [])
+    } catch (error) {
+      console.error('Error in fetchListings:', error)
+      setListings([])
     }
     setLoading(false)
   }
