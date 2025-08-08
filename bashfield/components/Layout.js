@@ -95,8 +95,16 @@ export default function Layout({ children }) {
         )
         .subscribe()
 
+      // Listen for custom profile update events
+      const handleProfileUpdate = (event) => {
+        setProfile(event.detail.profile)
+      }
+      
+      window.addEventListener('profileUpdated', handleProfileUpdate)
+
       return () => {
         supabase.removeChannel(channel)
+        window.removeEventListener('profileUpdated', handleProfileUpdate)
       }
     }
   }, [user])
