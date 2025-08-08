@@ -114,7 +114,13 @@ export default function Layout({ children }) {
         setProfile(event.detail.profile)
       }
       
+      // Listen for messages read events
+      const handleMessagesRead = () => {
+        getUnreadCount(user)
+      }
+      
       window.addEventListener('profileUpdated', handleProfileUpdate)
+      window.addEventListener('messagesRead', handleMessagesRead)
 
       // Listen for new messages to update unread count
       const messageChannel = supabase
@@ -147,6 +153,7 @@ export default function Layout({ children }) {
         supabase.removeChannel(channel)
         supabase.removeChannel(messageChannel)
         window.removeEventListener('profileUpdated', handleProfileUpdate)
+        window.removeEventListener('messagesRead', handleMessagesRead)
       }
     }
   }, [user])
