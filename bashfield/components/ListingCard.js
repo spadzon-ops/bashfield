@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useTranslation } from 'next-i18next'
 import { useRouter } from 'next/router'
 
@@ -6,8 +6,20 @@ export default function ListingCard({ listing, showActions = false, onApprove, o
   const { t } = useTranslation('common')
   const router = useRouter()
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
+  const [profileData, setProfileData] = useState(listing.user_profiles)
   const touchStartX = useRef(0)
   const touchEndX = useRef(0)
+
+  useEffect(() => {
+    const handleProfileUpdate = (event) => {
+      if (event.detail.profile.user_id === listing.user_id) {
+        setProfileData(event.detail.profile)
+      }
+    }
+    
+    window.addEventListener('profileUpdated', handleProfileUpdate)
+    return () => window.removeEventListener('profileUpdated', handleProfileUpdate)
+  }, [listing.user_id])
 
   const nextImage = (e) => {
     e.stopPropagation()
@@ -175,21 +187,21 @@ export default function ListingCard({ listing, showActions = false, onApprove, o
           {/* Owner Info */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center space-x-2">
-              {listing.user_profiles?.profile_picture ? (
+              {profileData?.profile_picture ? (
                 <img
-                  src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/house-images/${listing.user_profiles.profile_picture}`}
+                  src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/house-images/${profileData.profile_picture}`}
                   alt="Owner"
                   className="w-8 h-8 rounded-full object-cover"
                 />
               ) : (
                 <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
                   <span className="text-blue-600 text-sm font-semibold">
-                    {(listing.user_profiles?.display_name || listing.user_email)?.[0]?.toUpperCase()}
+                    {(profileData?.display_name || listing.user_email)?.[0]?.toUpperCase()}
                   </span>
                 </div>
               )}
               <span className="text-sm text-gray-600">
-                {listing.user_profiles?.display_name || listing.user_email?.split('@')[0]}
+                {profileData?.display_name || listing.user_email?.split('@')[0]}
               </span>
             </div>
             
