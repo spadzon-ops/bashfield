@@ -61,6 +61,53 @@ export default function ListingDetail({ listing: initialListing }) {
     window.open(whatsappUrl, '_blank')
   }
 
+  const startConversation = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    
+    if (!user) {
+      alert('Please sign in to send messages')
+      return
+    }
+    
+    if (user.id === listing.user_id) {
+      alert('You cannot message yourself')
+      return
+    }
+
+    try {
+      // Check if conversation already exists
+      const { data: existingConv } = await supabase
+        .from('conversations')
+        .select('id')
+        .eq('listing_id', listing.id)
+        .or(`and(participant1.eq.${user.id},participant2.eq.${listing.user_id}),and(participant1.eq.${listing.user_id},participant2.eq.${user.id})`)
+        .single()
+
+      if (existingConv) {
+        router.push('/messages')
+        return
+      }
+
+      // Create new conversation
+      const { data, error } = await supabase
+        .from('conversations')
+        .insert({
+          listing_id: listing.id,
+          participant1: user.id,
+          participant2: listing.user_id
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+
+      router.push('/messages')
+    } catch (error) {
+      console.error('Error starting conversation:', error)
+      alert('Error starting conversation. Please try again.')
+    }
+  }
+
   const handleTouchStart = (e) => {
     touchStartX.current = e.touches[0].clientX
   }
@@ -246,13 +293,23 @@ export default function ListingDetail({ listing: initialListing }) {
                 <div className="text-gray-600">per month</div>
               </div>
 
-              <button
-                onClick={openWhatsApp}
-                className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-4 px-6 rounded-lg transition-colors flex items-center justify-center space-x-2 mb-4"
-              >
-                <span>💬</span>
-                <span>Contact via WhatsApp</span>
-              </button>
+              <div className="space-y-3 mb-4">
+                <button
+                  onClick={openWhatsApp}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center justify-center space-x-2"
+                >
+                  <span>💬</span>
+                  <span>Contact via WhatsApp</span>
+                </button>
+                
+                <button
+                  onClick={() => startConversation()}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center justify-center space-x-2"
+                >
+                  <span>✉️</span>
+                  <span>Send Message</span>
+                </button>
+              </div>
 
               <div className="space-y-4 text-sm">
                 <div className="flex justify-between">
