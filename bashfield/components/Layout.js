@@ -257,7 +257,7 @@ export default function Layout({ children }) {
                   className="bg-white border border-gray-300 text-gray-700 px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm appearance-none pr-8"
                 >
                   <option value="en">🇺🇸 English</option>
-                  <option value="ku">🟥🟨🟩 Kurdish</option>
+                  <option value="ku">🏴 Kurdish</option>
                   <option value="ar">🇮🇶 Arabic</option>
                 </select>
               </div>
@@ -313,7 +313,7 @@ export default function Layout({ children }) {
                   className="bg-white border border-gray-300 text-gray-700 px-2 py-1 rounded text-xs"
                 >
                   <option value="en">🇺🇸</option>
-                  <option value="ku">🟥🟨🟩</option>
+                  <option value="ku">🏴</option>
                   <option value="ar">🇮🇶</option>
                 </select>
               </div>
