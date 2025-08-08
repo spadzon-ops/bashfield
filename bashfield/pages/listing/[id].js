@@ -222,11 +222,12 @@ export default function ListingDetail({ listing: initialListing }) {
                       </div>
                       <div className="w-full h-64 rounded-lg overflow-hidden border border-gray-200">
                         <iframe
-                          src={`https://www.openstreetmap.org/export/embed.html?bbox=${listing.longitude-0.01},${listing.latitude-0.01},${listing.longitude+0.01},${listing.latitude+0.01}&layer=mapnik&marker=${listing.latitude},${listing.longitude}`}
+                          src={`https://www.openstreetmap.org/export/embed.html?bbox=${parseFloat(listing.longitude)-0.005},${parseFloat(listing.latitude)-0.005},${parseFloat(listing.longitude)+0.005},${parseFloat(listing.latitude)+0.005}&layer=mapnik&marker=${parseFloat(listing.latitude)},${parseFloat(listing.longitude)}`}
                           width="100%"
                           height="100%"
                           style={{ border: 0 }}
                           title="Property Location"
+                          loading="lazy"
                         />
                       </div>
                     </div>
