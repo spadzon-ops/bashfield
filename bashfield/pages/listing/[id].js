@@ -84,7 +84,7 @@ export default function ListingDetail({ listing: initialListing }) {
         .single()
 
       if (existingConv) {
-        router.push('/messages')
+        router.push(`/messages?conversation=${existingConv.id}`)
         return
       }
 
@@ -101,7 +101,7 @@ export default function ListingDetail({ listing: initialListing }) {
 
       if (error) throw error
 
-      router.push('/messages')
+      router.push(`/messages?conversation=${data.id}`)
     } catch (error) {
       console.error('Error starting conversation:', error)
       alert('Error starting conversation. Please try again.')
