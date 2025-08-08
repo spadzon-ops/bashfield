@@ -11,6 +11,7 @@ export default function Layout({ children }) {
   const [loading, setLoading] = useState(true)
   const [authChecked, setAuthChecked] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   useEffect(() => {
     getUser()
@@ -181,7 +182,7 @@ export default function Layout({ children }) {
       <nav className="bg-white shadow-sm border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
-            <div className="flex items-center space-x-8">
+            <div className="flex items-center">
               <div className="flex items-center space-x-3 cursor-pointer" onClick={() => router.push('/')}>
                 <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg flex items-center justify-center">
                   <span className="text-white font-bold text-lg">🏠</span>
@@ -190,71 +191,76 @@ export default function Layout({ children }) {
                   Bashfield
                 </h1>
               </div>
-              <div className="hidden md:flex space-x-6">
-                <button 
-                  onClick={() => router.push('/')} 
-                  className={`text-sm font-medium transition-colors ${
-                    router.pathname === '/' 
-                      ? 'text-blue-600' 
-                      : 'text-gray-700 hover:text-blue-600'
-                  }`}
-                >
-                  Home
-                </button>
-                {user && (
-                  <>
-                    <button 
-                      onClick={() => router.push('/post')} 
-                      className={`text-sm font-medium transition-colors ${
-                        router.pathname === '/post' 
-                          ? 'text-blue-600' 
-                          : 'text-gray-700 hover:text-blue-600'
-                      }`}
-                    >
-                      List Property
-                    </button>
-                    <button 
-                      onClick={() => router.push('/messages')} 
-                      className={`text-sm font-medium transition-colors relative ${
-                        router.pathname === '/messages' 
-                          ? 'text-blue-600' 
-                          : 'text-gray-700 hover:text-blue-600'
-                      }`}
-                    >
-                      Messages
-                      {unreadCount > 0 && (
-                        <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                          {unreadCount > 9 ? '9+' : unreadCount}
-                        </span>
-                      )}
-                    </button>
-                  </>
-                )}
-                {isAdmin && (
+            </div>
+            
+            {/* Desktop Navigation */}
+            <div className="hidden md:flex items-center space-x-6">
+              <button 
+                onClick={() => router.push('/')} 
+                className={`text-sm font-medium transition-colors ${
+                  router.pathname === '/' 
+                    ? 'text-blue-600' 
+                    : 'text-gray-700 hover:text-blue-600'
+                }`}
+              >
+                Home
+              </button>
+              {user && (
+                <>
                   <button 
-                    onClick={() => router.push('/admin')} 
+                    onClick={() => router.push('/post')} 
                     className={`text-sm font-medium transition-colors ${
-                      router.pathname === '/admin' 
+                      router.pathname === '/post' 
                         ? 'text-blue-600' 
                         : 'text-gray-700 hover:text-blue-600'
                     }`}
                   >
-                    Admin
+                    List Property
                   </button>
-                )}
-              </div>
+                  <button 
+                    onClick={() => router.push('/messages')} 
+                    className={`text-sm font-medium transition-colors relative ${
+                      router.pathname === '/messages' 
+                        ? 'text-blue-600' 
+                        : 'text-gray-700 hover:text-blue-600'
+                    }`}
+                  >
+                    Messages
+                    {unreadCount > 0 && (
+                      <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </span>
+                    )}
+                  </button>
+                </>
+              )}
+              {isAdmin && (
+                <button 
+                  onClick={() => router.push('/admin')} 
+                  className={`text-sm font-medium transition-colors ${
+                    router.pathname === '/admin' 
+                      ? 'text-blue-600' 
+                      : 'text-gray-700 hover:text-blue-600'
+                  }`}
+                >
+                  Admin
+                </button>
+              )}
             </div>
             
-            <div className="flex items-center space-x-4">
-              <select 
-                value={i18n.language} 
-                onChange={(e) => changeLanguage(e.target.value)}
-                className="bg-white border border-gray-300 text-gray-700 px-3 py-1 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-              >
-                <option value="en">🇺🇸 EN</option>
-                <option value="ku">🏴 KU</option>
-                <option value="ar">🇮🇶 AR</option>
-              </select>
+            {/* Desktop Right Side */}
+            <div className="hidden md:flex items-center space-x-4">
+              <div className="relative">
+                <select 
+                  value={i18n.language} 
+                  onChange={(e) => changeLanguage(e.target.value)}
+                  className="bg-white border border-gray-300 text-gray-700 px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm appearance-none pr-8"
+                >
+                  <option value="en">🇺🇸 English</option>
+                  <option value="ku">🟥🟨🟩 Kurdish</option>
+                  <option value="ar">🇮🇶 Arabic</option>
+                </select>
+              </div>
               
               {loading ? (
                 <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
@@ -277,7 +283,7 @@ export default function Layout({ children }) {
                         </span>
                       )}
                     </div>
-                    <span className="text-sm font-medium text-gray-700 hidden sm:block">
+                    <span className="text-sm font-medium text-gray-700">
                       {profile?.display_name || user.email.split('@')[0]}
                     </span>
                   </div>
@@ -297,7 +303,141 @@ export default function Layout({ children }) {
                 </button>
               )}
             </div>
+
+            {/* Mobile Menu Button */}
+            <div className="md:hidden flex items-center space-x-2">
+              <div className="relative">
+                <select 
+                  value={i18n.language} 
+                  onChange={(e) => changeLanguage(e.target.value)}
+                  className="bg-white border border-gray-300 text-gray-700 px-2 py-1 rounded text-xs"
+                >
+                  <option value="en">🇺🇸</option>
+                  <option value="ku">🟥🟨🟩</option>
+                  <option value="ar">🇮🇶</option>
+                </select>
+              </div>
+              <button
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                className="text-gray-700 hover:text-blue-600 p-2"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+            </div>
           </div>
+
+          {/* Mobile Menu */}
+          {mobileMenuOpen && (
+            <div className="md:hidden border-t border-gray-200 py-4">
+              <div className="space-y-3">
+                <button 
+                  onClick={() => {
+                    router.push('/')
+                    setMobileMenuOpen(false)
+                  }} 
+                  className={`block w-full text-left px-4 py-2 text-sm font-medium transition-colors ${
+                    router.pathname === '/' 
+                      ? 'text-blue-600 bg-blue-50' 
+                      : 'text-gray-700 hover:text-blue-600 hover:bg-gray-50'
+                  }`}
+                >
+                  🏠 Home
+                </button>
+                {user && (
+                  <>
+                    <button 
+                      onClick={() => {
+                        router.push('/post')
+                        setMobileMenuOpen(false)
+                      }} 
+                      className={`block w-full text-left px-4 py-2 text-sm font-medium transition-colors ${
+                        router.pathname === '/post' 
+                          ? 'text-blue-600 bg-blue-50' 
+                          : 'text-gray-700 hover:text-blue-600 hover:bg-gray-50'
+                      }`}
+                    >
+                      📝 List Property
+                    </button>
+                    <button 
+                      onClick={() => {
+                        router.push('/messages')
+                        setMobileMenuOpen(false)
+                      }} 
+                      className={`block w-full text-left px-4 py-2 text-sm font-medium transition-colors relative ${
+                        router.pathname === '/messages' 
+                          ? 'text-blue-600 bg-blue-50' 
+                          : 'text-gray-700 hover:text-blue-600 hover:bg-gray-50'
+                      }`}
+                    >
+                      💬 Messages
+                      {unreadCount > 0 && (
+                        <span className="ml-2 bg-red-500 text-white text-xs rounded-full px-2 py-1">
+                          {unreadCount > 9 ? '9+' : unreadCount}
+                        </span>
+                      )}
+                    </button>
+                    <button 
+                      onClick={() => {
+                        router.push('/profile')
+                        setMobileMenuOpen(false)
+                      }} 
+                      className={`block w-full text-left px-4 py-2 text-sm font-medium transition-colors ${
+                        router.pathname === '/profile' 
+                          ? 'text-blue-600 bg-blue-50' 
+                          : 'text-gray-700 hover:text-blue-600 hover:bg-gray-50'
+                      }`}
+                    >
+                      👤 Profile
+                    </button>
+                  </>
+                )}
+                {isAdmin && (
+                  <button 
+                    onClick={() => {
+                      router.push('/admin')
+                      setMobileMenuOpen(false)
+                    }} 
+                    className={`block w-full text-left px-4 py-2 text-sm font-medium transition-colors ${
+                      router.pathname === '/admin' 
+                        ? 'text-blue-600 bg-blue-50' 
+                        : 'text-gray-700 hover:text-blue-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    🛡️ Admin
+                  </button>
+                )}
+                <div className="border-t border-gray-200 pt-3">
+                  {loading ? (
+                    <div className="flex justify-center">
+                      <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                  ) : user ? (
+                    <button 
+                      onClick={() => {
+                        handleLogout()
+                        setMobileMenuOpen(false)
+                      }} 
+                      className="block w-full text-left px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+                    >
+                      🚪 Logout
+                    </button>
+                  ) : (
+                    <button 
+                      onClick={() => {
+                        handleLogin()
+                        setMobileMenuOpen(false)
+                      }} 
+                      className="block w-full text-left px-4 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 transition-colors"
+                    >
+                      🔐 Sign In
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </nav>
       
