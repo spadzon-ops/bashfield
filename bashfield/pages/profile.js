@@ -21,7 +21,6 @@ export default function Profile() {
   useEffect(() => {
     checkAuth()
     
-    // Check for tab parameter
     const urlParams = new URLSearchParams(window.location.search)
     const tab = urlParams.get('tab')
     if (tab && ['profile', 'listings'].includes(tab)) {
@@ -44,17 +43,6 @@ export default function Profile() {
 
   const initializeProfile = async (user) => {
     try {
-      // First run the init script to ensure table exists
-      await supabase.rpc('create_user_profile_if_not_exists', {
-        p_user_id: user.id,
-        p_email: user.email,
-        p_display_name: user.user_metadata?.full_name || user.user_metadata?.name || user.email.split('@')[0]
-      }).catch(() => {
-        // If RPC doesn't exist, create profile directly
-        return createProfileDirectly(user)
-      })
-
-      // Now fetch the profile
       const { data, error } = await supabase
         .from('user_profiles')
         .select('*')
@@ -129,12 +117,6 @@ export default function Profile() {
       }
       
       setProfile(data)
-      
-      // Trigger a page refresh to update all components
-      setTimeout(() => {
-        window.location.reload()
-      }, 1000)
-      
       alert('Profile updated successfully!')
     } catch (error) {
       console.error('Error updating profile:', error)
@@ -151,7 +133,6 @@ export default function Profile() {
     setUploading(true)
     
     try {
-      // Delete old profile picture if exists
       if (profilePicture) {
         await supabase.storage
           .from('house-images')
@@ -169,7 +150,6 @@ export default function Profile() {
 
       setProfilePicture(fileName)
       
-      // Auto-save the profile picture
       const { data, error: updateError } = await supabase
         .from('user_profiles')
         .upsert({
@@ -184,12 +164,6 @@ export default function Profile() {
       if (updateError) throw updateError
 
       setProfile(data)
-      
-      // Trigger a page refresh to update all components
-      setTimeout(() => {
-        window.location.reload()
-      }, 1000)
-      
       alert('Profile picture updated successfully!')
     } catch (error) {
       console.error('Error uploading image:', error)
@@ -250,7 +224,6 @@ export default function Profile() {
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Profile Header */}
         <div className="bg-white rounded-xl shadow-sm p-6 sm:p-8 mb-8">
           <div className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-6">
             <div className="relative group">
@@ -297,7 +270,6 @@ export default function Profile() {
           </div>
         </div>
 
-        {/* Tabs */}
         <div className="bg-white rounded-xl shadow-sm mb-8">
           <div className="border-b border-gray-200">
             <nav className="flex space-x-8 px-6">
