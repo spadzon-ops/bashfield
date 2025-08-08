@@ -117,6 +117,12 @@ export default function Profile() {
       }
       
       setProfile(data)
+      
+      // Trigger a custom event to notify Layout component
+      window.dispatchEvent(new CustomEvent('profileUpdated', { 
+        detail: { profile: data } 
+      }))
+      
       alert('Profile updated successfully!')
     } catch (error) {
       console.error('Error updating profile:', error)
@@ -164,6 +170,12 @@ export default function Profile() {
       if (updateError) throw updateError
 
       setProfile(data)
+      
+      // Trigger a custom event to notify Layout component
+      window.dispatchEvent(new CustomEvent('profileUpdated', { 
+        detail: { profile: data } 
+      }))
+      
       alert('Profile picture updated successfully!')
     } catch (error) {
       console.error('Error uploading image:', error)
