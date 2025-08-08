@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useTranslation } from 'next-i18next'
 import { useRouter } from 'next/router'
+import { supabase } from '../lib/supabase'
 
 export default function ListingCard({ listing, showActions = false, onApprove, onReject, onDelete }) {
   const { t } = useTranslation('common')
@@ -67,6 +68,53 @@ export default function ListingCard({ listing, showActions = false, onApprove, o
     }
     if (isRightSwipe && listing.images.length > 1) {
       prevImage(e)
+    }
+  }
+
+  const startConversation = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    
+    if (!user) {
+      alert('Please sign in to send messages')
+      return
+    }
+    
+    if (user.id === listing.user_id) {
+      alert('You cannot message yourself')
+      return
+    }
+
+    try {
+      // Check if conversation already exists
+      const { data: existingConv } = await supabase
+        .from('conversations')
+        .select('id')
+        .eq('listing_id', listing.id)
+        .or(`and(participant1.eq.${user.id},participant2.eq.${listing.user_id}),and(participant1.eq.${listing.user_id},participant2.eq.${user.id})`)
+        .single()
+
+      if (existingConv) {
+        router.push(`/messages?conversation=${existingConv.id}`)
+        return
+      }
+
+      // Create new conversation
+      const { data, error } = await supabase
+        .from('conversations')
+        .insert({
+          listing_id: listing.id,
+          participant1: user.id,
+          participant2: listing.user_id
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+
+      router.push(`/messages?conversation=${data.id}`)
+    } catch (error) {
+      console.error('Error starting conversation:', error)
+      alert('Error starting conversation. Please try again.')
     }
   }
 
@@ -215,25 +263,37 @@ export default function ListingCard({ listing, showActions = false, onApprove, o
           
           {/* Action Buttons */}
           {!showActions && (
-            <div className="flex space-x-2">
-              {listing.phone && (
+            <div className="space-y-2">
+              <div className="flex space-x-2">
+                {listing.phone && (
+                  <button
+                    onClick={openWhatsApp}
+                    className="flex-1 bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center space-x-1"
+                  >
+                    <span>💬</span>
+                    <span>WhatsApp</span>
+                  </button>
+                )}
                 <button
-                  onClick={openWhatsApp}
-                  className="flex-1 bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center space-x-1"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    openListing()
+                  }}
+                  className="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center space-x-1"
                 >
-                  <span>💬</span>
-                  <span>WhatsApp</span>
+                  <span>👁️</span>
+                  <span>View Details</span>
                 </button>
-              )}
+              </div>
               <button
                 onClick={(e) => {
                   e.stopPropagation()
-                  openListing()
+                  startConversation()
                 }}
-                className="flex-1 bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center space-x-1"
+                className="w-full bg-purple-500 hover:bg-purple-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center space-x-1"
               >
-                <span>👁️</span>
-                <span>View Details</span>
+                <span>✉️</span>
+                <span>Send Message</span>
               </button>
             </div>
           )}
