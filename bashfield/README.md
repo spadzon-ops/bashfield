@@ -1,4 +1,4 @@
-# Bashfield - House Rentals in Iraq 
+# Bashfield - House Rentals in Iraq
 
 A modern, multilingual house rental platform for Iraq, especially Erbil. Built with Next.js, Supabase, and Tailwind CSS.
 
@@ -14,7 +14,9 @@ A modern, multilingual house rental platform for Iraq, especially Erbil. Built w
 
 ## 🚀 Live Demo
 
-Visit: [Your Vercel URL will be here]
+**Live Sites:**
+- **Vercel**: https://bashfield-ten.vercel.app
+- **Netlify**: https://your-netlify-url.netlify.app
 
 ## 🛠️ Tech Stack
 
@@ -47,10 +49,17 @@ Visit: [Your Vercel URL will be here]
 
 ## 🔧 Deployment
 
+### **Vercel (Main Site)**
 1. **Push to GitHub**
 2. **Connect to Vercel**
 3. **Add environment variables in Vercel dashboard**
 4. **Deploy automatically**
+
+### **Netlify (Backup Site)**
+1. **Same GitHub repo**
+2. **Connect to Netlify**
+3. **Add same environment variables**
+4. **Uses @netlify/plugin-nextjs for Next.js support**
 
 ## 📊 Database Schema
 
@@ -85,10 +94,20 @@ The app uses these Supabase tables:
 - Users can only edit their own listings
 - Admin has full access to all operations
 
+## ✅ **Recent Enhancements (Completed)**
+
+- ✅ **USD/IQD Currency Support** - International pricing
+- ✅ **WhatsApp Integration** - Direct messaging to property owners
+- ✅ **Map Location Picker** - Precise property locations
+- ✅ **Built-in Chat System** - Real-time messaging
+- ✅ **User Profile Pages** - Personal dashboards with statistics
+- ✅ **Success Pages** - Better user experience after posting
+- ✅ **Dual Hosting** - Vercel + Netlify for reliability
+
 ## 📱 Future Enhancements
 
 - React Native mobile app
 - Email notifications
 - Advanced search filters
 - Listing favorites
-- User profiles
+- Payment integration
