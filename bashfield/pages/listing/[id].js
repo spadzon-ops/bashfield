@@ -220,22 +220,15 @@ export default function ListingDetail({ listing: initialListing }) {
                           <span>Open in Maps</span>
                         </button>
                       </div>
-                      <div className="w-full h-64 rounded-lg overflow-hidden border border-gray-200 relative">
+                      <div className="w-full h-64 rounded-lg overflow-hidden border border-gray-200">
                         <iframe
-                          src={`https://www.openstreetmap.org/export/embed.html?bbox=${parseFloat(listing.longitude)-0.003},${parseFloat(listing.latitude)-0.003},${parseFloat(listing.longitude)+0.003},${parseFloat(listing.latitude)+0.003}&layer=mapnik`}
+                          src={`https://www.openstreetmap.org/export/embed.html?bbox=${parseFloat(listing.longitude)-0.002},${parseFloat(listing.latitude)-0.002},${parseFloat(listing.longitude)+0.002},${parseFloat(listing.latitude)+0.002}&layer=mapnik&marker=${parseFloat(listing.latitude)},${parseFloat(listing.longitude)}`}
                           width="100%"
                           height="100%"
                           style={{ border: 0 }}
                           title="Property Location"
                           loading="lazy"
                         />
-                        {/* Custom marker overlay */}
-                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-full pointer-events-none z-10">
-                          <div className="bg-red-500 text-white px-2 py-1 rounded-lg text-xs font-semibold shadow-lg">
-                            🏠 Property
-                          </div>
-                          <div className="w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-red-500 mx-auto"></div>
-                        </div>
                       </div>
                     </div>
                   )}
