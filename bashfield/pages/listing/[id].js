@@ -1,53 +1,46 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/router'
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations'
 import { useTranslation } from 'next-i18next'
 import { supabase } from '../../lib/supabase'
 
-export default function ListingDetail() {
+export default function ListingDetail({ listing: initialListing }) {
   const { t } = useTranslation('common')
   const router = useRouter()
-  const { id } = router.query
-  const [listing, setListing] = useState(null)
+  const [listing] = useState(initialListing)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
   const touchStartX = useRef(0)
   const touchEndX = useRef(0)
 
-  useEffect(() => {
-    if (id) {
-      fetchListing()
-    }
-  }, [id])
+  if (router.isFallback) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading property...</p>
+        </div>
+      </div>
+    )
+  }
 
-  const fetchListing = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('listings')
-        .select(`
-          *,
-          user_profiles(display_name, profile_picture)
-        `)
-        .eq('id', id)
-        .single()
-
-      if (error) {
-        console.error('Error fetching listing:', error)
-        setError('Listing not found or no longer available')
-      } else if (!data) {
-        setError('Listing not found')
-      } else {
-        setListing({
-          ...data,
-          owner_name: data.user_profiles?.display_name || data.user_email?.split('@')[0] || 'Property Owner'
-        })
-      }
-    } catch (err) {
-      console.error('Fetch error:', err)
-      setError('Failed to load listing')
-    }
-    setLoading(false)
+  if (!listing) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <span className="text-4xl">❌</span>
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Property Not Found</h1>
+          <p className="text-gray-600 mb-6">This property may have been removed or is no longer available.</p>
+          <button 
+            onClick={() => router.push('/')}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors"
+          >
+            ← Back to Homepage
+          </button>
+        </div>
+      </div>
+    )
   }
 
   const nextImage = () => {
@@ -89,37 +82,6 @@ export default function ListingDetail() {
     if (isRightSwipe && listing.images.length > 1) {
       prevImage()
     }
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading property...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (error || (!loading && !listing)) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <span className="text-4xl">❌</span>
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-4">{error || 'Property Not Found'}</h1>
-          <p className="text-gray-600 mb-6">This property may have been removed or is no longer available.</p>
-          <button 
-            onClick={() => router.push('/')}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors"
-          >
-            ← Back to Homepage
-          </button>
-        </div>
-      </div>
-    )
   }
 
   return (
@@ -243,7 +205,6 @@ export default function ListingDetail() {
                   <h3 className="text-lg font-semibold text-gray-900 mb-3">Location</h3>
                   <p className="text-gray-700 mb-4">{listing.address}</p>
                   
-                  {/* Embedded Map */}
                   {(listing.latitude && listing.longitude) && (
                     <div className="mt-4">
                       <div className="flex items-center justify-between mb-3">
@@ -327,9 +288,44 @@ export default function ListingDetail() {
 }
 
 export async function getServerSideProps({ params, locale }) {
-  return {
-    props: {
-      ...(await serverSideTranslations(locale, ['common'])),
-    },
+  const { id } = params
+  
+  try {
+    // Get listing data
+    const { data: listingData, error: listingError } = await supabase
+      .from('listings')
+      .select('*')
+      .eq('id', id)
+      .single()
+
+    if (listingError || !listingData) {
+      return {
+        notFound: true,
+      }
+    }
+
+    // Get profile data separately
+    const { data: profileData } = await supabase
+      .from('user_profiles')
+      .select('display_name, profile_picture')
+      .eq('user_id', listingData.user_id)
+      .single()
+
+    const listing = {
+      ...listingData,
+      user_profiles: profileData || null,
+      owner_name: profileData?.display_name || listingData.user_email?.split('@')[0] || 'Property Owner'
+    }
+
+    return {
+      props: {
+        listing,
+        ...(await serverSideTranslations(locale, ['common'])),
+      },
+    }
+  } catch (error) {
+    return {
+      notFound: true,
+    }
   }
 }
