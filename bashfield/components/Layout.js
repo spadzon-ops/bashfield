@@ -10,6 +10,7 @@ export default function Layout({ children }) {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [authChecked, setAuthChecked] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
 
   useEffect(() => {
     getUser()
@@ -32,9 +33,22 @@ export default function Layout({ children }) {
     if (user) {
       setUser(user)
       await getUserProfile(user)
+      await getUnreadCount(user)
     }
     setLoading(false)
     setAuthChecked(true)
+  }
+
+  const getUnreadCount = async (user) => {
+    const { data, error } = await supabase
+      .from('messages')
+      .select('id')
+      .eq('recipient_id', user.id)
+      .eq('read', false)
+    
+    if (data && !error) {
+      setUnreadCount(data.length)
+    }
   }
 
   const getUserProfile = async (user) => {
@@ -102,8 +116,36 @@ export default function Layout({ children }) {
       
       window.addEventListener('profileUpdated', handleProfileUpdate)
 
+      // Listen for new messages to update unread count
+      const messageChannel = supabase
+        .channel('message-updates')
+        .on('postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'messages',
+            filter: `recipient_id=eq.${user.id}`
+          },
+          () => {
+            getUnreadCount(user)
+          }
+        )
+        .on('postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'messages',
+            filter: `recipient_id=eq.${user.id}`
+          },
+          () => {
+            getUnreadCount(user)
+          }
+        )
+        .subscribe()
+
       return () => {
         supabase.removeChannel(channel)
+        supabase.removeChannel(messageChannel)
         window.removeEventListener('profileUpdated', handleProfileUpdate)
       }
     }
@@ -166,13 +208,18 @@ export default function Layout({ children }) {
                     </button>
                     <button 
                       onClick={() => router.push('/messages')} 
-                      className={`text-sm font-medium transition-colors ${
+                      className={`text-sm font-medium transition-colors relative ${
                         router.pathname === '/messages' 
                           ? 'text-blue-600' 
                           : 'text-gray-700 hover:text-blue-600'
                       }`}
                     >
                       Messages
+                      {unreadCount > 0 && (
+                        <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                          {unreadCount > 9 ? '9+' : unreadCount}
+                        </span>
+                      )}
                     </button>
                   </>
                 )}
