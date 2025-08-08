@@ -44,16 +44,6 @@ export default function Messages() {
     scrollToBottom()
   }, [messages])
 
-  useEffect(() => {
-    // Prevent body scroll when component mounts
-    document.body.style.overflow = 'hidden'
-    
-    return () => {
-      // Restore body scroll when component unmounts
-      document.body.style.overflow = 'unset'
-    }
-  }, [])
-
   const checkAuth = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     
@@ -235,7 +225,13 @@ export default function Messages() {
   }
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ 
+        behavior: 'smooth',
+        block: 'end',
+        inline: 'nearest'
+      })
+    }
   }
 
   const formatTime = (timestamp) => {
