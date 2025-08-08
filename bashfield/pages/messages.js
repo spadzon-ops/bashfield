@@ -1,0 +1,345 @@
+import { useState, useEffect, useRef } from 'react'
+import { useRouter } from 'next/router'
+import { serverSideTranslations } from 'next-i18next/serverSideTranslations'
+import { useTranslation } from 'next-i18next'
+import { supabase } from '../lib/supabase'
+
+export default function Messages() {
+  const { t } = useTranslation('common')
+  const router = useRouter()
+  const [user, setUser] = useState(null)
+  const [conversations, setConversations] = useState([])
+  const [activeConversation, setActiveConversation] = useState(null)
+  const [messages, setMessages] = useState([])
+  const [newMessage, setNewMessage] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [sending, setSending] = useState(false)
+  const messagesEndRef = useRef(null)
+
+  useEffect(() => {
+    checkAuth()
+  }, [])
+
+  useEffect(() => {
+    if (activeConversation) {
+      fetchMessages()
+      markAsRead()
+    }
+  }, [activeConversation])
+
+  useEffect(() => {
+    scrollToBottom()
+  }, [messages])
+
+  const checkAuth = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    
+    if (!user) {
+      router.push('/')
+      return
+    }
+
+    setUser(user)
+    await fetchConversations(user)
+    setLoading(false)
+  }
+
+  const fetchConversations = async (user) => {
+    const { data, error } = await supabase
+      .from('conversations')
+      .select(`
+        *,
+        listing:listings(*),
+        participant1:user_profiles!conversations_participant1_fkey(*),
+        participant2:user_profiles!conversations_participant2_fkey(*),
+        last_message:messages(content, created_at, sender_id)
+      `)
+      .or(`participant1.eq.${user.id},participant2.eq.${user.id}`)
+      .order('updated_at', { ascending: false })
+
+    if (data) {
+      const conversationsWithDetails = data.map(conv => {
+        const otherParticipant = conv.participant1?.user_id === user.id ? conv.participant2 : conv.participant1
+        const lastMessage = conv.last_message?.[0]
+        
+        return {
+          ...conv,
+          other_participant: otherParticipant,
+          last_message: lastMessage,
+          unread_count: conv.unread_count || 0
+        }
+      })
+      
+      setConversations(conversationsWithDetails)
+    }
+  }
+
+  const fetchMessages = async () => {
+    if (!activeConversation) return
+
+    const { data, error } = await supabase
+      .from('messages')
+      .select(`
+        *,
+        sender:user_profiles!messages_sender_id_fkey(*)
+      `)
+      .eq('conversation_id', activeConversation.id)
+      .order('created_at', { ascending: true })
+
+    if (data) {
+      setMessages(data)
+    }
+  }
+
+  const markAsRead = async () => {
+    if (!activeConversation || !user) return
+
+    await supabase
+      .from('messages')
+      .update({ read: true })
+      .eq('conversation_id', activeConversation.id)
+      .eq('recipient_id', user.id)
+      .eq('read', false)
+
+    // Update conversation unread count
+    setConversations(prev => 
+      prev.map(conv => 
+        conv.id === activeConversation.id 
+          ? { ...conv, unread_count: 0 }
+          : conv
+      )
+    )
+  }
+
+  const sendMessage = async () => {
+    if (!newMessage.trim() || !activeConversation || sending) return
+
+    setSending(true)
+    
+    const otherParticipantId = activeConversation.participant1?.user_id === user.id 
+      ? activeConversation.participant2?.user_id 
+      : activeConversation.participant1?.user_id
+
+    const { data, error } = await supabase
+      .from('messages')
+      .insert({
+        conversation_id: activeConversation.id,
+        sender_id: user.id,
+        recipient_id: otherParticipantId,
+        content: newMessage.trim()
+      })
+      .select(`
+        *,
+        sender:user_profiles!messages_sender_id_fkey(*)
+      `)
+      .single()
+
+    if (data && !error) {
+      setMessages(prev => [...prev, data])
+      setNewMessage('')
+      
+      // Update conversation timestamp
+      await supabase
+        .from('conversations')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', activeConversation.id)
+    }
+
+    setSending(false)
+  }
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }
+
+  const formatTime = (timestamp) => {
+    return new Date(timestamp).toLocaleTimeString([], { 
+      hour: '2-digit', 
+      minute: '2-digit' 
+    })
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading messages...</p>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="bg-white rounded-xl shadow-sm overflow-hidden" style={{ height: 'calc(100vh - 120px)' }}>
+          <div className="flex h-full">
+            {/* Conversations List */}
+            <div className="w-1/3 border-r border-gray-200 flex flex-col">
+              <div className="p-4 border-b border-gray-200">
+                <h2 className="text-xl font-bold text-gray-900">💬 Messages</h2>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto">
+                {conversations.length === 0 ? (
+                  <div className="p-8 text-center">
+                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <span className="text-3xl">💬</span>
+                    </div>
+                    <p className="text-gray-600">No conversations yet</p>
+                  </div>
+                ) : (
+                  conversations.map(conversation => (
+                    <div
+                      key={conversation.id}
+                      onClick={() => setActiveConversation(conversation)}
+                      className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${
+                        activeConversation?.id === conversation.id ? 'bg-blue-50 border-blue-200' : ''
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3">
+                        {conversation.other_participant?.profile_picture ? (
+                          <img
+                            src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/house-images/${conversation.other_participant.profile_picture}`}
+                            alt="Profile"
+                            className="w-12 h-12 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                            <span className="text-blue-600 font-semibold">
+                              {conversation.other_participant?.display_name?.[0]?.toUpperCase() || '?'}
+                            </span>
+                          </div>
+                        )}
+                        
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <p className="text-sm font-medium text-gray-900 truncate">
+                              {conversation.other_participant?.display_name || 'Unknown User'}
+                            </p>
+                            {conversation.unread_count > 0 && (
+                              <span className="bg-blue-500 text-white text-xs rounded-full px-2 py-1 min-w-[20px] text-center">
+                                {conversation.unread_count}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-600 truncate">
+                            Re: {conversation.listing?.title || 'Property'}
+                          </p>
+                          {conversation.last_message && (
+                            <p className="text-xs text-gray-500 truncate mt-1">
+                              {conversation.last_message.content}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Chat Area */}
+            <div className="flex-1 flex flex-col">
+              {activeConversation ? (
+                <>
+                  {/* Chat Header */}
+                  <div className="p-4 border-b border-gray-200 bg-gray-50">
+                    <div className="flex items-center space-x-3">
+                      {activeConversation.other_participant?.profile_picture ? (
+                        <img
+                          src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/house-images/${activeConversation.other_participant.profile_picture}`}
+                          alt="Profile"
+                          className="w-10 h-10 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                          <span className="text-blue-600 font-semibold">
+                            {activeConversation.other_participant?.display_name?.[0]?.toUpperCase() || '?'}
+                          </span>
+                        </div>
+                      )}
+                      <div>
+                        <h3 className="font-medium text-gray-900">
+                          {activeConversation.other_participant?.display_name || 'Unknown User'}
+                        </h3>
+                        <p className="text-sm text-gray-600">
+                          About: {activeConversation.listing?.title || 'Property'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Messages */}
+                  <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                    {messages.map(message => (
+                      <div
+                        key={message.id}
+                        className={`flex ${message.sender_id === user.id ? 'justify-end' : 'justify-start'}`}
+                      >
+                        <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                          message.sender_id === user.id
+                            ? 'bg-blue-500 text-white'
+                            : 'bg-gray-200 text-gray-900'
+                        }`}>
+                          <p className="text-sm">{message.content}</p>
+                          <p className={`text-xs mt-1 ${
+                            message.sender_id === user.id ? 'text-blue-100' : 'text-gray-500'
+                          }`}>
+                            {formatTime(message.created_at)}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                    <div ref={messagesEndRef} />
+                  </div>
+
+                  {/* Message Input */}
+                  <div className="p-4 border-t border-gray-200">
+                    <div className="flex space-x-2">
+                      <input
+                        type="text"
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                        placeholder="Type your message..."
+                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        disabled={sending}
+                      />
+                      <button
+                        onClick={sendMessage}
+                        disabled={!newMessage.trim() || sending}
+                        className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white px-6 py-2 rounded-lg transition-colors"
+                      >
+                        {sending ? '...' : 'Send'}
+                      </button>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="flex-1 flex items-center justify-center">
+                  <div className="text-center">
+                    <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <span className="text-4xl">💬</span>
+                    </div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">Select a conversation</h3>
+                    <p className="text-gray-600">Choose a conversation from the list to start messaging</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export async function getServerSideProps({ locale }) {
+  return {
+    props: {
+      ...(await serverSideTranslations(locale, ['common'])),
+    },
+  }
+}
