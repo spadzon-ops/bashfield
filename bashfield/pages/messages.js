@@ -225,12 +225,9 @@ export default function Messages() {
   }
 
   const scrollToBottom = () => {
-    if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ 
-        behavior: 'smooth',
-        block: 'end',
-        inline: 'nearest'
-      })
+    const messagesContainer = messagesEndRef.current?.parentElement
+    if (messagesContainer) {
+      messagesContainer.scrollTop = messagesContainer.scrollHeight
     }
   }
 
