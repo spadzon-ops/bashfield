@@ -80,25 +80,33 @@ export default function Messages() {
         .select('id, title')
         .in('id', listingIds)
       
-      // Get last messages for each conversation
+      // Get last messages and unread counts for each conversation
       const { data: lastMessagesData } = await supabase
         .from('messages')
         .select('conversation_id, content, created_at, sender_id')
         .in('conversation_id', conversationsData.map(c => c.id))
         .order('created_at', { ascending: false })
       
+      const { data: unreadData } = await supabase
+        .from('messages')
+        .select('conversation_id, id')
+        .in('conversation_id', conversationsData.map(c => c.id))
+        .eq('recipient_id', user.id)
+        .eq('read', false)
+      
       const conversationsWithDetails = conversationsData.map(conv => {
         const otherParticipantId = conv.participant1 === user.id ? conv.participant2 : conv.participant1
         const otherParticipant = profilesData?.find(p => p.user_id === otherParticipantId)
         const listing = listingsData?.find(l => l.id === conv.listing_id)
         const lastMessage = lastMessagesData?.find(m => m.conversation_id === conv.id)
+        const unreadCount = unreadData?.filter(m => m.conversation_id === conv.id).length || 0
         
         return {
           ...conv,
           other_participant: otherParticipant,
           listing: listing,
           last_message: lastMessage,
-          unread_count: 0
+          unread_count: unreadCount
         }
       })
       
@@ -109,17 +117,30 @@ export default function Messages() {
   const fetchMessages = async () => {
     if (!activeConversation) return
 
-    const { data, error } = await supabase
+    const { data: messagesData, error } = await supabase
       .from('messages')
-      .select(`
-        *,
-        sender:user_profiles!messages_sender_id_fkey(*)
-      `)
+      .select('*')
       .eq('conversation_id', activeConversation.id)
       .order('created_at', { ascending: true })
 
-    if (data) {
-      setMessages(data)
+    if (messagesData && !error) {
+      // Get sender profiles
+      const senderIds = [...new Set(messagesData.map(m => m.sender_id))]
+      const { data: profilesData } = await supabase
+        .from('user_profiles')
+        .select('user_id, display_name, profile_picture')
+        .in('user_id', senderIds)
+      
+      // Merge messages with sender profiles
+      const messagesWithProfiles = messagesData.map(message => ({
+        ...message,
+        sender: profilesData?.find(p => p.user_id === message.sender_id) || {
+          user_id: message.sender_id,
+          display_name: 'Unknown User'
+        }
+      }))
+      
+      setMessages(messagesWithProfiles)
     }
   }
 
@@ -152,22 +173,36 @@ export default function Messages() {
       ? activeConversation.participant2 
       : activeConversation.participant1
 
-    const { data, error } = await supabase
-      .from('messages')
-      .insert({
-        conversation_id: activeConversation.id,
-        sender_id: user.id,
-        recipient_id: otherParticipantId,
-        content: newMessage.trim()
-      })
-      .select(`
-        *,
-        sender:user_profiles!messages_sender_id_fkey(*)
-      `)
-      .single()
+    try {
+      const { data, error } = await supabase
+        .from('messages')
+        .insert({
+          conversation_id: activeConversation.id,
+          sender_id: user.id,
+          recipient_id: otherParticipantId,
+          content: newMessage.trim(),
+          read: false
+        })
+        .select()
+        .single()
 
-    if (data && !error) {
-      setMessages(prev => [...prev, data])
+      if (error) {
+        console.error('Error sending message:', error)
+        alert('Failed to send message. Please try again.')
+        setSending(false)
+        return
+      }
+
+      // Add sender profile data to message
+      const messageWithProfile = {
+        ...data,
+        sender: {
+          user_id: user.id,
+          display_name: user.user_metadata?.full_name || user.email.split('@')[0]
+        }
+      }
+
+      setMessages(prev => [...prev, messageWithProfile])
       setNewMessage('')
       
       // Update conversation timestamp
@@ -175,6 +210,10 @@ export default function Messages() {
         .from('conversations')
         .update({ updated_at: new Date().toISOString() })
         .eq('id', activeConversation.id)
+        
+    } catch (error) {
+      console.error('Error sending message:', error)
+      alert('Failed to send message. Please try again.')
     }
 
     setSending(false)
