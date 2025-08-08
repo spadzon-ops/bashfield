@@ -44,6 +44,16 @@ export default function Messages() {
     scrollToBottom()
   }, [messages])
 
+  useEffect(() => {
+    // Prevent body scroll when component mounts
+    document.body.style.overflow = 'hidden'
+    
+    return () => {
+      // Restore body scroll when component unmounts
+      document.body.style.overflow = 'unset'
+    }
+  }, [])
+
   const checkAuth = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     
@@ -147,21 +157,26 @@ export default function Messages() {
   const markAsRead = async () => {
     if (!activeConversation || !user) return
 
-    await supabase
+    const { error } = await supabase
       .from('messages')
       .update({ read: true })
       .eq('conversation_id', activeConversation.id)
       .eq('recipient_id', user.id)
       .eq('read', false)
 
-    // Update conversation unread count
-    setConversations(prev => 
-      prev.map(conv => 
-        conv.id === activeConversation.id 
-          ? { ...conv, unread_count: 0 }
-          : conv
+    if (!error) {
+      // Update conversation unread count
+      setConversations(prev => 
+        prev.map(conv => 
+          conv.id === activeConversation.id 
+            ? { ...conv, unread_count: 0 }
+            : conv
+        )
       )
-    )
+      
+      // Trigger global unread count update
+      window.dispatchEvent(new CustomEvent('messagesRead'))
+    }
   }
 
   const sendMessage = async () => {
