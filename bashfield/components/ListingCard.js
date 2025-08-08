@@ -119,10 +119,11 @@ export default function ListingCard({ listing, showActions = false, onApprove, o
   }
 
   return (
-    <div 
-      className="bg-white rounded-xl shadow-sm overflow-hidden group hover:shadow-lg transition-all duration-300 cursor-pointer"
-      onClick={openListing}
-    >
+    <div className="bg-white rounded-xl shadow-sm overflow-hidden group hover:shadow-lg transition-all duration-300">
+      <div 
+        className="cursor-pointer"
+        onClick={openListing}
+      >
       {/* Image Carousel */}
       <div 
         className="relative h-48 sm:h-56 bg-gray-100 overflow-hidden"
@@ -194,6 +195,7 @@ export default function ListingCard({ listing, showActions = false, onApprove, o
             <span className="text-4xl">🏠</span>
           </div>
         )}
+      </div>
       </div>
       
       {/* Content */}
