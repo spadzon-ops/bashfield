@@ -217,21 +217,6 @@ export default function Layout({ children }) {
                   >
                     List Property
                   </button>
-                  <button 
-                    onClick={() => router.push('/messages')} 
-                    className={`text-sm font-medium transition-colors relative ${
-                      router.pathname === '/messages' 
-                        ? 'text-blue-600' 
-                        : 'text-gray-700 hover:text-blue-600'
-                    }`}
-                  >
-                    Messages
-                    {unreadCount > 0 && (
-                      <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                        {unreadCount > 9 ? '9+' : unreadCount}
-                      </span>
-                    )}
-                  </button>
                 </>
               )}
               {isAdmin && (
@@ -250,16 +235,40 @@ export default function Layout({ children }) {
             
             {/* Desktop Right Side */}
             <div className="hidden md:flex items-center space-x-4">
-              <div className="relative">
-                <select 
-                  value={i18n.language} 
-                  onChange={(e) => changeLanguage(e.target.value)}
-                  className="bg-white border border-gray-300 text-gray-700 px-3 py-2 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm appearance-none pr-8"
+              {user && (
+                <button 
+                  onClick={() => router.push('/messages')} 
+                  className={`text-sm font-medium transition-colors relative ${
+                    router.pathname === '/messages' 
+                      ? 'text-blue-600' 
+                      : 'text-gray-700 hover:text-blue-600'
+                  }`}
                 >
-                  <option value="en">🇺🇸 English</option>
-                  <option value="ku">🏴 Kurdish</option>
-                  <option value="ar">🇮🇶 Arabic</option>
-                </select>
+                  Messages
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
+                </button>
+              )}
+              <div className="relative">
+                <div className="flex items-center space-x-2 bg-white border border-gray-300 px-3 py-2 rounded-lg">
+                  <img 
+                    src={`/flags/${i18n.language === 'en' ? 'us' : i18n.language === 'ku' ? 'kurdistan' : 'iraq'}.svg`}
+                    alt="Flag"
+                    className="w-5 h-3 object-cover rounded-sm"
+                  />
+                  <select 
+                    value={i18n.language} 
+                    onChange={(e) => changeLanguage(e.target.value)}
+                    className="bg-transparent border-none text-gray-700 text-sm focus:outline-none appearance-none"
+                  >
+                    <option value="en">English</option>
+                    <option value="ku">Kurdish</option>
+                    <option value="ar">Arabic</option>
+                  </select>
+                </div>
               </div>
               
               {loading ? (
@@ -307,23 +316,35 @@ export default function Layout({ children }) {
             {/* Mobile Menu Button */}
             <div className="md:hidden flex items-center space-x-2">
               <div className="relative">
-                <select 
-                  value={i18n.language} 
-                  onChange={(e) => changeLanguage(e.target.value)}
-                  className="bg-white border border-gray-300 text-gray-700 px-2 py-1 rounded text-xs"
-                >
-                  <option value="en">🇺🇸</option>
-                  <option value="ku">🏴</option>
-                  <option value="ar">🇮🇶</option>
-                </select>
+                <div className="flex items-center space-x-1 bg-white border border-gray-300 px-2 py-1 rounded">
+                  <img 
+                    src={`/flags/${i18n.language === 'en' ? 'us' : i18n.language === 'ku' ? 'kurdistan' : 'iraq'}.svg`}
+                    alt="Flag"
+                    className="w-4 h-2.5 object-cover rounded-sm"
+                  />
+                  <select 
+                    value={i18n.language} 
+                    onChange={(e) => changeLanguage(e.target.value)}
+                    className="bg-transparent border-none text-gray-700 text-xs focus:outline-none appearance-none"
+                  >
+                    <option value="en">EN</option>
+                    <option value="ku">KU</option>
+                    <option value="ar">AR</option>
+                  </select>
+                </div>
               </div>
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="text-gray-700 hover:text-blue-600 p-2"
+                className="text-gray-700 hover:text-blue-600 p-2 relative"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
+                {user && unreadCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
               </button>
             </div>
           </div>
