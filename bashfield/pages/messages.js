@@ -255,7 +255,7 @@ export default function Messages() {
         <div className="bg-white rounded-xl shadow-sm overflow-hidden" style={{ height: 'calc(100vh - 120px)' }}>
           <div className="flex h-full">
             {/* Conversations List */}
-            <div className="w-1/3 border-r border-gray-200 flex flex-col">
+            <div className={`${activeConversation ? 'hidden md:block' : 'block'} w-full md:w-1/3 border-r border-gray-200 flex flex-col`}>
               <div className="p-4 border-b border-gray-200">
                 <h2 className="text-xl font-bold text-gray-900">💬 Messages</h2>
               </div>
@@ -320,12 +320,20 @@ export default function Messages() {
             </div>
 
             {/* Chat Area */}
-            <div className="flex-1 flex flex-col">
+            <div className={`${activeConversation ? 'block' : 'hidden md:block'} flex-1 flex flex-col`}>
               {activeConversation ? (
                 <>
                   {/* Chat Header */}
                   <div className="p-4 border-b border-gray-200 bg-gray-50">
                     <div className="flex items-center space-x-3">
+                      <button
+                        onClick={() => setActiveConversation(null)}
+                        className="md:hidden text-gray-600 hover:text-gray-900 p-1"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                        </svg>
+                      </button>
                       {activeConversation.other_participant?.profile_picture ? (
                         <img
                           src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/house-images/${activeConversation.other_participant.profile_picture}`}
