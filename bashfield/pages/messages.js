@@ -21,6 +21,19 @@ export default function Messages() {
   }, [])
 
   useEffect(() => {
+    // Check for conversation parameter in URL
+    const urlParams = new URLSearchParams(window.location.search)
+    const conversationId = urlParams.get('conversation')
+    
+    if (conversationId && conversations.length > 0) {
+      const conversation = conversations.find(c => c.id === conversationId)
+      if (conversation) {
+        setActiveConversation(conversation)
+      }
+    }
+  }, [conversations])
+
+  useEffect(() => {
     if (activeConversation) {
       fetchMessages()
       markAsRead()
@@ -45,28 +58,47 @@ export default function Messages() {
   }
 
   const fetchConversations = async (user) => {
-    const { data, error } = await supabase
+    const { data: conversationsData, error } = await supabase
       .from('conversations')
-      .select(`
-        *,
-        listing:listings(*),
-        participant1:user_profiles!conversations_participant1_fkey(*),
-        participant2:user_profiles!conversations_participant2_fkey(*),
-        last_message:messages(content, created_at, sender_id)
-      `)
+      .select('*')
       .or(`participant1.eq.${user.id},participant2.eq.${user.id}`)
       .order('updated_at', { ascending: false })
 
-    if (data) {
-      const conversationsWithDetails = data.map(conv => {
-        const otherParticipant = conv.participant1?.user_id === user.id ? conv.participant2 : conv.participant1
-        const lastMessage = conv.last_message?.[0]
+    if (conversationsData && !error) {
+      // Get all participant IDs and listing IDs
+      const participantIds = [...new Set(conversationsData.flatMap(c => [c.participant1, c.participant2]))]
+      const listingIds = [...new Set(conversationsData.map(c => c.listing_id))]
+      
+      // Fetch profiles and listings separately
+      const { data: profilesData } = await supabase
+        .from('user_profiles')
+        .select('user_id, display_name, profile_picture')
+        .in('user_id', participantIds)
+      
+      const { data: listingsData } = await supabase
+        .from('listings')
+        .select('id, title')
+        .in('id', listingIds)
+      
+      // Get last messages for each conversation
+      const { data: lastMessagesData } = await supabase
+        .from('messages')
+        .select('conversation_id, content, created_at, sender_id')
+        .in('conversation_id', conversationsData.map(c => c.id))
+        .order('created_at', { ascending: false })
+      
+      const conversationsWithDetails = conversationsData.map(conv => {
+        const otherParticipantId = conv.participant1 === user.id ? conv.participant2 : conv.participant1
+        const otherParticipant = profilesData?.find(p => p.user_id === otherParticipantId)
+        const listing = listingsData?.find(l => l.id === conv.listing_id)
+        const lastMessage = lastMessagesData?.find(m => m.conversation_id === conv.id)
         
         return {
           ...conv,
           other_participant: otherParticipant,
+          listing: listing,
           last_message: lastMessage,
-          unread_count: conv.unread_count || 0
+          unread_count: 0
         }
       })
       
@@ -116,9 +148,9 @@ export default function Messages() {
 
     setSending(true)
     
-    const otherParticipantId = activeConversation.participant1?.user_id === user.id 
-      ? activeConversation.participant2?.user_id 
-      : activeConversation.participant1?.user_id
+    const otherParticipantId = activeConversation.participant1 === user.id 
+      ? activeConversation.participant2 
+      : activeConversation.participant1
 
     const { data, error } = await supabase
       .from('messages')
