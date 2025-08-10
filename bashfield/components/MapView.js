@@ -305,7 +305,7 @@ export default function MapView({ listings, onListingSelect }) {
                         </div>
                         <div className="flex items-center space-x-1">
                           <span>📍</span>
-                          <span>{t(`cities.${listing.city}`)}</span>
+                          <span>{t(`cities.${listing.city}`) || listing.city}</span>
                         </div>
                       </div>
                       
