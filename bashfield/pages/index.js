@@ -130,7 +130,7 @@ export default function Home() {
                   >
                     <option value="">🏙️ All Cities</option>
                     {CITIES.map(city => (
-                      <option key={city} value={city}>{t(`cities.${city}`) || city}</option>
+                      <option key={city} value={city}>{city.charAt(0).toUpperCase() + city.slice(1)}</option>
                     ))}
                   </select>
                   
@@ -261,7 +261,7 @@ export default function Home() {
               <span className="text-sm text-gray-600">Active filters:</span>
               {filters.city && (
                 <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
-                  📍 {t(`cities.${filters.city}`) || filters.city}
+                  📍 {filters.city.charAt(0).toUpperCase() + filters.city.slice(1)}
                 </span>
               )}
               {filters.rooms && (

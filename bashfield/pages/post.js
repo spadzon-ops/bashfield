@@ -295,7 +295,7 @@ export default function Post() {
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     >
                       {CITIES.map(city => (
-                        <option key={city} value={city}>{t(`cities.${city}`) || city}</option>
+                        <option key={city} value={city}>{city.charAt(0).toUpperCase() + city.slice(1)}</option>
                       ))}
                     </select>
                   </div>
@@ -399,7 +399,7 @@ export default function Post() {
                     <div><strong>Title:</strong> {formData.title}</div>
                     <div><strong>Price:</strong> {formData.price} {formData.currency}/month</div>
                     <div><strong>Rooms:</strong> {formData.rooms}</div>
-                    <div><strong>City:</strong> {t(`cities.${formData.city}`) || formData.city}</div>
+                    <div><strong>City:</strong> {formData.city.charAt(0).toUpperCase() + formData.city.slice(1)}</div>
                     <div><strong>WhatsApp:</strong> {formData.phone}</div>
                     <div><strong>Images:</strong> {formData.images.length} uploaded</div>
                   </div>
