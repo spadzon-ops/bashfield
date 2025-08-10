@@ -8,6 +8,7 @@ export default function Messages() {
   const { t } = useTranslation('common')
   const router = useRouter()
   const [user, setUser] = useState(null)
+  const [currentUser, setCurrentUser] = useState(null)
   const [conversations, setConversations] = useState([])
   const [activeConversation, setActiveConversation] = useState(null)
   const [messages, setMessages] = useState([])
@@ -49,20 +50,40 @@ export default function Messages() {
           {
             event: 'INSERT',
             schema: 'public',
-            table: 'messages'
+            table: 'messages',
+            filter: `recipient_id=eq.${user.id}`
           },
-          (payload) => {
+          async (payload) => {
             const newMessage = payload.new
             
             // If message is for active conversation, add it to messages
             if (activeConversation && newMessage.conversation_id === activeConversation.id) {
+              // Get sender profile
+              const { data: senderProfile } = await supabase
+                .from('user_profiles')
+                .select('display_name, profile_picture')
+                .eq('user_id', newMessage.sender_id)
+                .single()
+              
               setMessages(prev => [...prev, {
                 ...newMessage,
-                sender: { display_name: 'Unknown User' }
+                sender: senderProfile || { display_name: 'Unknown User' }
               }])
             }
             
             // Update conversations list
+            fetchConversations(user)
+          }
+        )
+        .on('postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'messages',
+            filter: `sender_id=eq.${user.id}`
+          },
+          () => {
+            // Update conversations when user sends message
             fetchConversations(user)
           }
         )
@@ -87,6 +108,7 @@ export default function Messages() {
     }
 
     setUser(user)
+    setCurrentUser(user)
     await fetchConversations(user)
     setLoading(false)
   }
@@ -392,9 +414,18 @@ export default function Messages() {
                         </div>
                       )}
                       <div>
-                        <h3 className="font-medium text-gray-900">
-                          {activeConversation.other_participant?.display_name || 'Unknown User'}
-                        </h3>
+                        {currentUser?.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL ? (
+                          <button
+                            onClick={() => router.push(`/admin/profile/${activeConversation.other_participant?.user_id}`)}
+                            className="font-medium text-blue-600 hover:text-blue-800"
+                          >
+                            {activeConversation.other_participant?.display_name || 'Unknown User'}
+                          </button>
+                        ) : (
+                          <h3 className="font-medium text-gray-900">
+                            {activeConversation.other_participant?.display_name || 'Unknown User'}
+                          </h3>
+                        )}
                         <p className="text-sm text-gray-600">
                           About: {activeConversation.listing?.title || 'Property'}
                         </p>
