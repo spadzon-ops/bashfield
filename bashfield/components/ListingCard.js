@@ -3,7 +3,7 @@ import { useTranslation } from 'next-i18next'
 import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
 
-export default function ListingCard({ listing, showActions = false, onApprove, onReject, onDelete }) {
+export default function ListingCard({ listing, showActions = false, onApprove, onReject, onDelete, isAdmin = false }) {
   const { t } = useTranslation('common')
   const router = useRouter()
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
@@ -250,9 +250,21 @@ export default function ListingCard({ listing, showActions = false, onApprove, o
                   </span>
                 </div>
               )}
-              <span className="text-sm text-gray-600">
-                {profileData?.display_name || listing.user_email?.split('@')[0]}
-              </span>
+              {isAdmin ? (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    router.push(`/admin/profile/${listing.user_id}`)
+                  }}
+                  className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  {profileData?.display_name || listing.user_email?.split('@')[0]}
+                </button>
+              ) : (
+                <span className="text-sm text-gray-600">
+                  {profileData?.display_name || listing.user_email?.split('@')[0]}
+                </span>
+              )}
             </div>
             
             {/* Image Counter */}
