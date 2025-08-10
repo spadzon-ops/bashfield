@@ -19,7 +19,25 @@ export default function Messages() {
 
   useEffect(() => {
     checkAuth()
-  }, [])
+    
+    // Cleanup function when component unmounts (user leaves messages page)
+    return () => {
+      if (window.activeConversationId && user) {
+        // Mark all messages in the active conversation as read when leaving page
+        supabase
+          .from('messages')
+          .update({ read: true })
+          .eq('conversation_id', window.activeConversationId)
+          .eq('recipient_id', user.id)
+          .eq('read', false)
+          .then(() => {
+            // Trigger global unread count update
+            window.dispatchEvent(new CustomEvent('messagesRead'))
+          })
+      }
+      window.activeConversationId = null
+    }
+  }, [user])
 
   useEffect(() => {
     // Check for conversation parameter in URL
@@ -42,10 +60,23 @@ export default function Messages() {
       // Set global active conversation to prevent notifications
       window.activeConversationId = activeConversation.id
     } else {
-      // Clear global active conversation
+      // Clear global active conversation and mark any remaining messages as read
+      if (window.activeConversationId) {
+        // Mark all messages in the previously active conversation as read
+        supabase
+          .from('messages')
+          .update({ read: true })
+          .eq('conversation_id', window.activeConversationId)
+          .eq('recipient_id', user?.id)
+          .eq('read', false)
+          .then(() => {
+            // Trigger global unread count update
+            window.dispatchEvent(new CustomEvent('messagesRead'))
+          })
+      }
       window.activeConversationId = null
     }
-  }, [activeConversation])
+  }, [activeConversation, user?.id])
 
   // Dedicated real-time subscription for active conversation
   useEffect(() => {
