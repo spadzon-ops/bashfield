@@ -38,71 +38,74 @@ export default function Messages() {
     if (activeConversation) {
       fetchMessages()
       markAsRead()
+      
+      // Set up real-time subscription for this specific conversation
+      const conversationChannel = supabase
+        .channel(`conversation-${activeConversation.id}`)
+        .on('postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'messages',
+            filter: `conversation_id=eq.${activeConversation.id}`
+          },
+          async (payload) => {
+            const newMessage = payload.new
+            
+            // Get sender profile
+            const { data: senderProfile } = await supabase
+              .from('user_profiles')
+              .select('display_name, profile_picture')
+              .eq('user_id', newMessage.sender_id)
+              .single()
+            
+            setMessages(prev => [...prev, {
+              ...newMessage,
+              sender: senderProfile || { display_name: 'Unknown User' }
+            }])
+            
+            // Mark as read if user is recipient
+            if (newMessage.recipient_id === user.id) {
+              await supabase
+                .from('messages')
+                .update({ read: true })
+                .eq('id', newMessage.id)
+            }
+          }
+        )
+        .subscribe()
+      
+      return () => {
+        supabase.removeChannel(conversationChannel)
+      }
     }
-  }, [activeConversation])
+  }, [activeConversation, user])
 
-  // Real-time message updates
+  // Global message updates for conversations list
   useEffect(() => {
     if (user) {
       const channel = supabase
-        .channel(`messages-updates-${user.id}`)
+        .channel(`global-messages-${user.id}`)
         .on('postgres_changes',
           {
             event: 'INSERT',
             schema: 'public',
             table: 'messages'
           },
-          async (payload) => {
+          (payload) => {
             const newMessage = payload.new
-            
-            // Only process if message involves current user
             if (newMessage.recipient_id === user.id || newMessage.sender_id === user.id) {
-              // If message is for active conversation, add it to messages
-              if (activeConversation && newMessage.conversation_id === activeConversation.id) {
-                // Get sender profile
-                const { data: senderProfile } = await supabase
-                  .from('user_profiles')
-                  .select('display_name, profile_picture')
-                  .eq('user_id', newMessage.sender_id)
-                  .single()
-                
-                setMessages(prev => [...prev, {
-                  ...newMessage,
-                  sender: senderProfile || { display_name: 'Unknown User' }
-                }])
-                
-                // Mark as read if user is recipient
-                if (newMessage.recipient_id === user.id) {
-                  await supabase
-                    .from('messages')
-                    .update({ read: true })
-                    .eq('id', newMessage.id)
-                }
-              }
-              
-              // Update conversations list
               fetchConversations(user)
             }
           }
         )
         .subscribe()
 
-      // Listen for global message events
-      const handleMessageReceived = (event) => {
-        const message = event.detail.message
-        if (activeConversation && message.conversation_id === activeConversation.id) {
-          fetchMessages()
-        }
-      }
-      
-      window.addEventListener('messageReceived', handleMessageReceived)
-
       return () => {
         supabase.removeChannel(channel)
-        window.removeEventListener('messageReceived', handleMessageReceived)
       }
     }
-  }, [user, activeConversation])
+  }, [user])
 
   useEffect(() => {
     scrollToBottom()
