@@ -46,7 +46,11 @@ export default function ListingCard({ listing, showActions = false, onApprove, o
   }
 
   const openListing = () => {
-    router.push(`/listing/${listing.id}`)
+    const isCurrentUserAdmin = currentUser?.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL
+    const url = isCurrentUserAdmin && listing.status !== 'approved' 
+      ? `/listing/${listing.id}?admin=true` 
+      : `/listing/${listing.id}`
+    router.push(url)
   }
 
   const openWhatsApp = (e) => {

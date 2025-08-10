@@ -48,7 +48,10 @@ export default function Layout({ children }) {
       .eq('read', false)
     
     if (data && !error) {
-      setUnreadCount(data.length)
+      const newCount = data.length
+      if (newCount !== unreadCount) {
+        setUnreadCount(newCount)
+      }
     }
   }
 
@@ -134,7 +137,7 @@ export default function Layout({ children }) {
             filter: `recipient_id=eq.${user.id}`
           },
           (payload) => {
-            getUnreadCount(user)
+            setTimeout(() => getUnreadCount(user), 100)
             // Dispatch global event for message received
             window.dispatchEvent(new CustomEvent('messageReceived', {
               detail: { message: payload.new }
@@ -149,14 +152,20 @@ export default function Layout({ children }) {
             filter: `recipient_id=eq.${user.id}`
           },
           () => {
-            getUnreadCount(user)
+            setTimeout(() => getUnreadCount(user), 100)
           }
         )
         .subscribe()
 
+      // Also poll for unread count every 3 seconds
+      const pollInterval = setInterval(() => {
+        getUnreadCount(user)
+      }, 3000)
+
       return () => {
         supabase.removeChannel(channel)
         supabase.removeChannel(messageChannel)
+        clearInterval(pollInterval)
         window.removeEventListener('profileUpdated', handleProfileUpdate)
         window.removeEventListener('messagesRead', handleMessagesRead)
       }
