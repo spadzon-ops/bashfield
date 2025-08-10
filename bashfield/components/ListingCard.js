@@ -8,8 +8,17 @@ export default function ListingCard({ listing, showActions = false, onApprove, o
   const router = useRouter()
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [profileData, setProfileData] = useState(listing.user_profiles)
+  const [currentUser, setCurrentUser] = useState(null)
   const touchStartX = useRef(0)
   const touchEndX = useRef(0)
+
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      setCurrentUser(user)
+    }
+    getUser()
+  }, [])
 
   useEffect(() => {
     const handleProfileUpdate = (event) => {
@@ -121,8 +130,8 @@ export default function ListingCard({ listing, showActions = false, onApprove, o
   return (
     <div className="bg-white rounded-xl shadow-sm overflow-hidden group hover:shadow-lg transition-all duration-300">
       <div 
-        className="cursor-pointer"
-        onClick={openListing}
+        className={`${!showActions ? 'cursor-pointer' : ''}`}
+        onClick={!showActions ? openListing : undefined}
       >
       {/* Image Carousel */}
       <div 
@@ -250,7 +259,7 @@ export default function ListingCard({ listing, showActions = false, onApprove, o
                   </span>
                 </div>
               )}
-              {isAdmin ? (
+              {(isAdmin || currentUser?.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL) ? (
                 <button
                   onClick={(e) => {
                     e.stopPropagation()
@@ -314,38 +323,50 @@ export default function ListingCard({ listing, showActions = false, onApprove, o
           
           {/* Admin Actions */}
           {showActions && (
-            <div className="flex space-x-2">
-              {listing.status === 'pending' && (
-                <>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onApprove(listing.id)
-                    }}
-                    className="flex-1 bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
-                  >
-                    ✓ Approve
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      onReject(listing.id)
-                    }}
-                    className="flex-1 bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
-                  >
-                    ✗ Reject
-                  </button>
-                </>
-              )}
+            <div className="space-y-2">
               <button
                 onClick={(e) => {
                   e.stopPropagation()
-                  onDelete(listing.id)
+                  openListing()
                 }}
-                className="bg-gray-500 hover:bg-gray-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                className="w-full bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center space-x-1"
               >
-                🗑️ Delete
+                <span>👁️</span>
+                <span>View Details</span>
               </button>
+              <div className="flex space-x-2">
+                {listing.status === 'pending' && (
+                  <>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onApprove(listing.id)
+                      }}
+                      className="flex-1 bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                    >
+                      ✓ Approve
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onReject(listing.id)
+                      }}
+                      className="flex-1 bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                    >
+                      ✗ Reject
+                    </button>
+                  </>
+                )}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onDelete(listing.id)
+                  }}
+                  className="bg-gray-500 hover:bg-gray-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                >
+                  🗑️ Delete
+                </button>
+              </div>
             </div>
           )}
         </div>
