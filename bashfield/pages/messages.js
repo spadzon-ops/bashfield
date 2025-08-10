@@ -40,14 +40,37 @@ export default function Messages() {
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' },
         async (payload) => {
           const m = payload.new
-          if (m.recipient_id !== user.id) return
-
-          // If currently viewing this conversation, mark read immediately
+          
+          // If currently viewing this conversation, add message immediately
           if (m.conversation_id === activeConversationId) {
-            await markConversationRead(supabase, m.conversation_id)
-            setUnread(m.conversation_id, 0)
-          } else {
-            // Refetch counts for correctness
+            // Add sender profile data
+            const { data: profileData } = await supabase
+              .from('user_profiles')
+              .select('user_id, display_name, profile_picture')
+              .eq('user_id', m.sender_id)
+              .single()
+            
+            const messageWithProfile = {
+              ...m,
+              sender: profileData || {
+                user_id: m.sender_id,
+                display_name: 'Unknown User'
+              }
+            }
+            
+            setMessages(prev => {
+              // Avoid duplicates
+              if (prev.find(msg => msg.id === m.id)) return prev
+              return [...prev, messageWithProfile]
+            })
+            
+            // Mark as read if it's for current user
+            if (m.recipient_id === user.id) {
+              await markConversationRead(supabase, m.conversation_id)
+              setUnread(m.conversation_id, 0)
+            }
+          } else if (m.recipient_id === user.id) {
+            // Update unread counts for other conversations
             const map = await fetchUnreadCountsByConversation(supabase)
             bulkSetUnread(map)
           }
@@ -256,7 +279,7 @@ export default function Messages() {
         }
       }
 
-      setMessages(prev => [...prev, messageWithProfile])
+      // Message will be added via real-time subscription
       setNewMessage('')
       
       // Update conversation timestamp
