@@ -88,8 +88,16 @@ export default function Messages() {
         )
         .subscribe()
       
+      // Also poll for new messages every 2 seconds for this conversation
+      const pollInterval = setInterval(() => {
+        if (activeConversation) {
+          fetchMessages()
+        }
+      }, 2000)
+      
       return () => {
         supabase.removeChannel(conversationChannel)
+        clearInterval(pollInterval)
       }
     }
   }, [activeConversation?.id, user?.id])
@@ -134,6 +142,18 @@ export default function Messages() {
       return () => clearInterval(interval)
     }
   }, [user])
+
+  // Refresh messages when tab becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && activeConversation) {
+        fetchMessages()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [activeConversation])
 
   const checkAuth = async () => {
     const { data: { user } } = await supabase.auth.getUser()
