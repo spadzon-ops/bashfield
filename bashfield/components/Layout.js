@@ -125,7 +125,7 @@ export default function Layout({ children }) {
 
       // Listen for new messages to update unread count
       const messageChannel = supabase
-        .channel('message-updates')
+        .channel('global-message-updates')
         .on('postgres_changes',
           {
             event: 'INSERT',
@@ -133,8 +133,12 @@ export default function Layout({ children }) {
             table: 'messages',
             filter: `recipient_id=eq.${user.id}`
           },
-          () => {
+          (payload) => {
             getUnreadCount(user)
+            // Dispatch global event for message received
+            window.dispatchEvent(new CustomEvent('messageReceived', {
+              detail: { message: payload.new }
+            }))
           }
         )
         .on('postgres_changes',
