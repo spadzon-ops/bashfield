@@ -360,6 +360,8 @@ export async function getServerSideProps({ params, locale, query }) {
   const { id } = params
   const { admin } = query
   
+  console.log('Listing page - ID:', id, 'Admin param:', admin, 'Query:', query)
+  
   try {
     // Get listing data
     const { data: listingData, error: listingError } = await supabase
@@ -374,7 +376,8 @@ export async function getServerSideProps({ params, locale, query }) {
       }
     }
 
-    // If not approved and no admin flag, return 404
+    // Only show approved listings to non-admin users
+    // Admin users (with admin=true) can see all listings
     if (listingData.status !== 'approved' && admin !== 'true') {
       return {
         notFound: true,
