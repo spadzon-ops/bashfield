@@ -38,10 +38,14 @@ export default function Messages() {
     if (activeConversation) {
       fetchMessages()
       markAsRead()
-      
-      // Set up real-time subscription for this specific conversation
+    }
+  }, [activeConversation])
+
+  // Dedicated real-time subscription for active conversation
+  useEffect(() => {
+    if (activeConversation && user) {
       const conversationChannel = supabase
-        .channel(`conversation-${activeConversation.id}`)
+        .channel(`conversation-${activeConversation.id}-${Date.now()}`)
         .on('postgres_changes',
           {
             event: 'INSERT',
@@ -59,17 +63,26 @@ export default function Messages() {
               .eq('user_id', newMessage.sender_id)
               .single()
             
-            setMessages(prev => [...prev, {
+            const messageWithProfile = {
               ...newMessage,
               sender: senderProfile || { display_name: 'Unknown User' }
-            }])
+            }
+            
+            setMessages(prev => {
+              // Avoid duplicates
+              const exists = prev.find(m => m.id === newMessage.id)
+              if (exists) return prev
+              return [...prev, messageWithProfile]
+            })
             
             // Mark as read if user is recipient
             if (newMessage.recipient_id === user.id) {
-              await supabase
-                .from('messages')
-                .update({ read: true })
-                .eq('id', newMessage.id)
+              setTimeout(async () => {
+                await supabase
+                  .from('messages')
+                  .update({ read: true })
+                  .eq('id', newMessage.id)
+              }, 100)
             }
           }
         )
@@ -79,7 +92,7 @@ export default function Messages() {
         supabase.removeChannel(conversationChannel)
       }
     }
-  }, [activeConversation, user])
+  }, [activeConversation?.id, user?.id])
 
   // Global message updates for conversations list
   useEffect(() => {
