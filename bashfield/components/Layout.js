@@ -120,7 +120,8 @@ export default function Layout({ children }) {
       
       // Listen for messages read events
       const handleMessagesRead = () => {
-        getUnreadCount(user)
+        // Immediately update unread count
+        setTimeout(() => getUnreadCount(user), 50)
       }
       
       window.addEventListener('profileUpdated', handleProfileUpdate)
