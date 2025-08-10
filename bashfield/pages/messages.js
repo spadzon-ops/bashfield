@@ -407,13 +407,28 @@ export default function Messages() {
                   conversations.map(conversation => (
                     <div
                       key={conversation.id}
-                      onClick={() => {
+                      onClick={async () => {
                         setActiveConversation(conversation)
-                        // Mark messages as read when conversation is opened
+                        // Mark messages as read immediately when conversation is opened
                         if (conversation.unread_count > 0) {
-                          setTimeout(() => {
-                            markAsRead()
-                          }, 500)
+                          await supabase
+                            .from('messages')
+                            .update({ read: true })
+                            .eq('conversation_id', conversation.id)
+                            .eq('recipient_id', user.id)
+                            .eq('read', false)
+                          
+                          // Update local state
+                          setConversations(prev => 
+                            prev.map(conv => 
+                              conv.id === conversation.id 
+                                ? { ...conv, unread_count: 0 }
+                                : conv
+                            )
+                          )
+                          
+                          // Trigger global unread count update
+                          window.dispatchEvent(new CustomEvent('messagesRead'))
                         }
                       }}
                       className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${
