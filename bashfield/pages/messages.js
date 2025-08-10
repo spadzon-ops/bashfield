@@ -75,14 +75,15 @@ export default function Messages() {
               return [...prev, messageWithProfile]
             })
             
-            // Mark as read if user is recipient
+            // Mark as read immediately if user is recipient and conversation is active
             if (newMessage.recipient_id === user.id) {
-              setTimeout(async () => {
-                await supabase
-                  .from('messages')
-                  .update({ read: true })
-                  .eq('id', newMessage.id)
-              }, 100)
+              await supabase
+                .from('messages')
+                .update({ read: true })
+                .eq('id', newMessage.id)
+              
+              // Immediately trigger global unread count update
+              window.dispatchEvent(new CustomEvent('messagesRead'))
             }
           }
         )
@@ -116,7 +117,11 @@ export default function Messages() {
           (payload) => {
             const newMessage = payload.new
             if (newMessage.recipient_id === user.id || newMessage.sender_id === user.id) {
-              fetchConversations(user)
+              // Don't update conversations if this is the active conversation
+              // (to prevent notification flashing)
+              if (!activeConversation || newMessage.conversation_id !== activeConversation.id) {
+                fetchConversations(user)
+              }
             }
           }
         )
@@ -427,8 +432,20 @@ export default function Messages() {
                             )
                           )
                           
-                          // Trigger global unread count update
+                          // Trigger global unread count update immediately
                           window.dispatchEvent(new CustomEvent('messagesRead'))
+                          
+                          // Also directly update the global unread count
+                          const { data } = await supabase
+                            .from('messages')
+                            .select('id')
+                            .eq('recipient_id', user.id)
+                            .eq('read', false)
+                          
+                          // Dispatch with the actual count
+                          window.dispatchEvent(new CustomEvent('unreadCountUpdate', {
+                            detail: { count: data?.length || 0 }
+                          }))
                         }
                       }}
                       className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${
