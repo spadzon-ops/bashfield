@@ -88,12 +88,12 @@ export default function Messages() {
         )
         .subscribe()
       
-      // Also poll for new messages every 2 seconds for this conversation
+      // Poll for new messages every 1 second for this conversation
       const pollInterval = setInterval(() => {
         if (activeConversation) {
           fetchMessages()
         }
-      }, 2000)
+      }, 1000)
       
       return () => {
         supabase.removeChannel(conversationChannel)
@@ -143,7 +143,7 @@ export default function Messages() {
     }
   }, [user])
 
-  // Refresh messages when tab becomes visible
+  // Refresh messages when tab becomes visible or window gets focus
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (!document.hidden && activeConversation) {
@@ -151,8 +151,19 @@ export default function Messages() {
       }
     }
 
+    const handleFocus = () => {
+      if (activeConversation) {
+        fetchMessages()
+      }
+    }
+
     document.addEventListener('visibilitychange', handleVisibilityChange)
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', handleFocus)
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleFocus)
+    }
   }, [activeConversation])
 
   const checkAuth = async () => {
