@@ -38,6 +38,12 @@ export default function Messages() {
     if (activeConversation) {
       fetchMessages()
       markAsRead()
+      
+      // Set global active conversation to prevent notifications
+      window.activeConversationId = activeConversation.id
+    } else {
+      // Clear global active conversation
+      window.activeConversationId = null
     }
   }, [activeConversation])
 
@@ -117,11 +123,19 @@ export default function Messages() {
           (payload) => {
             const newMessage = payload.new
             if (newMessage.recipient_id === user.id || newMessage.sender_id === user.id) {
-              // Don't update conversations if this is the active conversation
-              // (to prevent notification flashing)
-              if (!activeConversation || newMessage.conversation_id !== activeConversation.id) {
-                fetchConversations(user)
+              // Always update conversations list, but don't show notifications for active conversation
+              fetchConversations(user)
+              
+              // If this message is for the active conversation, don't trigger global notifications
+              if (activeConversation && newMessage.conversation_id === activeConversation.id) {
+                // Don't trigger global unread count update for active conversation
+                return
               }
+              
+              // Trigger global unread count update for other conversations
+              setTimeout(() => {
+                window.dispatchEvent(new CustomEvent('messagesRead'))
+              }, 100)
             }
           }
         )
@@ -443,7 +457,12 @@ export default function Messages() {
                             .eq('read', false)
                           
                           // Get unique conversation IDs
-                          const uniqueConversations = [...new Set(data?.map(m => m.conversation_id) || [])]
+                          let uniqueConversations = [...new Set(data?.map(m => m.conversation_id) || [])]
+                          
+                          // Exclude active conversation from notification count
+                          if (window.activeConversationId) {
+                            uniqueConversations = uniqueConversations.filter(id => id !== window.activeConversationId)
+                          }
                           
                           // Dispatch with the actual conversation count
                           window.dispatchEvent(new CustomEvent('unreadCountUpdate', {
