@@ -213,9 +213,20 @@ export default function ListingDetail({ listing: initialListing }) {
             </div>
 
             <div className="bg-white rounded-xl shadow-sm p-6 mt-6">
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-4">
-                {listing.title}
-              </h1>
+              <div className="flex items-center justify-between mb-4">
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                  {listing.title}
+                </h1>
+                {listing.status !== 'approved' && (
+                  <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                    listing.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                    listing.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                    'bg-gray-100 text-gray-800'
+                  }`}>
+                    {listing.status.charAt(0).toUpperCase() + listing.status.slice(1)}
+                  </span>
+                )}
+              </div>
               
               <div className="flex flex-wrap items-center gap-4 mb-6 text-sm text-gray-600">
                 <div className="flex items-center space-x-1">
@@ -345,7 +356,7 @@ export default function ListingDetail({ listing: initialListing }) {
   )
 }
 
-export async function getServerSideProps({ params, locale }) {
+export async function getServerSideProps({ params, locale, req }) {
   const { id } = params
   
   try {
@@ -359,6 +370,21 @@ export async function getServerSideProps({ params, locale }) {
     if (listingError || !listingData) {
       return {
         notFound: true,
+      }
+    }
+
+    // Check if listing is approved or if user is admin
+    const isApproved = listingData.status === 'approved'
+    
+    // For non-approved listings, only allow access if coming from admin
+    if (!isApproved) {
+      const referer = req.headers.referer || ''
+      const isFromAdmin = referer.includes('/admin')
+      
+      if (!isFromAdmin) {
+        return {
+          notFound: true,
+        }
       }
     }
 
