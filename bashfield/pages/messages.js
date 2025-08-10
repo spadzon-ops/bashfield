@@ -287,8 +287,10 @@ export default function Messages() {
         )
       )
       
-      // Trigger global unread count update
-      window.dispatchEvent(new CustomEvent('messagesRead'))
+      // Trigger global unread count update immediately
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('messagesRead'))
+      }, 100)
     }
   }
 
@@ -405,7 +407,15 @@ export default function Messages() {
                   conversations.map(conversation => (
                     <div
                       key={conversation.id}
-                      onClick={() => setActiveConversation(conversation)}
+                      onClick={() => {
+                        setActiveConversation(conversation)
+                        // Mark messages as read when conversation is opened
+                        if (conversation.unread_count > 0) {
+                          setTimeout(() => {
+                            markAsRead()
+                          }, 500)
+                        }
+                      }}
                       className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${
                         activeConversation?.id === conversation.id ? 'bg-blue-50 border-blue-200' : ''
                       }`}

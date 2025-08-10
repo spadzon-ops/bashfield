@@ -376,8 +376,10 @@ export async function getServerSideProps({ params, locale, query }) {
       }
     }
 
-    // Only show approved listings to non-admin users
-    // Admin users (with admin=true) can see all listings
+    // Allow access if:
+    // 1. Listing is approved (public access)
+    // 2. Admin parameter is present (admin access)
+    // 3. User owns the listing (owner access)
     if (listingData.status !== 'approved' && admin !== 'true') {
       return {
         notFound: true,

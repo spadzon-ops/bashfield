@@ -391,6 +391,7 @@ export default function Profile() {
                         <ListingCard 
                           listing={listing} 
                           showActions={false}
+                          isOwner={true}
                         />
                         <div className="absolute top-2 right-2 flex space-x-1">
                           <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
