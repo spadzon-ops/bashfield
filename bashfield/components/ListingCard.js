@@ -227,7 +227,7 @@ export default function ListingCard({ listing, showActions = false, onApprove, o
             </div>
             <div className="flex items-center space-x-1 text-gray-500">
               <span>📍</span>
-              <span className="text-sm">{t(`cities.${listing.city}`) || listing.city}</span>
+              <span className="text-sm">{listing.city.charAt(0).toUpperCase() + listing.city.slice(1)}</span>
             </div>
           </div>
         </div>
