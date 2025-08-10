@@ -7,9 +7,11 @@ export default function Chat() {
   const { listingId } = router.query
   const [user, setUser] = useState(null)
   const [listing, setListing] = useState(null)
+  const [conversation, setConversation] = useState(null)
   const [messages, setMessages] = useState([])
   const [newMessage, setNewMessage] = useState('')
   const [loading, setLoading] = useState(true)
+  const [sending, setSending] = useState(false)
   const messagesEndRef = useRef(null)
 
   useEffect(() => {
@@ -17,14 +19,38 @@ export default function Chat() {
       const { data: { user } } = await supabase.auth.getUser()
       setUser(user)
       if (user && listingId) {
-        fetchListing()
-        fetchMessages()
+        await fetchListing()
+        await findOrCreateConversation(user)
       } else {
         setLoading(false)
       }
     }
     getUser()
   }, [listingId])
+
+  // Real-time message subscription
+  useEffect(() => {
+    if (!conversation) return
+
+    const channel = supabase
+      .channel(`messages-${conversation.id}`)
+      .on('postgres_changes', 
+        { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conversation.id}` },
+        (payload) => {
+          const newMsg = payload.new
+          setMessages(prev => {
+            // Avoid duplicates
+            if (prev.find(m => m.id === newMsg.id)) return prev
+            return [...prev, newMsg]
+          })
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [conversation])
 
   useEffect(() => {
     scrollToBottom()
@@ -46,42 +72,109 @@ export default function Chat() {
     }
   }
 
-  const fetchMessages = async () => {
-    // Simulate messages for now
-    const simulatedMessages = [
-      {
-        id: 1,
-        sender_id: 'other',
-        sender_email: 'owner@example.com',
-        message: 'Hello! Thanks for your interest in my property.',
-        created_at: new Date(Date.now() - 3600000).toISOString()
-      },
-      {
-        id: 2,
-        sender_id: user?.id,
-        sender_email: user?.email,
-        message: 'Hi! I would like to know more about this property.',
-        created_at: new Date(Date.now() - 1800000).toISOString()
-      }
-    ]
-    setMessages(simulatedMessages)
+  const findOrCreateConversation = async (user) => {
+    // First, get the listing and its owner
+    const { data: listingData } = await supabase
+      .from('listings')
+      .select('*, user_id')
+      .eq('id', listingId)
+      .single()
+
+    if (!listingData) {
+      setLoading(false)
+      return
+    }
+
+    // Check if conversation already exists
+    const { data: existingConv } = await supabase
+      .from('conversations')
+      .select('*')
+      .eq('listing_id', listingId)
+      .or(`and(participant1.eq.${user.id},participant2.eq.${listingData.user_id}),and(participant1.eq.${listingData.user_id},participant2.eq.${user.id})`)
+      .single()
+
+    let conversationData = existingConv
+
+    // Create conversation if it doesn't exist
+    if (!existingConv) {
+      const { data: newConv } = await supabase
+        .from('conversations')
+        .insert({
+          listing_id: listingId,
+          participant1: user.id,
+          participant2: listingData.user_id
+        })
+        .select()
+        .single()
+      
+      conversationData = newConv
+    }
+
+    setConversation(conversationData)
+    await fetchMessages(conversationData.id)
     setLoading(false)
+  }
+
+  const fetchMessages = async (conversationId) => {
+    const { data: messagesData } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('conversation_id', conversationId)
+      .order('created_at', { ascending: true })
+
+    if (messagesData) {
+      setMessages(messagesData)
+      
+      // Mark messages as read
+      await supabase
+        .from('messages')
+        .update({ read: true })
+        .eq('conversation_id', conversationId)
+        .eq('recipient_id', user.id)
+        .eq('read', false)
+    }
   }
 
   const sendMessage = async (e) => {
     e.preventDefault()
-    if (!newMessage.trim() || !user) return
+    if (!newMessage.trim() || !user || !conversation || sending) return
 
-    const newMsg = {
-      id: Date.now(),
-      sender_id: user.id,
-      sender_email: user.email,
-      message: newMessage.trim(),
-      created_at: new Date().toISOString()
+    setSending(true)
+    
+    const otherParticipantId = conversation.participant1 === user.id 
+      ? conversation.participant2 
+      : conversation.participant1
+
+    try {
+      const { data, error } = await supabase
+        .from('messages')
+        .insert({
+          conversation_id: conversation.id,
+          sender_id: user.id,
+          recipient_id: otherParticipantId,
+          content: newMessage.trim(),
+          read: false
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+
+      // Message will be added via real-time subscription
+      setNewMessage('')
+      
+      // Update conversation timestamp
+      await supabase
+        .from('conversations')
+        .update({ updated_at: new Date().toISOString() })
+        .eq('id', conversation.id)
+        
+    } catch (error) {
+      console.error('Error sending message:', error)
+      alert('Failed to send message. Please try again.')
     }
 
-    setMessages(prev => [...prev, newMsg])
-    setNewMessage('')
+    setSending(false)
   }
 
   if (!user) {
@@ -160,7 +253,7 @@ export default function Chat() {
                   ? 'bg-blue-600 text-white' 
                   : 'bg-white border border-gray-200 text-gray-900'
               }`}>
-                <p className="text-sm">{message.message}</p>
+                <p className="text-sm">{message.content}</p>
                 <p className={`text-xs mt-1 ${
                   message.sender_id === user.id ? 'text-blue-100' : 'text-gray-500'
                 }`}>
@@ -185,10 +278,10 @@ export default function Chat() {
           />
           <button
             type="submit"
-            disabled={!newMessage.trim()}
+            disabled={!newMessage.trim() || sending}
             className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-6 py-2 rounded-lg font-medium transition-colors"
           >
-            Send
+            {sending ? '...' : 'Send'}
           </button>
         </form>
       </div>
