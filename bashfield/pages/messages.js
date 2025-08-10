@@ -40,6 +40,40 @@ export default function Messages() {
     }
   }, [activeConversation])
 
+  // Real-time message updates
+  useEffect(() => {
+    if (user) {
+      const channel = supabase
+        .channel('messages-updates')
+        .on('postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'messages'
+          },
+          (payload) => {
+            const newMessage = payload.new
+            
+            // If message is for active conversation, add it to messages
+            if (activeConversation && newMessage.conversation_id === activeConversation.id) {
+              setMessages(prev => [...prev, {
+                ...newMessage,
+                sender: { display_name: 'Unknown User' }
+              }])
+            }
+            
+            // Update conversations list
+            fetchConversations(user)
+          }
+        )
+        .subscribe()
+
+      return () => {
+        supabase.removeChannel(channel)
+      }
+    }
+  }, [user, activeConversation])
+
   useEffect(() => {
     scrollToBottom()
   }, [messages])
@@ -108,7 +142,7 @@ export default function Messages() {
           last_message: lastMessage,
           unread_count: unreadCount
         }
-      })
+      }).sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
       
       setConversations(conversationsWithDetails)
     }
@@ -215,6 +249,16 @@ export default function Messages() {
         .from('conversations')
         .update({ updated_at: new Date().toISOString() })
         .eq('id', activeConversation.id)
+      
+      // Update conversations list to move this conversation to top
+      setConversations(prev => {
+        const updated = prev.map(conv => 
+          conv.id === activeConversation.id 
+            ? { ...conv, updated_at: new Date().toISOString(), last_message: messageWithProfile }
+            : conv
+        )
+        return updated.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
+      })
         
     } catch (error) {
       console.error('Error sending message:', error)

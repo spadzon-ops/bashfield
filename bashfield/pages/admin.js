@@ -262,6 +262,7 @@ export default function Admin() {
                     <ListingCard 
                       listing={listing} 
                       showActions={true}
+                      isAdmin={true}
                       onApprove={() => updateListingStatus(listing.id, 'approved')}
                       onReject={() => updateListingStatus(listing.id, 'rejected')}
                       onDelete={() => deleteListing(listing.id)}
