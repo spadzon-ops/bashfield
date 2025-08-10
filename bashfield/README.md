@@ -4,7 +4,7 @@ A modern, multilingual house rental platform for Iraq, especially Erbil. Built w
 
 ## 🌟 Features
 
-- **Multilingual**: English, Kurdish (Sorani), and Arabic support.
+- **Multilingual**: English, Kurdish (Sorani), and Arabic support
 - **Dark Mode**: Beautiful dark theme by default
 - **Google Auth**: Gmail-only authentication
 - **Admin Dashboard**: Approve/reject listings
