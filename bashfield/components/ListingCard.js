@@ -3,7 +3,7 @@ import { useTranslation } from 'next-i18next'
 import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
 
-export default function ListingCard({ listing, showActions = false, onApprove, onReject, onDelete, isAdmin = false }) {
+export default function ListingCard({ listing, showActions = false, onApprove, onReject, onDelete, isAdmin = false, isOwner = false }) {
   const { t } = useTranslation('common')
   const router = useRouter()
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
@@ -47,7 +47,7 @@ export default function ListingCard({ listing, showActions = false, onApprove, o
 
   const openListing = () => {
     const isCurrentUserAdmin = currentUser?.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL
-    const url = isCurrentUserAdmin 
+    const url = (isCurrentUserAdmin || isOwner) 
       ? `/listing/${listing.id}?admin=true` 
       : `/listing/${listing.id}`
     router.push(url)
