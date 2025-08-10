@@ -358,7 +358,7 @@ export default function ListingDetail({ listing: initialListing }) {
 
 export async function getServerSideProps({ params, locale, query }) {
   const { id } = params
-  const { admin } = query // Check for admin query parameter
+  const { admin } = query
   
   try {
     // Get listing data
@@ -374,11 +374,8 @@ export async function getServerSideProps({ params, locale, query }) {
       }
     }
 
-    // Check if listing is approved or if admin parameter is present
-    const isApproved = listingData.status === 'approved'
-    
-    // For non-approved listings, only allow access if admin parameter is present
-    if (!isApproved && !admin) {
+    // If not approved and no admin flag, return 404
+    if (listingData.status !== 'approved' && admin !== 'true') {
       return {
         notFound: true,
       }
@@ -404,6 +401,7 @@ export async function getServerSideProps({ params, locale, query }) {
       },
     }
   } catch (error) {
+    console.error('Error in getServerSideProps:', error)
     return {
       notFound: true,
     }
