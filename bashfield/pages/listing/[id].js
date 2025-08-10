@@ -356,8 +356,9 @@ export default function ListingDetail({ listing: initialListing }) {
   )
 }
 
-export async function getServerSideProps({ params, locale, req }) {
+export async function getServerSideProps({ params, locale, query }) {
   const { id } = params
+  const { admin } = query // Check for admin query parameter
   
   try {
     // Get listing data
@@ -373,18 +374,13 @@ export async function getServerSideProps({ params, locale, req }) {
       }
     }
 
-    // Check if listing is approved or if user is admin
+    // Check if listing is approved or if admin parameter is present
     const isApproved = listingData.status === 'approved'
     
-    // For non-approved listings, only allow access if coming from admin
-    if (!isApproved) {
-      const referer = req.headers.referer || ''
-      const isFromAdmin = referer.includes('/admin')
-      
-      if (!isFromAdmin) {
-        return {
-          notFound: true,
-        }
+    // For non-approved listings, only allow access if admin parameter is present
+    if (!isApproved && !admin) {
+      return {
+        notFound: true,
       }
     }
 
