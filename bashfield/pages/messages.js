@@ -241,7 +241,12 @@ export default function Messages() {
         const otherParticipant = profilesData?.find(p => p.user_id === otherParticipantId)
         const listing = listingsData?.find(l => l.id === conv.listing_id)
         const lastMessage = lastMessagesData?.find(m => m.conversation_id === conv.id)
-        const unreadCount = unreadData?.filter(m => m.conversation_id === conv.id).length || 0
+        let unreadCount = unreadData?.filter(m => m.conversation_id === conv.id).length || 0
+        
+        // Don't show unread count for active conversation
+        if (window.activeConversationId && conv.id === window.activeConversationId) {
+          unreadCount = 0
+        }
         
         return {
           ...conv,
