@@ -45,52 +45,61 @@ export default function Messages() {
   useEffect(() => {
     if (user) {
       const channel = supabase
-        .channel('messages-updates')
+        .channel(`messages-updates-${user.id}`)
         .on('postgres_changes',
           {
             event: 'INSERT',
             schema: 'public',
-            table: 'messages',
-            filter: `recipient_id=eq.${user.id}`
+            table: 'messages'
           },
           async (payload) => {
             const newMessage = payload.new
             
-            // If message is for active conversation, add it to messages
-            if (activeConversation && newMessage.conversation_id === activeConversation.id) {
-              // Get sender profile
-              const { data: senderProfile } = await supabase
-                .from('user_profiles')
-                .select('display_name, profile_picture')
-                .eq('user_id', newMessage.sender_id)
-                .single()
+            // Only process if message involves current user
+            if (newMessage.recipient_id === user.id || newMessage.sender_id === user.id) {
+              // If message is for active conversation, add it to messages
+              if (activeConversation && newMessage.conversation_id === activeConversation.id) {
+                // Get sender profile
+                const { data: senderProfile } = await supabase
+                  .from('user_profiles')
+                  .select('display_name, profile_picture')
+                  .eq('user_id', newMessage.sender_id)
+                  .single()
+                
+                setMessages(prev => [...prev, {
+                  ...newMessage,
+                  sender: senderProfile || { display_name: 'Unknown User' }
+                }])
+                
+                // Mark as read if user is recipient
+                if (newMessage.recipient_id === user.id) {
+                  await supabase
+                    .from('messages')
+                    .update({ read: true })
+                    .eq('id', newMessage.id)
+                }
+              }
               
-              setMessages(prev => [...prev, {
-                ...newMessage,
-                sender: senderProfile || { display_name: 'Unknown User' }
-              }])
+              // Update conversations list
+              fetchConversations(user)
             }
-            
-            // Update conversations list
-            fetchConversations(user)
-          }
-        )
-        .on('postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'messages',
-            filter: `sender_id=eq.${user.id}`
-          },
-          () => {
-            // Update conversations when user sends message
-            fetchConversations(user)
           }
         )
         .subscribe()
 
+      // Listen for global message events
+      const handleMessageReceived = (event) => {
+        const message = event.detail.message
+        if (activeConversation && message.conversation_id === activeConversation.id) {
+          fetchMessages()
+        }
+      }
+      
+      window.addEventListener('messageReceived', handleMessageReceived)
+
       return () => {
         supabase.removeChannel(channel)
+        window.removeEventListener('messageReceived', handleMessageReceived)
       }
     }
   }, [user, activeConversation])
@@ -98,6 +107,17 @@ export default function Messages() {
   useEffect(() => {
     scrollToBottom()
   }, [messages])
+
+  // Periodic refresh for conversations
+  useEffect(() => {
+    if (user) {
+      const interval = setInterval(() => {
+        fetchConversations(user)
+      }, 5000) // Refresh every 5 seconds
+      
+      return () => clearInterval(interval)
+    }
+  }, [user])
 
   const checkAuth = async () => {
     const { data: { user } } = await supabase.auth.getUser()
