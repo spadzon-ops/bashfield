@@ -220,7 +220,7 @@ export default function ListingDetail({ listing: initialListing }) {
               <div className="flex flex-wrap items-center gap-4 mb-6 text-sm text-gray-600">
                 <div className="flex items-center space-x-1">
                   <span>📍</span>
-                  <span>{t(`cities.${listing.city}`) || listing.city}</span>
+                  <span>{listing.city.charAt(0).toUpperCase() + listing.city.slice(1)}</span>
                 </div>
                 <div className="flex items-center space-x-1">
                   <span>🛏️</span>
@@ -318,7 +318,7 @@ export default function ListingDetail({ listing: initialListing }) {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">City</span>
-                  <span className="font-medium">{t(`cities.${listing.city}`) || listing.city}</span>
+                  <span className="font-medium">{listing.city.charAt(0).toUpperCase() + listing.city.slice(1)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Currency</span>
