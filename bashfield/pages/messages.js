@@ -266,10 +266,16 @@ export default function Messages() {
         .in('conversation_id', conversationsData.map(c => c.id))
         .order('created_at', { ascending: false })
       
+      // Get unread data but exclude active conversation
+      let unreadFilter = conversationsData.map(c => c.id)
+      if (window.activeConversationId) {
+        unreadFilter = unreadFilter.filter(id => id !== window.activeConversationId)
+      }
+      
       const { data: unreadData } = await supabase
         .from('messages')
         .select('conversation_id, id')
-        .in('conversation_id', conversationsData.map(c => c.id))
+        .in('conversation_id', unreadFilter)
         .eq('recipient_id', user.id)
         .eq('read', false)
       
@@ -278,12 +284,7 @@ export default function Messages() {
         const otherParticipant = profilesData?.find(p => p.user_id === otherParticipantId)
         const listing = listingsData?.find(l => l.id === conv.listing_id)
         const lastMessage = lastMessagesData?.find(m => m.conversation_id === conv.id)
-        let unreadCount = unreadData?.filter(m => m.conversation_id === conv.id).length || 0
-        
-        // Don't show unread count for active conversation
-        if (window.activeConversationId && conv.id === window.activeConversationId) {
-          unreadCount = 0
-        }
+        const unreadCount = unreadData?.filter(m => m.conversation_id === conv.id).length || 0
         
         return {
           ...conv,
@@ -517,7 +518,7 @@ export default function Messages() {
                             <p className="text-sm font-medium text-gray-900 truncate">
                               {conversation.other_participant?.display_name || 'Unknown User'}
                             </p>
-                            {conversation.unread_count > 0 && (
+                            {conversation.unread_count > 0 && conversation.id !== activeConversation?.id && (
                               <span className="bg-blue-500 text-white text-xs rounded-full px-2 py-1 min-w-[20px] text-center">
                                 {conversation.unread_count}
                               </span>
