@@ -52,15 +52,13 @@ export default function Layout({ children }) {
       // Get unique conversation IDs
       let uniqueConversations = [...new Set(data.map(m => m.conversation_id))]
       
-      // Exclude active conversation from notification count
+      // Always exclude active conversation from notification count
       if (window.activeConversationId) {
         uniqueConversations = uniqueConversations.filter(id => id !== window.activeConversationId)
       }
       
       const newCount = uniqueConversations.length
-      if (newCount !== unreadCount) {
-        setUnreadCount(newCount)
-      }
+      setUnreadCount(newCount)
     }
   }
 
