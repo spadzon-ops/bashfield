@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { useTranslation } from 'next-i18next'
 import { supabase } from '../lib/supabase'
+import { useTotalUnread } from '../store/notifications'
+import { fetchUnreadCountsByConversation } from '../lib/messages'
 
 export default function Layout({ children }) {
   const { t, i18n } = useTranslation('common')
@@ -10,7 +12,7 @@ export default function Layout({ children }) {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [authChecked, setAuthChecked] = useState(false)
-  const [unreadCount, setUnreadCount] = useState(0)
+  const totalUnread = useTotalUnread()
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   useEffect(() => {
@@ -34,33 +36,13 @@ export default function Layout({ children }) {
     if (user) {
       setUser(user)
       await getUserProfile(user)
-      await getUnreadCount(user)
+
     }
     setLoading(false)
     setAuthChecked(true)
   }
 
-  const getUnreadCount = async (user) => {
-    // Count conversations with unread messages, not total unread messages
-    const { data, error } = await supabase
-      .from('messages')
-      .select('conversation_id')
-      .eq('recipient_id', user.id)
-      .eq('read', false)
-    
-    if (data && !error) {
-      // Get unique conversation IDs
-      let uniqueConversations = [...new Set(data.map(m => m.conversation_id))]
-      
-      // Always exclude active conversation from notification count
-      if (window.activeConversationId) {
-        uniqueConversations = uniqueConversations.filter(id => id !== window.activeConversationId)
-      }
-      
-      const newCount = uniqueConversations.length
-      setUnreadCount(newCount)
-    }
-  }
+
 
   const getUserProfile = async (user) => {
     try {
@@ -125,75 +107,11 @@ export default function Layout({ children }) {
         setProfile(event.detail.profile)
       }
       
-      // Listen for messages read events
-      const handleMessagesRead = () => {
-        // Immediately update unread count
-        getUnreadCount(user)
-      }
-      
-      // Listen for direct unread count updates
-      const handleUnreadCountUpdate = (event) => {
-        setUnreadCount(event.detail.count)
-      }
-      
       window.addEventListener('profileUpdated', handleProfileUpdate)
-      window.addEventListener('messagesRead', handleMessagesRead)
-      window.addEventListener('unreadCountUpdate', handleUnreadCountUpdate)
-
-      // Listen for new messages to update unread count
-      const messageChannel = supabase
-        .channel('global-message-updates')
-        .on('postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'messages',
-            filter: `recipient_id=eq.${user.id}`
-          },
-          (payload) => {
-            // Only update unread count if message is not from active conversation
-            const currentPath = window.location.pathname
-            const isInMessages = currentPath === '/messages'
-            
-            // If user is in messages page, check if it's the active conversation
-            if (isInMessages) {
-              // Don't update global count immediately - let the messages page handle it
-              setTimeout(() => getUnreadCount(user), 1000)
-            } else {
-              getUnreadCount(user)
-            }
-            
-            // Dispatch global event for message received
-            window.dispatchEvent(new CustomEvent('messageReceived', {
-              detail: { message: payload.new }
-            }))
-          }
-        )
-        .on('postgres_changes',
-          {
-            event: 'UPDATE',
-            schema: 'public',
-            table: 'messages',
-            filter: `recipient_id=eq.${user.id}`
-          },
-          () => {
-            getUnreadCount(user)
-          }
-        )
-        .subscribe()
-
-      // Also poll for unread count every 3 seconds
-      const pollInterval = setInterval(() => {
-        getUnreadCount(user)
-      }, 3000)
 
       return () => {
         supabase.removeChannel(channel)
-        supabase.removeChannel(messageChannel)
-        clearInterval(pollInterval)
         window.removeEventListener('profileUpdated', handleProfileUpdate)
-        window.removeEventListener('messagesRead', handleMessagesRead)
-        window.removeEventListener('unreadCountUpdate', handleUnreadCountUpdate)
       }
     }
   }, [user])
@@ -284,9 +202,9 @@ export default function Layout({ children }) {
                   }`}
                 >
                   Messages
-                  {unreadCount > 0 && (
+                  {totalUnread > 0 && (
                     <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                      {unreadCount > 9 ? '9+' : unreadCount}
+                      {totalUnread > 9 ? '9+' : totalUnread}
                     </span>
                   )}
                 </button>
@@ -379,9 +297,9 @@ export default function Layout({ children }) {
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
-                {user && unreadCount > 0 && (
+                {user && totalUnread > 0 && (
                   <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
-                    {unreadCount > 9 ? '9+' : unreadCount}
+                    {totalUnread > 9 ? '9+' : totalUnread}
                   </span>
                 )}
               </button>
@@ -432,9 +350,9 @@ export default function Layout({ children }) {
                       }`}
                     >
                       💬 Messages
-                      {unreadCount > 0 && (
+                      {totalUnread > 0 && (
                         <span className="ml-2 bg-red-500 text-white text-xs rounded-full px-2 py-1">
-                          {unreadCount > 9 ? '9+' : unreadCount}
+                          {totalUnread > 9 ? '9+' : totalUnread}
                         </span>
                       )}
                     </button>
