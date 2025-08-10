@@ -119,8 +119,14 @@ export default function Messages() {
                 .update({ read: true })
                 .eq('id', newMessage.id)
               
-              // Don't trigger global notifications since user is in the conversation
-              // The message is already marked as read
+              // Update conversations list to remove unread count for this conversation
+              setConversations(prev => 
+                prev.map(conv => 
+                  conv.id === activeConversation.id 
+                    ? { ...conv, unread_count: 0 }
+                    : conv
+                )
+              )
             }
           }
         )
@@ -463,8 +469,18 @@ export default function Messages() {
                     <div
                       key={conversation.id}
                       onClick={async () => {
+                        // Immediately update local state to remove unread count
+                        setConversations(prev => 
+                          prev.map(conv => 
+                            conv.id === conversation.id 
+                              ? { ...conv, unread_count: 0 }
+                              : conv
+                          )
+                        )
+                        
                         setActiveConversation(conversation)
-                        // Mark messages as read immediately when conversation is opened
+                        
+                        // Mark messages as read in database
                         if (conversation.unread_count > 0) {
                           await supabase
                             .from('messages')
@@ -473,37 +489,8 @@ export default function Messages() {
                             .eq('recipient_id', user.id)
                             .eq('read', false)
                           
-                          // Update local state
-                          setConversations(prev => 
-                            prev.map(conv => 
-                              conv.id === conversation.id 
-                                ? { ...conv, unread_count: 0 }
-                                : conv
-                            )
-                          )
-                          
-                          // Trigger global unread count update immediately
+                          // Trigger global unread count update
                           window.dispatchEvent(new CustomEvent('messagesRead'))
-                          
-                          // Also directly update the global unread count (count conversations, not messages)
-                          const { data } = await supabase
-                            .from('messages')
-                            .select('conversation_id')
-                            .eq('recipient_id', user.id)
-                            .eq('read', false)
-                          
-                          // Get unique conversation IDs
-                          let uniqueConversations = [...new Set(data?.map(m => m.conversation_id) || [])]
-                          
-                          // Exclude active conversation from notification count
-                          if (window.activeConversationId) {
-                            uniqueConversations = uniqueConversations.filter(id => id !== window.activeConversationId)
-                          }
-                          
-                          // Dispatch with the actual conversation count
-                          window.dispatchEvent(new CustomEvent('unreadCountUpdate', {
-                            detail: { count: uniqueConversations.length }
-                          }))
                         }
                       }}
                       className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${
