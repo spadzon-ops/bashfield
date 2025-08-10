@@ -41,14 +41,17 @@ export default function Layout({ children }) {
   }
 
   const getUnreadCount = async (user) => {
+    // Count conversations with unread messages, not total unread messages
     const { data, error } = await supabase
       .from('messages')
-      .select('id')
+      .select('conversation_id')
       .eq('recipient_id', user.id)
       .eq('read', false)
     
     if (data && !error) {
-      const newCount = data.length
+      // Get unique conversation IDs
+      const uniqueConversations = [...new Set(data.map(m => m.conversation_id))]
+      const newCount = uniqueConversations.length
       if (newCount !== unreadCount) {
         setUnreadCount(newCount)
       }
@@ -144,7 +147,18 @@ export default function Layout({ children }) {
             filter: `recipient_id=eq.${user.id}`
           },
           (payload) => {
-            getUnreadCount(user)
+            // Only update unread count if message is not from active conversation
+            const currentPath = window.location.pathname
+            const isInMessages = currentPath === '/messages'
+            
+            // If user is in messages page, check if it's the active conversation
+            if (isInMessages) {
+              // Don't update global count immediately - let the messages page handle it
+              setTimeout(() => getUnreadCount(user), 1000)
+            } else {
+              getUnreadCount(user)
+            }
+            
             // Dispatch global event for message received
             window.dispatchEvent(new CustomEvent('messageReceived', {
               detail: { message: payload.new }
