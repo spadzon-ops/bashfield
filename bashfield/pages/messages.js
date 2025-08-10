@@ -266,16 +266,10 @@ export default function Messages() {
         .in('conversation_id', conversationsData.map(c => c.id))
         .order('created_at', { ascending: false })
       
-      // Get unread data but exclude active conversation
-      let unreadFilter = conversationsData.map(c => c.id)
-      if (window.activeConversationId) {
-        unreadFilter = unreadFilter.filter(id => id !== window.activeConversationId)
-      }
-      
       const { data: unreadData } = await supabase
         .from('messages')
         .select('conversation_id, id')
-        .in('conversation_id', unreadFilter)
+        .in('conversation_id', conversationsData.map(c => c.id))
         .eq('recipient_id', user.id)
         .eq('read', false)
       
@@ -284,7 +278,12 @@ export default function Messages() {
         const otherParticipant = profilesData?.find(p => p.user_id === otherParticipantId)
         const listing = listingsData?.find(l => l.id === conv.listing_id)
         const lastMessage = lastMessagesData?.find(m => m.conversation_id === conv.id)
-        const unreadCount = unreadData?.filter(m => m.conversation_id === conv.id).length || 0
+        let unreadCount = unreadData?.filter(m => m.conversation_id === conv.id).length || 0
+        
+        // Force unread count to 0 for active conversation
+        if (activeConversation && conv.id === activeConversation.id) {
+          unreadCount = 0
+        }
         
         return {
           ...conv,
@@ -470,7 +469,17 @@ export default function Messages() {
                     <div
                       key={conversation.id}
                       onClick={async () => {
-                        // Immediately update local state to remove unread count
+                        setActiveConversation(conversation)
+                        
+                        // Mark messages as read in database immediately
+                        await supabase
+                          .from('messages')
+                          .update({ read: true })
+                          .eq('conversation_id', conversation.id)
+                          .eq('recipient_id', user.id)
+                          .eq('read', false)
+                        
+                        // Update local state to remove unread count
                         setConversations(prev => 
                           prev.map(conv => 
                             conv.id === conversation.id 
@@ -479,20 +488,8 @@ export default function Messages() {
                           )
                         )
                         
-                        setActiveConversation(conversation)
-                        
-                        // Mark messages as read in database
-                        if (conversation.unread_count > 0) {
-                          await supabase
-                            .from('messages')
-                            .update({ read: true })
-                            .eq('conversation_id', conversation.id)
-                            .eq('recipient_id', user.id)
-                            .eq('read', false)
-                          
-                          // Trigger global unread count update
-                          window.dispatchEvent(new CustomEvent('messagesRead'))
-                        }
+                        // Immediately trigger global unread count update
+                        window.dispatchEvent(new CustomEvent('messagesRead'))
                       }}
                       className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${
                         activeConversation?.id === conversation.id ? 'bg-blue-50 border-blue-200' : ''
@@ -518,7 +515,7 @@ export default function Messages() {
                             <p className="text-sm font-medium text-gray-900 truncate">
                               {conversation.other_participant?.display_name || 'Unknown User'}
                             </p>
-                            {conversation.unread_count > 0 && conversation.id !== activeConversation?.id && (
+                            {conversation.unread_count > 0 && (
                               <span className="bg-blue-500 text-white text-xs rounded-full px-2 py-1 min-w-[20px] text-center">
                                 {conversation.unread_count}
                               </span>
