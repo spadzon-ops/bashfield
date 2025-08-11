@@ -52,7 +52,7 @@ export default function Layout({ children }) {
       // Get unique conversation IDs
       let uniqueConversations = [...new Set(data.map(m => m.conversation_id))]
       
-      // Always exclude active conversation from notification count
+      // CRITICAL: Always exclude active conversation from notification count
       if (window.activeConversationId) {
         uniqueConversations = uniqueConversations.filter(id => id !== window.activeConversationId)
       }
@@ -151,21 +151,20 @@ export default function Layout({ children }) {
             filter: `recipient_id=eq.${user.id}`
           },
           (payload) => {
-            // Only update unread count if message is not from active conversation
-            const currentPath = window.location.pathname
-            const isInMessages = currentPath === '/messages'
+            const newMessage = payload.new
             
-            // If user is in messages page, check if it's the active conversation
-            if (isInMessages) {
-              // Don't update global count immediately - let the messages page handle it
-              setTimeout(() => getUnreadCount(user), 1000)
-            } else {
-              getUnreadCount(user)
+            // CRITICAL: Never show notifications for active conversation
+            if (window.activeConversationId && newMessage.conversation_id === window.activeConversationId) {
+              // Message is for active conversation - don't update global count
+              return
             }
+            
+            // Update unread count for all other conversations
+            setTimeout(() => getUnreadCount(user), 500)
             
             // Dispatch global event for message received
             window.dispatchEvent(new CustomEvent('messageReceived', {
-              detail: { message: payload.new }
+              detail: { message: newMessage }
             }))
           }
         )
