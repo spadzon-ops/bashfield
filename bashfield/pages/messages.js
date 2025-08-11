@@ -8,6 +8,7 @@ export default function Messages() {
   const { t } = useTranslation('common')
   const router = useRouter()
   const [user, setUser] = useState(null)
+  const [currentUser, setCurrentUser] = useState(null)
   const [conversations, setConversations] = useState([])
   const [activeConversation, setActiveConversation] = useState(null)
   const [messages, setMessages] = useState([])
@@ -16,121 +17,197 @@ export default function Messages() {
   const [sending, setSending] = useState(false)
   const messagesEndRef = useRef(null)
 
-  // CRITICAL: Set active conversation globally on mount and clear on unmount
-  useEffect(() => {
-    const handleRouteChange = () => {
-      window.activeConversationId = null
-      window.dispatchEvent(new CustomEvent('activeConversationChanged', { detail: null }))
-    }
-
-    router.events.on('routeChangeStart', handleRouteChange)
-    
-    return () => {
-      router.events.off('routeChangeStart', handleRouteChange)
-      window.activeConversationId = null
-      window.dispatchEvent(new CustomEvent('activeConversationChanged', { detail: null }))
-    }
-  }, [router.events])
-
   useEffect(() => {
     checkAuth()
-  }, [])
+    
+    // Cleanup function when component unmounts (user leaves messages page)
+    return () => {
+      if (window.activeConversationId && user) {
+        // Mark all messages in the active conversation as read when leaving page
+        supabase
+          .from('messages')
+          .update({ read: true })
+          .eq('conversation_id', window.activeConversationId)
+          .eq('recipient_id', user.id)
+          .eq('read', false)
+          .then(() => {
+            // Trigger global unread count update
+            window.dispatchEvent(new CustomEvent('messagesRead'))
+          })
+      }
+      window.activeConversationId = null
+    }
+  }, [user])
 
   useEffect(() => {
+    // Check for conversation parameter in URL
     const urlParams = new URLSearchParams(window.location.search)
     const conversationId = urlParams.get('conversation')
     
     if (conversationId && conversations.length > 0) {
       const conversation = conversations.find(c => c.id === conversationId)
       if (conversation) {
-        selectConversation(conversation)
+        setActiveConversation(conversation)
       }
     }
   }, [conversations])
 
-  // Handle active conversation changes
   useEffect(() => {
     if (activeConversation) {
-      window.activeConversationId = activeConversation.id
-      window.dispatchEvent(new CustomEvent('activeConversationChanged', { detail: activeConversation.id }))
       fetchMessages()
       markAsRead()
+      
+      // Set global active conversation to prevent notifications
+      window.activeConversationId = activeConversation.id
     } else {
+      // Clear global active conversation
       window.activeConversationId = null
-      window.dispatchEvent(new CustomEvent('activeConversationChanged', { detail: null }))
     }
-  }, [activeConversation])
+  }, [activeConversation, user?.id])
 
-  // Real-time subscriptions
+  // Dedicated real-time subscription for active conversation
   useEffect(() => {
-    if (!user) return
-
-    const channel = supabase
-      .channel(`messages-${user.id}`)
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'messages'
-      }, (payload) => {
-        const newMsg = payload.new
-        
-        // If message is for active conversation, add to messages
-        if (activeConversation && newMsg.conversation_id === activeConversation.id) {
-          if (newMsg.recipient_id === user.id) {
-            // Mark as read immediately for active conversation
-            supabase
-              .from('messages')
-              .update({ read: true })
-              .eq('id', newMsg.id)
-              .then(() => {
-                // Add to messages with sender info
-                addMessageToActive(newMsg)
-              })
-          } else {
-            addMessageToActive(newMsg)
+    if (activeConversation && user) {
+      const conversationChannel = supabase
+        .channel(`conversation-${activeConversation.id}-${Date.now()}`)
+        .on('postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'messages',
+            filter: `conversation_id=eq.${activeConversation.id}`
+          },
+          async (payload) => {
+            const newMessage = payload.new
+            
+            // Get sender profile
+            const { data: senderProfile } = await supabase
+              .from('user_profiles')
+              .select('display_name, profile_picture')
+              .eq('user_id', newMessage.sender_id)
+              .single()
+            
+            const messageWithProfile = {
+              ...newMessage,
+              sender: senderProfile || { display_name: 'Unknown User' }
+            }
+            
+            setMessages(prev => {
+              // Avoid duplicates
+              const exists = prev.find(m => m.id === newMessage.id)
+              if (exists) return prev
+              return [...prev, messageWithProfile]
+            })
+            
+            // Mark as read immediately if user is recipient and conversation is active
+            if (newMessage.recipient_id === user.id) {
+              await supabase
+                .from('messages')
+                .update({ read: true })
+                .eq('id', newMessage.id)
+              
+              // Update conversations list to remove unread count for this conversation
+              setConversations(prev => 
+                prev.map(conv => 
+                  conv.id === activeConversation.id 
+                    ? { ...conv, unread_count: 0 }
+                    : conv
+                )
+              )
+            }
           }
+        )
+        .subscribe()
+      
+      // Poll for new messages every 1 second for this conversation
+      const pollInterval = setInterval(() => {
+        if (activeConversation) {
+          fetchMessages()
         }
-        
-        // Always refresh conversations to update order and counts
-        fetchConversations()
-      })
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'messages'
-      }, () => {
-        fetchConversations()
-      })
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
+      }, 1000)
+      
+      return () => {
+        supabase.removeChannel(conversationChannel)
+        clearInterval(pollInterval)
+      }
     }
-  }, [user, activeConversation])
+  }, [activeConversation?.id, user?.id])
+
+  // Global message updates for conversations list
+  useEffect(() => {
+    if (user) {
+      const channel = supabase
+        .channel(`global-messages-${user.id}`)
+        .on('postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'messages'
+          },
+          (payload) => {
+            const newMessage = payload.new
+            if (newMessage.recipient_id === user.id || newMessage.sender_id === user.id) {
+              // Always update conversations list
+              fetchConversations(user)
+              
+              // If this message is for the active conversation, don't trigger global notifications
+              if (activeConversation && newMessage.conversation_id === activeConversation.id) {
+                // Don't trigger global unread count update for active conversation
+                return
+              }
+              
+              // Trigger global unread count update for other conversations
+              setTimeout(() => {
+                window.dispatchEvent(new CustomEvent('messagesRead'))
+              }, 100)
+            }
+          }
+        )
+        .subscribe()
+
+      return () => {
+        supabase.removeChannel(channel)
+      }
+    }
+  }, [user])
 
   useEffect(() => {
     scrollToBottom()
   }, [messages])
 
-  const addMessageToActive = async (newMsg) => {
-    // Get sender profile
-    const { data: senderProfile } = await supabase
-      .from('user_profiles')
-      .select('user_id, display_name, profile_picture')
-      .eq('user_id', newMsg.sender_id)
-      .single()
+  // Periodic refresh for conversations
+  useEffect(() => {
+    if (user) {
+      const interval = setInterval(() => {
+        fetchConversations(user)
+      }, 5000) // Refresh every 5 seconds
+      
+      return () => clearInterval(interval)
+    }
+  }, [user])
 
-    const messageWithProfile = {
-      ...newMsg,
-      sender: senderProfile || { user_id: newMsg.sender_id, display_name: 'Unknown User' }
+  // Refresh messages when tab becomes visible or window gets focus
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden && activeConversation) {
+        fetchMessages()
+      }
     }
 
-    setMessages(prev => {
-      const exists = prev.find(m => m.id === newMsg.id)
-      if (exists) return prev
-      return [...prev, messageWithProfile]
-    })
-  }
+    const handleFocus = () => {
+      if (activeConversation) {
+        fetchMessages()
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('focus', handleFocus)
+    
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [activeConversation])
 
   const checkAuth = async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -141,13 +218,12 @@ export default function Messages() {
     }
 
     setUser(user)
-    await fetchConversations()
+    setCurrentUser(user)
+    await fetchConversations(user)
     setLoading(false)
   }
 
-  const fetchConversations = async () => {
-    if (!user) return
-
+  const fetchConversations = async (user) => {
     const { data: conversationsData, error } = await supabase
       .from('conversations')
       .select('*')
@@ -155,9 +231,11 @@ export default function Messages() {
       .order('updated_at', { ascending: false })
 
     if (conversationsData && !error) {
+      // Get all participant IDs and listing IDs
       const participantIds = [...new Set(conversationsData.flatMap(c => [c.participant1, c.participant2]))]
       const listingIds = [...new Set(conversationsData.map(c => c.listing_id))]
       
+      // Fetch profiles and listings separately
       const { data: profilesData } = await supabase
         .from('user_profiles')
         .select('user_id, display_name, profile_picture')
@@ -168,6 +246,7 @@ export default function Messages() {
         .select('id, title')
         .in('id', listingIds)
       
+      // Get last messages and unread counts for each conversation
       const { data: lastMessagesData } = await supabase
         .from('messages')
         .select('conversation_id, content, created_at, sender_id')
@@ -188,7 +267,7 @@ export default function Messages() {
         const lastMessage = lastMessagesData?.find(m => m.conversation_id === conv.id)
         let unreadCount = unreadData?.filter(m => m.conversation_id === conv.id).length || 0
         
-        // CRITICAL: No unread count for active conversation
+        // Force unread count to 0 for active conversation
         if (activeConversation && conv.id === activeConversation.id) {
           unreadCount = 0
         }
@@ -200,43 +279,10 @@ export default function Messages() {
           last_message: lastMessage,
           unread_count: unreadCount
         }
-      })
+      }).sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
       
-      // CRITICAL: Sort by updated_at to keep most recent at top
-      const sortedConversations = conversationsWithDetails.sort((a, b) => 
-        new Date(b.updated_at) - new Date(a.updated_at)
-      )
-      
-      setConversations(sortedConversations)
+      setConversations(conversationsWithDetails)
     }
-  }
-
-  const selectConversation = async (conversation) => {
-    // CRITICAL: Set active conversation immediately
-    window.activeConversationId = conversation.id
-    window.dispatchEvent(new CustomEvent('activeConversationChanged', { detail: conversation.id }))
-    
-    setActiveConversation(conversation)
-    
-    // Mark messages as read immediately
-    await supabase
-      .from('messages')
-      .update({ read: true })
-      .eq('conversation_id', conversation.id)
-      .eq('recipient_id', user.id)
-      .eq('read', false)
-    
-    // Update local conversation unread count
-    setConversations(prev => 
-      prev.map(conv => 
-        conv.id === conversation.id 
-          ? { ...conv, unread_count: 0 }
-          : conv
-      )
-    )
-    
-    // Trigger global notification update
-    window.dispatchEvent(new CustomEvent('messagesRead'))
   }
 
   const fetchMessages = async () => {
@@ -249,12 +295,14 @@ export default function Messages() {
       .order('created_at', { ascending: true })
 
     if (messagesData && !error) {
+      // Get sender profiles
       const senderIds = [...new Set(messagesData.map(m => m.sender_id))]
       const { data: profilesData } = await supabase
         .from('user_profiles')
         .select('user_id, display_name, profile_picture')
         .in('user_id', senderIds)
       
+      // Merge messages with sender profiles
       const messagesWithProfiles = messagesData.map(message => ({
         ...message,
         sender: profilesData?.find(p => p.user_id === message.sender_id) || {
@@ -270,15 +318,28 @@ export default function Messages() {
   const markAsRead = async () => {
     if (!activeConversation || !user) return
 
-    await supabase
+    const { error } = await supabase
       .from('messages')
       .update({ read: true })
       .eq('conversation_id', activeConversation.id)
       .eq('recipient_id', user.id)
       .eq('read', false)
 
-    // Trigger global notification update
-    window.dispatchEvent(new CustomEvent('messagesRead'))
+    if (!error) {
+      // Update conversation unread count
+      setConversations(prev => 
+        prev.map(conv => 
+          conv.id === activeConversation.id 
+            ? { ...conv, unread_count: 0 }
+            : conv
+        )
+      )
+      
+      // Trigger global unread count update immediately
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('messagesRead'))
+      }, 100)
+    }
   }
 
   const sendMessage = async () => {
@@ -303,8 +364,14 @@ export default function Messages() {
         .select()
         .single()
 
-      if (error) throw error
+      if (error) {
+        console.error('Error sending message:', error)
+        alert('Failed to send message. Please try again.')
+        setSending(false)
+        return
+      }
 
+      // Add sender profile data to message
       const messageWithProfile = {
         ...data,
         sender: {
@@ -321,6 +388,16 @@ export default function Messages() {
         .from('conversations')
         .update({ updated_at: new Date().toISOString() })
         .eq('id', activeConversation.id)
+      
+      // Update conversations list to move this conversation to top
+      setConversations(prev => {
+        const updated = prev.map(conv => 
+          conv.id === activeConversation.id 
+            ? { ...conv, updated_at: new Date().toISOString(), last_message: messageWithProfile }
+            : conv
+        )
+        return updated.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
+      })
         
     } catch (error) {
       console.error('Error sending message:', error)
@@ -378,7 +455,29 @@ export default function Messages() {
                   conversations.map(conversation => (
                     <div
                       key={conversation.id}
-                      onClick={() => selectConversation(conversation)}
+                      onClick={async () => {
+                        setActiveConversation(conversation)
+                        
+                        // Mark messages as read in database immediately
+                        await supabase
+                          .from('messages')
+                          .update({ read: true })
+                          .eq('conversation_id', conversation.id)
+                          .eq('recipient_id', user.id)
+                          .eq('read', false)
+                        
+                        // Update local state to remove unread count
+                        setConversations(prev => 
+                          prev.map(conv => 
+                            conv.id === conversation.id 
+                              ? { ...conv, unread_count: 0 }
+                              : conv
+                          )
+                        )
+                        
+                        // Immediately trigger global unread count update
+                        window.dispatchEvent(new CustomEvent('messagesRead'))
+                      }}
                       className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${
                         activeConversation?.id === conversation.id ? 'bg-blue-50 border-blue-200' : ''
                       }`}
@@ -454,9 +553,18 @@ export default function Messages() {
                         </div>
                       )}
                       <div>
-                        <h3 className="font-medium text-gray-900">
-                          {activeConversation.other_participant?.display_name || 'Unknown User'}
-                        </h3>
+                        {currentUser?.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL ? (
+                          <button
+                            onClick={() => router.push(`/admin/profile/${activeConversation.other_participant?.user_id}`)}
+                            className="font-medium text-blue-600 hover:text-blue-800"
+                          >
+                            {activeConversation.other_participant?.display_name || 'Unknown User'}
+                          </button>
+                        ) : (
+                          <h3 className="font-medium text-gray-900">
+                            {activeConversation.other_participant?.display_name || 'Unknown User'}
+                          </h3>
+                        )}
                         <p className="text-sm text-gray-600">
                           About: {activeConversation.listing?.title || 'Property'}
                         </p>
