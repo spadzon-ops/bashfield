@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react'
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations'
 import { useTranslation } from 'next-i18next'
-import { supabase, CITIES } from '../lib/supabase'
+import { CITIES } from '../lib/supabase'
 import ListingCard from '../components/ListingCard'
 import MapView from '../components/MapView'
 
-export default function Home() {
+export default function Home({ supabase }) {
   const { t } = useTranslation('common')
   const [listings, setListings] = useState([])
   const [filteredListings, setFilteredListings] = useState([])
@@ -28,6 +28,7 @@ export default function Home() {
   }, [filters, listings])
 
   const fetchListings = async () => {
+    if (!supabase) return
     try {
       // First get all approved listings
       const { data: listingsData, error: listingsError } = await supabase
