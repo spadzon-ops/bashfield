@@ -4,7 +4,7 @@ import { serverSideTranslations } from 'next-i18next/serverSideTranslations'
 import { useTranslation } from 'next-i18next'
 import { supabase } from '../../lib/supabase'
 
-export default function ListingDetail({ listing: initialListing }) {
+export default function ListingDetail({ listing: initialListing, supabase }) {
   const { t } = useTranslation('common')
   const router = useRouter()
   const [listing] = useState(initialListing)
