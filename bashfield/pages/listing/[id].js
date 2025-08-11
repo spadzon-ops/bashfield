@@ -4,13 +4,6 @@ import { serverSideTranslations } from 'next-i18next/serverSideTranslations'
 import { useTranslation } from 'next-i18next'
 import { supabase } from '../../lib/supabase'
 
-/**
- * Listing detail page
- * Server-side rule:
- *  - If listing.status === 'approved' => visible to everyone
- *  - Else if query.admin === 'true'   => visible (admin/owner path)
- *  - Otherwise                        => 404
- */
 export default function ListingDetail({ listing: initialListing }) {
   const { t } = useTranslation('common')
   const router = useRouter()
@@ -24,7 +17,7 @@ export default function ListingDetail({ listing: initialListing }) {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">{t('loading_property') || 'Loading property...'}</p>
+          <p className="text-gray-600">Loading property...</p>
         </div>
       </div>
     )
@@ -33,103 +26,329 @@ export default function ListingDetail({ listing: initialListing }) {
   if (!listing) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center text-gray-700">{t('not_found') || 'Property not found'}</div>
+        <div className="text-center">
+          <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <span className="text-4xl">❌</span>
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Property Not Found</h1>
+          <p className="text-gray-600 mb-6">This property may have been removed or is no longer available.</p>
+          <button 
+            onClick={() => router.push('/')}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors"
+          >
+            ← Back to Homepage
+          </button>
+        </div>
       </div>
     )
   }
 
-  const images = Array.isArray(listing.images) ? listing.images : (listing.images ? [listing.images] : [])
-  const hasImages = images.length > 0
+  const nextImage = () => {
+    setCurrentImageIndex((prev) => 
+      prev === listing.images.length - 1 ? 0 : prev + 1
+    )
+  }
 
-  const nextImage = () => setCurrentImageIndex((prev) => (prev + 1) % Math.max(images.length, 1))
-  const prevImage = () => setCurrentImageIndex((prev) => (prev - 1 + Math.max(images.length, 1)) % Math.max(images.length, 1))
+  const prevImage = () => {
+    setCurrentImageIndex((prev) => 
+      prev === 0 ? listing.images.length - 1 : prev - 1
+    )
+  }
 
-  const onTouchStart = (e) => { touchStartX.current = e.changedTouches[0].screenX }
-  const onTouchEnd = (e) => {
-    touchEndX.current = e.changedTouches[0].screenX
-    if (touchStartX.current - touchEndX.current > 50) nextImage()
-    if (touchEndX.current - touchStartX.current > 50) prevImage()
+  const openWhatsApp = () => {
+    const message = `Hi! I'm interested in your property: ${listing.title}`
+    const whatsappUrl = `https://wa.me/${listing.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(message)}`
+    window.open(whatsappUrl, '_blank')
+  }
+
+  const startConversation = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    
+    if (!user) {
+      alert('Please sign in to send messages')
+      return
+    }
+    
+    if (user.id === listing.user_id) {
+      alert('You cannot message yourself')
+      return
+    }
+
+    try {
+      // Check if conversation already exists
+      const { data: existingConv } = await supabase
+        .from('conversations')
+        .select('id')
+        .eq('listing_id', listing.id)
+        .or(`and(participant1.eq.${user.id},participant2.eq.${listing.user_id}),and(participant1.eq.${listing.user_id},participant2.eq.${user.id})`)
+        .single()
+
+      if (existingConv) {
+        router.push(`/messages?conversation=${existingConv.id}`)
+        return
+      }
+
+      // Create new conversation
+      const { data, error } = await supabase
+        .from('conversations')
+        .insert({
+          listing_id: listing.id,
+          participant1: user.id,
+          participant2: listing.user_id
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+
+      router.push(`/messages?conversation=${data.id}`)
+    } catch (error) {
+      console.error('Error starting conversation:', error)
+      alert('Error starting conversation. Please try again.')
+    }
+  }
+
+  const handleTouchStart = (e) => {
+    touchStartX.current = e.touches[0].clientX
+  }
+
+  const handleTouchMove = (e) => {
+    touchEndX.current = e.touches[0].clientX
+  }
+
+  const handleTouchEnd = () => {
+    if (!touchStartX.current || !touchEndX.current) return
+    
+    const distance = touchStartX.current - touchEndX.current
+    const isLeftSwipe = distance > 50
+    const isRightSwipe = distance < -50
+
+    if (isLeftSwipe && listing.images.length > 1) {
+      nextImage()
+    }
+    if (isRightSwipe && listing.images.length > 1) {
+      prevImage()
+    }
   }
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-4xl mx-auto p-4">
-        {/* Title */}
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">{listing.title || t('untitled')}</h1>
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <button
+          onClick={() => router.back()}
+          className="mb-6 flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors"
+        >
+          <span>←</span>
+          <span>Back to listings</span>
+        </button>
 
-        {/* Owner */}
-        <div className="flex items-center gap-2 text-sm text-gray-700 mb-4">
-          {listing.user_profiles?.profile_picture ? (
-            <img src={listing.user_profiles.profile_picture} alt="Owner" className="w-8 h-8 rounded-full object-cover" />
-          ) : <div className="w-8 h-8 rounded-full bg-gray-200" />}
-          <span>{listing.user_profiles?.display_name || listing.owner_name || t('owner')}</span>
-          {listing.status && (
-            <span className="ml-auto text-xs px-2 py-0.5 rounded-full border bg-gray-50">{listing.status}</span>
-          )}
-        </div>
-
-        {/* Gallery */}
-        <div className="relative w-full h-64 bg-gray-100 rounded-xl overflow-hidden mb-4" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
-          {hasImages ? (
-            <img
-              src={images[currentImageIndex]}
-              alt={listing.title || 'Property'}
-              className="w-full h-64 object-cover"
-              loading="lazy"
-            />
-          ) : (
-            <div className="w-full h-64 flex items-center justify-center text-gray-400">No Image</div>
-          )}
-
-          {hasImages && images.length > 1 && (
-            <>
-              <button
-                onClick={prevImage}
-                className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 rounded-full px-2 py-1 text-sm"
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2">
+            <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+              <div 
+                className="relative h-96 bg-gray-200"
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
               >
-                ‹
-              </button>
-              <button
-                onClick={nextImage}
-                className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 rounded-full px-2 py-1 text-sm"
-              >
-                ›
-              </button>
-            </>
-          )}
-        </div>
+                {listing.images && listing.images.length > 0 ? (
+                  <>
+                    <img
+                      src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/house-images/${listing.images[currentImageIndex]}`}
+                      alt={listing.title}
+                      className="w-full h-full object-cover"
+                    />
+                    
+                    {listing.images.length > 1 && (
+                      <>
+                        <button
+                          onClick={prevImage}
+                          className="absolute left-4 top-1/2 transform -translate-y-1/2 w-10 h-10 bg-black bg-opacity-50 text-white rounded-full hover:bg-opacity-70 transition-all"
+                        >
+                          ←
+                        </button>
+                        <button
+                          onClick={nextImage}
+                          className="absolute right-4 top-1/2 transform -translate-y-1/2 w-10 h-10 bg-black bg-opacity-50 text-white rounded-full hover:bg-opacity-70 transition-all"
+                        >
+                          →
+                        </button>
+                      </>
+                    )}
 
-        {/* Details */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <div className="text-gray-900 font-semibold">{t('details') || 'Details'}</div>
-            <div className="text-gray-700"><strong>{t('price') || 'Price'}:</strong> {listing.price ?? '-'}</div>
-            <div className="text-gray-700"><strong>{t('city') || 'City'}:</strong> {listing.city || '-'}</div>
-            <div className="text-gray-700"><strong>{t('address') || 'Address'}:</strong> {listing.address || '-'}</div>
-            <div className="text-gray-700"><strong>{t('rooms') || 'Rooms'}:</strong> {listing.rooms ?? '-'}</div>
-            <div className="text-gray-700"><strong>{t('bathrooms') || 'Bathrooms'}:</strong> {listing.bathrooms ?? '-'}</div>
-            <div className="text-gray-700"><strong>{t('area') || 'Area'}:</strong> {listing.area ?? '-'}</div>
-          </div>
+                    <div className="absolute bottom-4 right-4 bg-black bg-opacity-50 text-white px-3 py-1 rounded-full text-sm">
+                      {currentImageIndex + 1} / {listing.images.length}
+                    </div>
+                  </>
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <span className="text-6xl">🏠</span>
+                  </div>
+                )}
+              </div>
 
-          <div className="space-y-2">
-            <div className="text-gray-900 font-semibold">{t('description') || 'Description'}</div>
-            <p className="text-gray-700 whitespace-pre-wrap">{listing.description || '-'}</p>
+              {listing.images && listing.images.length > 1 && (
+                <div className="p-4">
+                  <div className="flex space-x-2 overflow-x-auto">
+                    {listing.images.map((image, index) => (
+                      <button
+                        key={index}
+                        onClick={() => setCurrentImageIndex(index)}
+                        className={`flex-shrink-0 w-20 h-16 rounded-lg overflow-hidden border-2 transition-all ${
+                          index === currentImageIndex 
+                            ? 'border-blue-500' 
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <img
+                          src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/house-images/${image}`}
+                          alt={`View ${index + 1}`}
+                          className="w-full h-full object-cover"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
 
-            {(listing.latitude && listing.longitude) && (
-              <div className="mt-3">
-                <div className="text-gray-900 font-semibold mb-2">{t('location') || 'Location'}</div>
-                <div className="w-full h-64 rounded-lg overflow-hidden border border-gray-200">
-                  <iframe
-                    src={`https://www.openstreetmap.org/export/embed.html?bbox=${parseFloat(listing.longitude)-0.01},${parseFloat(listing.latitude)-0.01},${parseFloat(listing.longitude)+0.01},${parseFloat(listing.latitude)+0.01}&layer=mapnik&marker=${parseFloat(listing.latitude)},${parseFloat(listing.longitude)}`}
-                    width="100%"
-                    height="100%"
-                    style={{ border: 0 }}
-                    title="Property Location"
-                    loading="lazy"
-                  />
+            <div className="bg-white rounded-xl shadow-sm p-6 mt-6">
+              <div className="flex items-center justify-between mb-4">
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
+                  {listing.title}
+                </h1>
+                {listing.status !== 'approved' && (
+                  <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                    listing.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                    listing.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                    'bg-gray-100 text-gray-800'
+                  }`}>
+                    {listing.status.charAt(0).toUpperCase() + listing.status.slice(1)}
+                  </span>
+                )}
+              </div>
+              
+              <div className="flex flex-wrap items-center gap-4 mb-6 text-sm text-gray-600">
+                <div className="flex items-center space-x-1">
+                  <span>📍</span>
+                  <span>{listing.city.charAt(0).toUpperCase() + listing.city.slice(1)}</span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <span>🛏️</span>
+                  <span>{listing.rooms} {listing.rooms === 1 ? 'Room' : 'Rooms'}</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  {listing.user_profiles?.profile_picture ? (
+                    <img
+                      src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/house-images/${listing.user_profiles.profile_picture}`}
+                      alt="Owner"
+                      className="w-5 h-5 rounded-full object-cover"
+                    />
+                  ) : (
+                    <span>👤</span>
+                  )}
+                  <span>By {listing.owner_name || 'Property Owner'}</span>
                 </div>
               </div>
-            )}
+
+              <div className="prose max-w-none">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Description</h3>
+                <p className="text-gray-700 leading-relaxed whitespace-pre-line">
+                  {listing.description}
+                </p>
+              </div>
+
+              {listing.address && (
+                <div className="mt-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Location</h3>
+                  <p className="text-gray-700 mb-4">{listing.address}</p>
+                  
+                  {(listing.latitude && listing.longitude) && (
+                    <div className="mt-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-md font-semibold text-gray-900">Property Location</h4>
+                        <button
+                          onClick={() => {
+                            const mapUrl = `https://www.openstreetmap.org/?mlat=${listing.latitude}&mlon=${listing.longitude}&zoom=15`
+                            window.open(mapUrl, '_blank')
+                          }}
+                          className="inline-flex items-center space-x-1 bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1 rounded-lg transition-colors text-sm font-medium"
+                        >
+                          <span>🗺️</span>
+                          <span>Open in Maps</span>
+                        </button>
+                      </div>
+                      <div className="w-full h-64 rounded-lg overflow-hidden border border-gray-200">
+                        <iframe
+                          src={`https://www.openstreetmap.org/export/embed.html?bbox=${parseFloat(listing.longitude)-0.002},${parseFloat(listing.latitude)-0.002},${parseFloat(listing.longitude)+0.002},${parseFloat(listing.latitude)+0.002}&layer=mapnik&marker=${parseFloat(listing.latitude)},${parseFloat(listing.longitude)}`}
+                          width="100%"
+                          height="100%"
+                          style={{ border: 0 }}
+                          title="Property Location"
+                          loading="lazy"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="lg:col-span-1">
+            <div className="bg-white rounded-xl shadow-sm p-6 sticky top-8">
+              <div className="text-center mb-6">
+                <div className="text-3xl font-bold text-blue-600 mb-2">
+                  {listing?.price?.toLocaleString()} {listing?.currency}
+                </div>
+                <div className="text-gray-600">per month</div>
+              </div>
+
+              <div className="space-y-3 mb-4">
+                <button
+                  onClick={openWhatsApp}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center justify-center space-x-2"
+                >
+                  <span>💬</span>
+                  <span>Contact via WhatsApp</span>
+                </button>
+                
+                <button
+                  onClick={() => startConversation()}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors flex items-center justify-center space-x-2"
+                >
+                  <span>✉️</span>
+                  <span>Send Message</span>
+                </button>
+              </div>
+
+              <div className="space-y-4 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Rooms</span>
+                  <span className="font-medium">{listing.rooms}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">City</span>
+                  <span className="font-medium">{listing.city.charAt(0).toUpperCase() + listing.city.slice(1)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Currency</span>
+                  <span className="font-medium">{listing.currency}</span>
+                </div>
+              </div>
+
+              <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="flex items-start space-x-2">
+                  <span className="text-yellow-600">⚠️</span>
+                  <div className="text-sm">
+                    <p className="font-medium text-yellow-800 mb-1">Safety Tips</p>
+                    <p className="text-yellow-700">
+                      Always verify the property and meet in person before making any payments.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -139,10 +358,12 @@ export default function ListingDetail({ listing: initialListing }) {
 
 export async function getServerSideProps({ params, locale, query }) {
   const { id } = params
-  const isAdminParam = String(query?.admin || '').toLowerCase() === 'true'
-
+  const { admin } = query
+  
+  console.log('Listing page - ID:', id, 'Admin param:', admin, 'Query:', query)
+  
   try {
-    // Always fetch the listing by id (no status filter here)
+    // Get listing data
     const { data: listingData, error: listingError } = await supabase
       .from('listings')
       .select('*')
@@ -150,18 +371,22 @@ export async function getServerSideProps({ params, locale, query }) {
       .single()
 
     if (listingError || !listingData) {
-      return { notFound: true }
+      return {
+        notFound: true,
+      }
     }
 
-    // Gate access:
-    //  - Public if approved
-    //  - Otherwise require admin=true query flag (added client-side only for admin/owner)
-    const isApproved = (listingData.status || '').toLowerCase() === 'approved'
-    if (!isApproved && !isAdminParam) {
-      return { notFound: true }
+    // Allow access if:
+    // 1. Listing is approved (public access)
+    // 2. Admin parameter is present (admin access)
+    // 3. User owns the listing (owner access)
+    if (listingData.status !== 'approved' && admin !== 'true') {
+      return {
+        notFound: true,
+      }
     }
 
-    // Attach minimal profile
+    // Get profile data separately
     const { data: profileData } = await supabase
       .from('user_profiles')
       .select('display_name, profile_picture')
@@ -171,7 +396,7 @@ export async function getServerSideProps({ params, locale, query }) {
     const listing = {
       ...listingData,
       user_profiles: profileData || null,
-      owner_name: profileData?.display_name || (listingData.user_email ? listingData.user_email.split('@')[0] : 'Property Owner')
+      owner_name: profileData?.display_name || listingData.user_email?.split('@')[0] || 'Property Owner'
     }
 
     return {
@@ -182,6 +407,8 @@ export async function getServerSideProps({ params, locale, query }) {
     }
   } catch (error) {
     console.error('Error in getServerSideProps:', error)
-    return { notFound: true }
+    return {
+      notFound: true,
+    }
   }
 }
