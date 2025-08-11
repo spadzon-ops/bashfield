@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations'
 import { useTranslation } from 'next-i18next'
@@ -7,12 +7,64 @@ import { supabase } from '../../lib/supabase'
 export default function ListingDetail({ listing: initialListing }) {
   const { t } = useTranslation('common')
   const router = useRouter()
-  const [listing] = useState(initialListing)
+  const [listing, setListing] = useState(initialListing)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
+  const [loading, setLoading] = useState(!initialListing)
+  const [currentUser, setCurrentUser] = useState(null)
   const touchStartX = useRef(0)
   const touchEndX = useRef(0)
 
-  if (router.isFallback) {
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      setCurrentUser(user)
+    }
+    getUser()
+  }, [])
+
+  useEffect(() => {
+    // If no initial listing and we have admin param, fetch client-side
+    if (!initialListing && router.query.admin === 'true' && router.query.id) {
+      fetchListingClientSide()
+    }
+  }, [router.query, initialListing])
+
+  const fetchListingClientSide = async () => {
+    try {
+      const { data: listingData, error } = await supabase
+        .from('listings')
+        .select('*')
+        .eq('id', router.query.id)
+        .single()
+
+      if (error || !listingData) {
+        setListing(null)
+        setLoading(false)
+        return
+      }
+
+      // Get profile data
+      const { data: profileData } = await supabase
+        .from('user_profiles')
+        .select('display_name, profile_picture')
+        .eq('user_id', listingData.user_id)
+        .single()
+
+      const fullListing = {
+        ...listingData,
+        user_profiles: profileData || null,
+        owner_name: profileData?.display_name || listingData.user_email?.split('@')[0] || 'Property Owner'
+      }
+
+      setListing(fullListing)
+    } catch (error) {
+      console.error('Error fetching listing:', error)
+      setListing(null)
+    }
+    setLoading(false)
+  }
+
+  if (router.isFallback || loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
@@ -356,11 +408,9 @@ export default function ListingDetail({ listing: initialListing }) {
   )
 }
 
-export async function getServerSideProps({ params, locale, query, req }) {
+export async function getServerSideProps({ params, locale, query }) {
   const { id } = params
   const { admin } = query
-  
-  console.log('Listing page - ID:', id, 'Admin param:', admin, 'Query:', query)
   
   try {
     // Get listing data
@@ -371,14 +421,22 @@ export async function getServerSideProps({ params, locale, query, req }) {
       .single()
 
     if (listingError || !listingData) {
+        // If admin param is present, let client-side handle it
+      if (admin === 'true') {
+        return {
+          props: {
+            listing: null,
+            ...(await serverSideTranslations(locale, ['common'])),
+          },
+        }
+      }
       return {
         notFound: true,
       }
     }
 
-    // If admin parameter is present, allow access (for admin and owner views)
-    if (admin === 'true') {
-      // Get profile data
+    // For approved listings, always allow access
+    if (listingData.status === 'approved') {
       const { data: profileData } = await supabase
         .from('user_profiles')
         .select('display_name, profile_picture')
@@ -399,34 +457,43 @@ export async function getServerSideProps({ params, locale, query, req }) {
       }
     }
 
-    // For public access, only allow approved listings
-    if (listingData.status !== 'approved') {
+    // For non-approved listings, only allow if admin param is present
+    if (admin === 'true') {
+      const { data: profileData } = await supabase
+        .from('user_profiles')
+        .select('display_name, profile_picture')
+        .eq('user_id', listingData.user_id)
+        .single()
+
+      const listing = {
+        ...listingData,
+        user_profiles: profileData || null,
+        owner_name: profileData?.display_name || listingData.user_email?.split('@')[0] || 'Property Owner'
+      }
+
       return {
-        notFound: true,
+        props: {
+          listing,
+          ...(await serverSideTranslations(locale, ['common'])),
+        },
       }
     }
 
-    // Get profile data separately
-    const { data: profileData } = await supabase
-      .from('user_profiles')
-      .select('display_name, profile_picture')
-      .eq('user_id', listingData.user_id)
-      .single()
-
-    const listing = {
-      ...listingData,
-      user_profiles: profileData || null,
-      owner_name: profileData?.display_name || listingData.user_email?.split('@')[0] || 'Property Owner'
-    }
-
+    // Default: not found for non-approved without admin param
     return {
-      props: {
-        listing,
-        ...(await serverSideTranslations(locale, ['common'])),
-      },
+      notFound: true,
     }
   } catch (error) {
     console.error('Error in getServerSideProps:', error)
+    // If admin param is present, let client-side handle it
+    if (admin === 'true') {
+      return {
+        props: {
+          listing: null,
+          ...(await serverSideTranslations(locale, ['common'])),
+        },
+      }
+    }
     return {
       notFound: true,
     }
