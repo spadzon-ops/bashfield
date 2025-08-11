@@ -360,8 +360,6 @@ export async function getServerSideProps({ params, locale, query }) {
   const { id } = params
   const { admin } = query
   
-  console.log('Listing page - ID:', id, 'Admin param:', admin, 'Query:', query)
-  
   try {
     // Get listing data
     const { data: listingData, error: listingError } = await supabase
@@ -371,6 +369,7 @@ export async function getServerSideProps({ params, locale, query }) {
       .single()
 
     if (listingError || !listingData) {
+      console.error('Listing not found:', { id, error: listingError })
       return {
         notFound: true,
       }
@@ -378,8 +377,7 @@ export async function getServerSideProps({ params, locale, query }) {
 
     // Allow access if:
     // 1. Listing is approved (public access)
-    // 2. Admin parameter is present (admin access)
-    // 3. User owns the listing (owner access)
+    // 2. Admin parameter is present (admin/owner access)
     if (listingData.status !== 'approved' && admin !== 'true') {
       return {
         notFound: true,
@@ -406,7 +404,7 @@ export async function getServerSideProps({ params, locale, query }) {
       },
     }
   } catch (error) {
-    console.error('Error in getServerSideProps:', error)
+    console.error('Error in getServerSideProps:', { id, error })
     return {
       notFound: true,
     }
