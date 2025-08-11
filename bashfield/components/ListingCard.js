@@ -47,7 +47,8 @@ export default function ListingCard({ listing, showActions = false, onApprove, o
 
   const openListing = () => {
     const isCurrentUserAdmin = currentUser?.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL
-    const url = (isCurrentUserAdmin || isOwner || showActions) 
+    const isListingOwner = currentUser?.id === listing.user_id
+    const url = (isCurrentUserAdmin || isOwner || showActions || isListingOwner) 
       ? `/listing/${listing.id}?admin=true` 
       : `/listing/${listing.id}`
     router.push(url)
