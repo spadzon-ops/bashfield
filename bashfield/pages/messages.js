@@ -20,11 +20,13 @@ export default function Messages() {
   useEffect(() => {
     checkAuth()
     
-    // CRITICAL: Listen for route changes to clear active conversation
+    // NUCLEAR APPROACH: Listen for route changes to clear active conversation
     const handleRouteChange = () => {
+      console.log('ROUTE CHANGE - Clearing active conversation')
       if (window.activeConversationId) {
         const currentActiveConversationId = window.activeConversationId
         window.activeConversationId = null
+        window.isInActiveConversation = false
         
         // Trigger global unread count update
         setTimeout(() => {
@@ -33,16 +35,28 @@ export default function Messages() {
       }
     }
     
-    router.events.on('routeChangeStart', handleRouteChange)
+    // NUCLEAR APPROACH: Also listen for page unload
+    const handleBeforeUnload = () => {
+      console.log('PAGE UNLOAD - Clearing active conversation')
+      window.activeConversationId = null
+      window.isInActiveConversation = false
+    }
     
-    // CRITICAL: Cleanup function when component unmounts (user leaves messages page)
+    router.events.on('routeChangeStart', handleRouteChange)
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    
+    // NUCLEAR APPROACH: Cleanup function when component unmounts (user leaves messages page)
     return () => {
       router.events.off('routeChangeStart', handleRouteChange)
+      window.removeEventListener('beforeunload', handleBeforeUnload)
       
       const currentActiveConversationId = window.activeConversationId
       
       // IMMEDIATELY clear active conversation to allow notifications
       window.activeConversationId = null
+      window.isInActiveConversation = false
+      
+      console.log('COMPONENT UNMOUNT - Cleared active conversation')
       
       if (currentActiveConversationId && user) {
         // Mark all messages in the previously active conversation as read when leaving page
@@ -77,35 +91,46 @@ export default function Messages() {
 
   useEffect(() => {
     if (activeConversation) {
-      // CRITICAL: Set active conversation IMMEDIATELY to prevent notifications
+      // NUCLEAR APPROACH: Set active conversation IMMEDIATELY and force global state
       window.activeConversationId = activeConversation.id
+      window.isInActiveConversation = true
+      
+      console.log('SETTING ACTIVE CONVERSATION:', activeConversation.id)
       
       fetchMessages()
       markAsRead()
       
-      // Force immediate global unread count update
+      // Force immediate global unread count update with multiple attempts
       setTimeout(() => {
         window.dispatchEvent(new CustomEvent('messagesRead'))
-      }, 100)
+      }, 50)
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('messagesRead'))
+      }, 200)
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('messagesRead'))
+      }, 500)
     } else {
       // Clear global active conversation
-      if (window.activeConversationId) {
-        const previousConversationId = window.activeConversationId
-        window.activeConversationId = null
-        
+      console.log('CLEARING ACTIVE CONVERSATION')
+      const previousConversationId = window.activeConversationId
+      window.activeConversationId = null
+      window.isInActiveConversation = false
+      
+      if (previousConversationId && user?.id) {
         // Mark all messages in the previously active conversation as read
         supabase
           .from('messages')
           .update({ read: true })
           .eq('conversation_id', previousConversationId)
-          .eq('recipient_id', user?.id)
+          .eq('recipient_id', user.id)
           .eq('read', false)
           .then(() => {
             // Trigger global unread count update
-            window.dispatchEvent(new CustomEvent('messagesRead'))
+            setTimeout(() => {
+              window.dispatchEvent(new CustomEvent('messagesRead'))
+            }, 100)
           })
-      } else {
-        window.activeConversationId = null
       }
     }
   }, [activeConversation, user?.id])
@@ -501,8 +526,11 @@ export default function Messages() {
                     <div
                       key={conversation.id}
                       onClick={async () => {
-                        // CRITICAL: Set active conversation IMMEDIATELY before anything else
+                        // NUCLEAR APPROACH: Set everything IMMEDIATELY
                         window.activeConversationId = conversation.id
+                        window.isInActiveConversation = true
+                        
+                        console.log('CLICKED CONVERSATION:', conversation.id)
                         
                         setActiveConversation(conversation)
                         
@@ -523,10 +551,16 @@ export default function Messages() {
                           )
                         )
                         
-                        // Force immediate global unread count update
+                        // Force immediate global unread count update with multiple attempts
                         setTimeout(() => {
                           window.dispatchEvent(new CustomEvent('messagesRead'))
-                        }, 100)
+                        }, 50)
+                        setTimeout(() => {
+                          window.dispatchEvent(new CustomEvent('messagesRead'))
+                        }, 200)
+                        setTimeout(() => {
+                          window.dispatchEvent(new CustomEvent('messagesRead'))
+                        }, 500)
                       }}
                       className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${
                         activeConversation?.id === conversation.id ? 'bg-blue-50 border-blue-200' : ''
