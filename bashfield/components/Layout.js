@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { useTranslation } from 'next-i18next'
-import { supabase } from '../lib/supabase'
+import { createSupabaseClient } from '../lib/supabase'
 
-export default function Layout({ children }) {
+export default function Layout({ children, supabase }) {
+  // Create client if not provided (fallback)
+  const client = supabase || createSupabaseClient()
   const { t, i18n } = useTranslation('common')
   const router = useRouter()
   const [user, setUser] = useState(null)
@@ -16,7 +18,7 @@ export default function Layout({ children }) {
   useEffect(() => {
     getUser()
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = client.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
         setUser(session.user)
         getUserProfile(session.user)
@@ -30,7 +32,7 @@ export default function Layout({ children }) {
   }, [])
 
   const getUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { user } } = await client.auth.getUser()
     if (user) {
       setUser(user)
       await getUserProfile(user)
@@ -42,7 +44,7 @@ export default function Layout({ children }) {
 
   const getUnreadCount = async (user) => {
     // Count conversations with unread messages, not total unread messages
-    const { data, error } = await supabase
+    const { data, error } = await client
       .from('messages')
       .select('conversation_id')
       .eq('recipient_id', user.id)
@@ -64,7 +66,7 @@ export default function Layout({ children }) {
 
   const getUserProfile = async (user) => {
     try {
-      const { data: profileData, error: fetchError } = await supabase
+      const { data: profileData, error: fetchError } = await client
         .from('user_profiles')
         .select('*')
         .eq('user_id', user.id)
@@ -76,7 +78,7 @@ export default function Layout({ children }) {
         // Create default profile with Google full name or email fallback
         const defaultName = user.user_metadata?.full_name || user.user_metadata?.name || user.email.split('@')[0]
         
-        const { data, error } = await supabase
+        const { data, error } = await client
           .from('user_profiles')
           .insert({
             user_id: user.id,
@@ -105,7 +107,7 @@ export default function Layout({ children }) {
   // Listen for profile updates
   useEffect(() => {
     if (user) {
-      const channel = supabase
+      const channel = client
         .channel('profile-changes')
         .on('postgres_changes', 
           { 
@@ -141,7 +143,7 @@ export default function Layout({ children }) {
       window.addEventListener('unreadCountUpdate', handleUnreadCountUpdate)
 
       // Listen for new messages to update unread count
-      const messageChannel = supabase
+      const messageChannel = client
         .channel('global-message-updates')
         .on('postgres_changes',
           {
@@ -188,8 +190,8 @@ export default function Layout({ children }) {
       }, 3000)
 
       return () => {
-        supabase.removeChannel(channel)
-        supabase.removeChannel(messageChannel)
+        client.removeChannel(channel)
+        client.removeChannel(messageChannel)
         clearInterval(pollInterval)
         window.removeEventListener('profileUpdated', handleProfileUpdate)
         window.removeEventListener('messagesRead', handleMessagesRead)
@@ -199,14 +201,14 @@ export default function Layout({ children }) {
   }, [user])
 
   const handleLogin = async () => {
-    await supabase.auth.signInWithOAuth({
+    await client.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: `${window.location.origin}` }
     })
   }
 
   const handleLogout = async () => {
-    await supabase.auth.signOut()
+    await client.auth.signOut()
     router.push('/')
   }
 
