@@ -527,7 +527,7 @@ export default function Messages() {
                         setTimeout(() => {
                           window.dispatchEvent(new CustomEvent('messagesRead'))
                         }, 100)
-                      })
+                      }}
                       className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${
                         activeConversation?.id === conversation.id ? 'bg-blue-50 border-blue-200' : ''
                       }`}
