@@ -356,7 +356,7 @@ export default function ListingDetail({ listing: initialListing }) {
   )
 }
 
-export async function getServerSideProps({ params, locale, query }) {
+export async function getServerSideProps({ params, locale, query, req }) {
   const { id } = params
   const { admin } = query
   
@@ -376,10 +376,31 @@ export async function getServerSideProps({ params, locale, query }) {
       }
     }
 
-    // Allow access if:
-    // 1. Listing is approved (public access)
-    // 2. Admin parameter is present (admin/owner access)
-    if (listingData.status !== 'approved' && admin !== 'true') {
+    // If admin parameter is present, allow access (for admin and owner views)
+    if (admin === 'true') {
+      // Get profile data
+      const { data: profileData } = await supabase
+        .from('user_profiles')
+        .select('display_name, profile_picture')
+        .eq('user_id', listingData.user_id)
+        .single()
+
+      const listing = {
+        ...listingData,
+        user_profiles: profileData || null,
+        owner_name: profileData?.display_name || listingData.user_email?.split('@')[0] || 'Property Owner'
+      }
+
+      return {
+        props: {
+          listing,
+          ...(await serverSideTranslations(locale, ['common'])),
+        },
+      }
+    }
+
+    // For public access, only allow approved listings
+    if (listingData.status !== 'approved') {
       return {
         notFound: true,
       }
