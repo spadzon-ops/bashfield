@@ -9,9 +9,9 @@ export default function Layout({ children }) {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [authChecked, setAuthChecked] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [activeConversationId, setActiveConversationId] = useState(null)
 
   useEffect(() => {
     getUser()
@@ -29,6 +29,30 @@ export default function Layout({ children }) {
     return () => subscription.unsubscribe()
   }, [])
 
+  // Listen for active conversation changes
+  useEffect(() => {
+    const handleActiveConversationChange = (event) => {
+      setActiveConversationId(event.detail)
+      if (user) {
+        getUnreadCount(user)
+      }
+    }
+
+    const handleMessagesRead = () => {
+      if (user) {
+        getUnreadCount(user)
+      }
+    }
+
+    window.addEventListener('activeConversationChanged', handleActiveConversationChange)
+    window.addEventListener('messagesRead', handleMessagesRead)
+
+    return () => {
+      window.removeEventListener('activeConversationChanged', handleActiveConversationChange)
+      window.removeEventListener('messagesRead', handleMessagesRead)
+    }
+  }, [user])
+
   const getUser = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
@@ -37,11 +61,9 @@ export default function Layout({ children }) {
       await getUnreadCount(user)
     }
     setLoading(false)
-    setAuthChecked(true)
   }
 
   const getUnreadCount = async (user) => {
-    // Count conversations with unread messages, not total unread messages
     const { data, error } = await supabase
       .from('messages')
       .select('conversation_id')
@@ -49,16 +71,14 @@ export default function Layout({ children }) {
       .eq('read', false)
     
     if (data && !error) {
-      // Get unique conversation IDs
       let uniqueConversations = [...new Set(data.map(m => m.conversation_id))]
       
-      // CRITICAL: Always exclude active conversation from notification count
-      if (window.activeConversationId) {
-        uniqueConversations = uniqueConversations.filter(id => id !== window.activeConversationId)
+      // CRITICAL: Exclude active conversation from notification count
+      if (activeConversationId) {
+        uniqueConversations = uniqueConversations.filter(id => id !== activeConversationId)
       }
       
-      const newCount = uniqueConversations.length
-      setUnreadCount(newCount)
+      setUnreadCount(uniqueConversations.length)
     }
   }
 
@@ -73,7 +93,6 @@ export default function Layout({ children }) {
       if (profileData && !fetchError) {
         setProfile(profileData)
       } else {
-        // Create default profile with Google full name or email fallback
         const defaultName = user.user_metadata?.full_name || user.user_metadata?.name || user.email.split('@')[0]
         
         const { data, error } = await supabase
@@ -95,14 +114,13 @@ export default function Layout({ children }) {
     }
   }
 
-  // Function to refresh profile data
   const refreshProfile = async () => {
     if (user) {
       await getUserProfile(user)
     }
   }
 
-  // Listen for profile updates
+  // Listen for profile updates and new messages
   useEffect(() => {
     if (user) {
       const channel = supabase
@@ -120,27 +138,13 @@ export default function Layout({ children }) {
         )
         .subscribe()
 
-      // Listen for custom profile update events
       const handleProfileUpdate = (event) => {
         setProfile(event.detail.profile)
       }
       
-      // Listen for messages read events
-      const handleMessagesRead = () => {
-        // Immediately update unread count
-        getUnreadCount(user)
-      }
-      
-      // Listen for direct unread count updates
-      const handleUnreadCountUpdate = (event) => {
-        setUnreadCount(event.detail.count)
-      }
-      
       window.addEventListener('profileUpdated', handleProfileUpdate)
-      window.addEventListener('messagesRead', handleMessagesRead)
-      window.addEventListener('unreadCountUpdate', handleUnreadCountUpdate)
 
-      // Listen for new messages to update unread count
+      // Listen for new messages
       const messageChannel = supabase
         .channel('global-message-updates')
         .on('postgres_changes',
@@ -153,19 +157,12 @@ export default function Layout({ children }) {
           (payload) => {
             const newMessage = payload.new
             
-            // CRITICAL: Never show notifications for active conversation
-            if (window.activeConversationId && newMessage.conversation_id === window.activeConversationId) {
-              // Message is for active conversation - don't update global count
+            // CRITICAL: Don't update notification count if message is for active conversation
+            if (activeConversationId && newMessage.conversation_id === activeConversationId) {
               return
             }
             
-            // Update unread count for all other conversations
-            setTimeout(() => getUnreadCount(user), 500)
-            
-            // Dispatch global event for message received
-            window.dispatchEvent(new CustomEvent('messageReceived', {
-              detail: { message: newMessage }
-            }))
+            getUnreadCount(user)
           }
         )
         .on('postgres_changes',
@@ -181,21 +178,13 @@ export default function Layout({ children }) {
         )
         .subscribe()
 
-      // Also poll for unread count every 3 seconds
-      const pollInterval = setInterval(() => {
-        getUnreadCount(user)
-      }, 3000)
-
       return () => {
         supabase.removeChannel(channel)
         supabase.removeChannel(messageChannel)
-        clearInterval(pollInterval)
         window.removeEventListener('profileUpdated', handleProfileUpdate)
-        window.removeEventListener('messagesRead', handleMessagesRead)
-        window.removeEventListener('unreadCountUpdate', handleUnreadCountUpdate)
       }
     }
-  }, [user])
+  }, [user, activeConversationId])
 
   const handleLogin = async () => {
     await supabase.auth.signInWithOAuth({
