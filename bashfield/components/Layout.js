@@ -74,8 +74,8 @@ export default function Layout({ children }) {
       let uniqueConversations = [...new Set(data.map(m => m.conversation_id))]
       
       // CRITICAL: Exclude active conversation from notification count
-      if (activeConversationId) {
-        uniqueConversations = uniqueConversations.filter(id => id !== activeConversationId)
+      if (window.activeConversationId) {
+        uniqueConversations = uniqueConversations.filter(id => id !== window.activeConversationId)
       }
       
       setUnreadCount(uniqueConversations.length)
@@ -158,7 +158,7 @@ export default function Layout({ children }) {
             const newMessage = payload.new
             
             // CRITICAL: Don't update notification count if message is for active conversation
-            if (activeConversationId && newMessage.conversation_id === activeConversationId) {
+            if (window.activeConversationId && newMessage.conversation_id === window.activeConversationId) {
               return
             }
             
