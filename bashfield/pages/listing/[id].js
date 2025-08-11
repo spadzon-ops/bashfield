@@ -361,12 +361,21 @@ export async function getServerSideProps({ params, locale, query }) {
   const { admin } = query
   
   try {
-    // Get listing data
+    // Get listing data - fetch ALL listings first to debug
+    const { data: allListings } = await supabase
+      .from('listings')
+      .select('id, status')
+    
+    console.log('All listing IDs:', allListings?.map(l => ({ id: l.id, status: l.status })))
+    console.log('Looking for ID:', id)
+    
     const { data: listingData, error: listingError } = await supabase
       .from('listings')
       .select('*')
       .eq('id', id)
       .single()
+
+    console.log('Query result:', { listingData, listingError })
 
     if (listingError || !listingData) {
       console.error('Listing not found:', { id, error: listingError })
@@ -375,10 +384,13 @@ export async function getServerSideProps({ params, locale, query }) {
       }
     }
 
+    console.log('Listing found:', { status: listingData.status, admin })
+
     // Allow access if:
     // 1. Listing is approved (public access)
     // 2. Admin parameter is present (admin/owner access)
     if (listingData.status !== 'approved' && admin !== 'true') {
+      console.log('Access denied - not approved and not admin')
       return {
         notFound: true,
       }
