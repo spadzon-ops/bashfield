@@ -1,9 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+// Supabase client is now created in _app.js to avoid multiple instances
 
 export const CITIES = [
   'erbil', 'baghdad', 'basra', 'mosul', 'sulaymaniyah', 
