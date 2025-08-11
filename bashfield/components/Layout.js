@@ -41,6 +41,12 @@ export default function Layout({ children }) {
   }
 
   const getUnreadCount = async (user) => {
+    // Get current page and active conversation info
+    const currentPath = window.location.pathname
+    const isInMessagesPage = currentPath === '/messages'
+    const activeConvId = window.activeConversationId
+    const isInActiveConv = window.isInActiveConversation
+    
     // Count conversations with unread messages, not total unread messages
     const { data, error } = await supabase
       .from('messages')
@@ -52,13 +58,23 @@ export default function Layout({ children }) {
       // Get unique conversation IDs
       let uniqueConversations = [...new Set(data.map(m => m.conversation_id))]
       
-      // CRITICAL: Always exclude active conversation from notification count
-      if (window.activeConversationId) {
-        uniqueConversations = uniqueConversations.filter(id => id !== window.activeConversationId)
+      // NUCLEAR APPROACH: Multiple checks to exclude active conversation
+      if ((isInMessagesPage && activeConvId) || isInActiveConv) {
+        uniqueConversations = uniqueConversations.filter(id => id !== activeConvId)
       }
       
       const newCount = uniqueConversations.length
       setUnreadCount(newCount)
+      
+      // Debug logging
+      console.log('NOTIFICATION COUNT UPDATE:', {
+        isInMessagesPage,
+        activeConvId,
+        isInActiveConv,
+        totalUnreadConversations: [...new Set(data.map(m => m.conversation_id))].length,
+        filteredCount: newCount,
+        excludedConversation: activeConvId
+      })
     }
   }
 
@@ -152,15 +168,29 @@ export default function Layout({ children }) {
           },
           (payload) => {
             const newMessage = payload.new
+            const currentPath = window.location.pathname
+            const isInMessagesPage = currentPath === '/messages'
+            const activeConvId = window.activeConversationId
             
-            // CRITICAL: Never show notifications for active conversation
-            if (window.activeConversationId && newMessage.conversation_id === window.activeConversationId) {
-              // Message is for active conversation - don't update global count
-              return
+            const isInActiveConv = window.isInActiveConversation
+            
+            console.log('NEW MESSAGE RECEIVED:', {
+              messageConversationId: newMessage.conversation_id,
+              isInMessagesPage,
+              activeConvId,
+              isInActiveConv,
+              shouldBlock: (isInMessagesPage && activeConvId === newMessage.conversation_id) || (isInActiveConv && activeConvId === newMessage.conversation_id)
+            })
+            
+            // NUCLEAR APPROACH: Block ALL notifications with multiple checks
+            if ((isInMessagesPage && activeConvId === newMessage.conversation_id) || 
+                (isInActiveConv && activeConvId === newMessage.conversation_id)) {
+              console.log('BLOCKING NOTIFICATION - User is viewing this conversation')
+              return // Don't update any counts or show any notifications
             }
             
             // Update unread count for all other conversations
-            setTimeout(() => getUnreadCount(user), 500)
+            setTimeout(() => getUnreadCount(user), 300)
             
             // Dispatch global event for message received
             window.dispatchEvent(new CustomEvent('messageReceived', {
