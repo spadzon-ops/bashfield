@@ -356,7 +356,7 @@ export default function ListingDetail({ listing: initialListing }) {
   )
 }
 
-export async function getServerSideProps({ params, locale, query, req }) {
+export async function getServerSideProps({ params, locale, query }) {
   const { id } = params
   const { admin } = query
   
