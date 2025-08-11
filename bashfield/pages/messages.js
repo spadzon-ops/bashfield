@@ -20,24 +20,47 @@ export default function Messages() {
   useEffect(() => {
     checkAuth()
     
-    // Cleanup function when component unmounts (user leaves messages page)
+    // CRITICAL: Listen for route changes to clear active conversation
+    const handleRouteChange = () => {
+      if (window.activeConversationId) {
+        const currentActiveConversationId = window.activeConversationId
+        window.activeConversationId = null
+        
+        // Trigger global unread count update
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('messagesRead'))
+        }, 100)
+      }
+    }
+    
+    router.events.on('routeChangeStart', handleRouteChange)
+    
+    // CRITICAL: Cleanup function when component unmounts (user leaves messages page)
     return () => {
-      if (window.activeConversationId && user) {
-        // Mark all messages in the active conversation as read when leaving page
+      router.events.off('routeChangeStart', handleRouteChange)
+      
+      const currentActiveConversationId = window.activeConversationId
+      
+      // IMMEDIATELY clear active conversation to allow notifications
+      window.activeConversationId = null
+      
+      if (currentActiveConversationId && user) {
+        // Mark all messages in the previously active conversation as read when leaving page
         supabase
           .from('messages')
           .update({ read: true })
-          .eq('conversation_id', window.activeConversationId)
+          .eq('conversation_id', currentActiveConversationId)
           .eq('recipient_id', user.id)
           .eq('read', false)
           .then(() => {
             // Trigger global unread count update
-            window.dispatchEvent(new CustomEvent('messagesRead'))
+            setTimeout(() => {
+              window.dispatchEvent(new CustomEvent('messagesRead'))
+            }, 100)
           })
       }
-      window.activeConversationId = null
     }
-  }, [user])
+  }, [user, router.events])
 
   useEffect(() => {
     // Check for conversation parameter in URL
@@ -54,27 +77,36 @@ export default function Messages() {
 
   useEffect(() => {
     if (activeConversation) {
+      // CRITICAL: Set active conversation IMMEDIATELY to prevent notifications
+      window.activeConversationId = activeConversation.id
+      
       fetchMessages()
       markAsRead()
       
-      // Set global active conversation to prevent notifications
-      window.activeConversationId = activeConversation.id
+      // Force immediate global unread count update
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('messagesRead'))
+      }, 100)
     } else {
-      // Clear global active conversation and mark any remaining messages as read
+      // Clear global active conversation
       if (window.activeConversationId) {
+        const previousConversationId = window.activeConversationId
+        window.activeConversationId = null
+        
         // Mark all messages in the previously active conversation as read
         supabase
           .from('messages')
           .update({ read: true })
-          .eq('conversation_id', window.activeConversationId)
+          .eq('conversation_id', previousConversationId)
           .eq('recipient_id', user?.id)
           .eq('read', false)
           .then(() => {
             // Trigger global unread count update
             window.dispatchEvent(new CustomEvent('messagesRead'))
           })
+      } else {
+        window.activeConversationId = null
       }
-      window.activeConversationId = null
     }
   }, [activeConversation, user?.id])
 
@@ -112,8 +144,8 @@ export default function Messages() {
               return [...prev, messageWithProfile]
             })
             
-            // Mark as read immediately if user is recipient and conversation is active
-            if (newMessage.recipient_id === user.id) {
+            // CRITICAL: Mark as read immediately if user is recipient and conversation is active
+            if (newMessage.recipient_id === user.id && window.activeConversationId === newMessage.conversation_id) {
               await supabase
                 .from('messages')
                 .update({ read: true })
@@ -160,16 +192,16 @@ export default function Messages() {
           (payload) => {
             const newMessage = payload.new
             if (newMessage.recipient_id === user.id || newMessage.sender_id === user.id) {
-              // Always update conversations list, but don't show notifications for active conversation
+              // Always update conversations list
               fetchConversations(user)
               
-              // If this message is for the active conversation, don't trigger global notifications
-              if (activeConversation && newMessage.conversation_id === activeConversation.id) {
+              // CRITICAL: If this message is for the active conversation, don't trigger global notifications
+              if (window.activeConversationId && newMessage.conversation_id === window.activeConversationId) {
                 // Don't trigger global unread count update for active conversation
                 return
               }
               
-              // Trigger global unread count update for other conversations
+              // Trigger global unread count update for other conversations only
               setTimeout(() => {
                 window.dispatchEvent(new CustomEvent('messagesRead'))
               }, 100)
@@ -469,6 +501,9 @@ export default function Messages() {
                     <div
                       key={conversation.id}
                       onClick={async () => {
+                        // CRITICAL: Set active conversation IMMEDIATELY before anything else
+                        window.activeConversationId = conversation.id
+                        
                         setActiveConversation(conversation)
                         
                         // Mark messages as read in database immediately
@@ -488,9 +523,11 @@ export default function Messages() {
                           )
                         )
                         
-                        // Immediately trigger global unread count update
-                        window.dispatchEvent(new CustomEvent('messagesRead'))
-                      }}
+                        // Force immediate global unread count update
+                        setTimeout(() => {
+                          window.dispatchEvent(new CustomEvent('messagesRead'))
+                        }, 100)
+                      })
                       className={`p-4 border-b border-gray-100 cursor-pointer hover:bg-gray-50 transition-colors ${
                         activeConversation?.id === conversation.id ? 'bg-blue-50 border-blue-200' : ''
                       }`}
