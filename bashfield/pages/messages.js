@@ -18,6 +18,11 @@ export default function Messages() {
   const messagesEndRef = useRef(null)
 
   useEffect(() => {
+    // CRITICAL: Initialize permanent tracking on component mount
+    if (!window.permanentlyReadConversations) {
+      window.permanentlyReadConversations = new Set()
+    }
+    
     checkAuth()
     
     // Cleanup function when component unmounts (user leaves messages page)
@@ -57,10 +62,17 @@ export default function Messages() {
       fetchMessages()
       markAsRead()
       
-      // Set global active conversation to prevent notifications
+      // CRITICAL: Set global active conversation and mark as permanently read
       window.activeConversationId = activeConversation.id
+      
+      // Add to permanently read conversations
+      if (!window.permanentlyReadConversations) {
+        window.permanentlyReadConversations = new Set()
+      }
+      window.permanentlyReadConversations.add(activeConversation.id)
+      
     } else {
-      // Clear global active conversation
+      // Clear global active conversation but keep permanently read list
       window.activeConversationId = null
     }
   }, [activeConversation, user?.id])
@@ -147,12 +159,15 @@ export default function Messages() {
           (payload) => {
             const newMessage = payload.new
             if (newMessage.recipient_id === user.id || newMessage.sender_id === user.id) {
-              // Always update conversations list
+              // CRITICAL: Always update conversations list immediately for live ordering
               fetchConversations(user)
               
-              // If this message is for the active conversation, don't trigger global notifications
-              if (activeConversation && newMessage.conversation_id === activeConversation.id) {
-                // Don't trigger global unread count update for active conversation
+              // Check if this conversation was ever opened (permanently read)
+              const isPermanentlyRead = window.permanentlyReadConversations?.has(newMessage.conversation_id)
+              const isCurrentlyActive = window.activeConversationId === newMessage.conversation_id
+              
+              // Don't trigger notifications if conversation is active OR was permanently read
+              if (isCurrentlyActive || isPermanentlyRead) {
                 return
               }
               
@@ -161,6 +176,17 @@ export default function Messages() {
                 window.dispatchEvent(new CustomEvent('messagesRead'))
               }, 100)
             }
+          }
+        )
+        .on('postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'conversations'
+          },
+          () => {
+            // Live update conversations when timestamp changes
+            fetchConversations(user)
           }
         )
         .subscribe()
@@ -279,9 +305,16 @@ export default function Messages() {
           last_message: lastMessage,
           unread_count: unreadCount
         }
-      }).sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
+      })
       
-      setConversations(conversationsWithDetails)
+      // CRITICAL: Sort by updated_at for live ordering
+      const sortedConversations = conversationsWithDetails.sort((a, b) => {
+        const dateA = new Date(a.updated_at)
+        const dateB = new Date(b.updated_at)
+        return dateB - dateA
+      })
+      
+      setConversations(sortedConversations)
     }
   }
 
