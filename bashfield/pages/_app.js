@@ -13,7 +13,7 @@ function MyApp({ Component, pageProps }) {
   )
 
   return (
-    <Layout>
+    <Layout supabase={supabase}>
       <Component {...pageProps} supabase={supabase} />
     </Layout>
   )
