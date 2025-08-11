@@ -14,6 +14,11 @@ export default function Layout({ children }) {
   const [activeConversationId, setActiveConversationId] = useState(null)
 
   useEffect(() => {
+    // CRITICAL: Initialize permanent tracking system globally
+    if (!window.permanentlyReadConversations) {
+      window.permanentlyReadConversations = new Set()
+    }
+    
     getUser()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -73,9 +78,14 @@ export default function Layout({ children }) {
     if (data && !error) {
       let uniqueConversations = [...new Set(data.map(m => m.conversation_id))]
       
-      // CRITICAL: Exclude active conversation from notification count
+      // CRITICAL: Exclude active conversation AND permanently read conversations
       if (window.activeConversationId) {
         uniqueConversations = uniqueConversations.filter(id => id !== window.activeConversationId)
+      }
+      
+      // CRITICAL: Exclude permanently read conversations
+      if (window.permanentlyReadConversations) {
+        uniqueConversations = uniqueConversations.filter(id => !window.permanentlyReadConversations.has(id))
       }
       
       setUnreadCount(uniqueConversations.length)
@@ -157,11 +167,15 @@ export default function Layout({ children }) {
           (payload) => {
             const newMessage = payload.new
             
-            // CRITICAL: Don't update notification count if message is for active conversation
-            if (window.activeConversationId && newMessage.conversation_id === window.activeConversationId) {
+            // CRITICAL: Don't update notification count if conversation is active OR permanently read
+            const isPermanentlyRead = window.permanentlyReadConversations?.has(newMessage.conversation_id)
+            const isCurrentlyActive = window.activeConversationId === newMessage.conversation_id
+            
+            if (isCurrentlyActive || isPermanentlyRead) {
               return
             }
             
+            // CRITICAL: Force immediate live update
             getUnreadCount(user)
           }
         )
