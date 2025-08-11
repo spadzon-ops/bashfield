@@ -356,7 +356,7 @@ export default function ListingDetail({ listing: initialListing }) {
   )
 }
 
-export async function getServerSideProps({ params, locale, query }) {
+export async function getServerSideProps({ params, locale, query, req }) {
   const { id } = params
   const { admin } = query
   
@@ -378,8 +378,7 @@ export async function getServerSideProps({ params, locale, query }) {
 
     // Allow access if:
     // 1. Listing is approved (public access)
-    // 2. Admin parameter is present (admin access)
-    // 3. User owns the listing (owner access)
+    // 2. Admin parameter is present (admin/owner access)
     if (listingData.status !== 'approved' && admin !== 'true') {
       return {
         notFound: true,
