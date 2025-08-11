@@ -2,7 +2,7 @@ import { useState, useRef } from 'react'
 import { useRouter } from 'next/router'
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations'
 import { useTranslation } from 'next-i18next'
-import { supabase } from '../../lib/supabase'
+import { createClient } from '@supabase/supabase-js'
 
 export default function ListingDetail({ listing: initialListing, supabase }) {
   const { t } = useTranslation('common')
@@ -359,6 +359,11 @@ export default function ListingDetail({ listing: initialListing, supabase }) {
 export async function getServerSideProps({ params, locale, query }) {
   const { id } = params
   const { admin } = query
+  
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  )
   
   try {
     const { data: listingData, error: listingError } = await supabase
