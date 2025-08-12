@@ -37,7 +37,7 @@ export default function Messages() {
     if (el) el.scrollTop = el.scrollHeight
   }
 
-  // Small profile cache
+  // Profile cache
   const profileCacheRef = useRef(new Map())
   const getProfile = useCallback(async (userId) => {
     if (profileCacheRef.current.has(userId)) return profileCacheRef.current.get(userId)
@@ -76,10 +76,12 @@ export default function Messages() {
   // keep global flag for header/left muting
   useEffect(() => {
     activeConversationRef.current = activeConversation
-    window.activeConversationId = activeConversation?.id || null
-    window.dispatchEvent(
-      new CustomEvent('activeConversationChanged', { detail: { id: window.activeConversationId } })
-    )
+    if (typeof window !== 'undefined') {
+      window.activeConversationId = activeConversation?.id || null
+      window.dispatchEvent(
+        new CustomEvent('activeConversationChanged', { detail: { id: window.activeConversationId } })
+      )
+    }
     if (activeConversation) {
       autoScrollRef.current = true
       requestAnimationFrame(scrollToBottom)
@@ -88,8 +90,10 @@ export default function Messages() {
 
   useEffect(() => {
     const handleRouteChange = () => {
-      window.activeConversationId = null
-      window.dispatchEvent(new CustomEvent('activeConversationChanged', { detail: { id: null } }))
+      if (typeof window !== 'undefined') {
+        window.activeConversationId = null
+        window.dispatchEvent(new CustomEvent('activeConversationChanged', { detail: { id: null } }))
+      }
     }
     router.events.on('routeChangeStart', handleRouteChange)
     return () => router.events.off('routeChangeStart', handleRouteChange)
@@ -142,7 +146,7 @@ export default function Messages() {
         const listing = listings?.find((l) => l.id === conv.listing_id) || null
         const last = lastMsgs?.find((m) => m.conversation_id === conv.id) || null
         let unreadCount = unread?.filter((m) => m.conversation_id === conv.id).length || 0
-        if (window.activeConversationId && conv.id === window.activeConversationId) unreadCount = 0
+        if (typeof window !== 'undefined' && window.activeConversationId && conv.id === window.activeConversationId) unreadCount = 0
         return {
           ...conv,
           other_participant: other,
@@ -165,6 +169,7 @@ export default function Messages() {
       .eq('conversation_id', id)
       .order('created_at', { ascending: true })
     if (!msgs) return setMessages([])
+
     const uniqueSenders = [...new Set(msgs.map((m) => m.sender_id))]
     await Promise.all(uniqueSenders.map((uid) => getProfile(uid)))
     const merged = msgs.map((m) => ({
@@ -183,7 +188,7 @@ export default function Messages() {
       .eq('conversation_id', conversationId)
       .eq('recipient_id', uid)
       .eq('read', false)
-    window.dispatchEvent(new CustomEvent('messagesRead'))
+    if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('messagesRead'))
     await fetchConversations()
   }, [fetchConversations])
 
@@ -203,65 +208,86 @@ export default function Messages() {
     setActiveConversation(null)
   }
 
-  // -------- Realtime (robust: v2 channel, fallback to v1 .from()) --------
+  // -------- Realtime for the open conversation (v2) + polling fallback --------
   useEffect(() => {
-    if (!userRef.current) return
-    const uid = userRef.current.id
+    const u = userRef.current
+    const conv = activeConversationRef.current
+    if (!u || !conv) return
 
-    const handleInsert = async (payload) => {
-      // v2 payload: payload.new; v1 payload: payload.new as well
-      const m = payload.new || payload
-      if (!m) return
-      if (m.sender_id !== uid && m.recipient_id !== uid) return
+    const channel = supabase
+      .channel(`conv-${conv.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${conv.id}` },
+        async (payload) => {
+          const m = payload.new
+          if (!m) return
 
-      // If open conversation — append instantly, mute unread, mark read if I’m recipient
-      if (activeConversationRef.current?.id === m.conversation_id) {
-        const profile = await getProfile(m.sender_id)
-        setMessages((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, { ...m, sender: profile }]))
-        setConversations((prev) => {
-          const updated = prev.map((c) =>
-            c.id === m.conversation_id
-              ? {
-                  ...c,
-                  updated_at: m.created_at,
-                  last_message: { content: m.content, sender_id: m.sender_id, created_at: m.created_at },
-                  unread_count: 0,
-                }
-              : c
-          )
-          return updated.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
-        })
-        if (m.recipient_id === uid) {
-          await supabase.from('messages').update({ read: true }).eq('id', m.id)
-          window.dispatchEvent(new CustomEvent('messagesRead'))
+          // Show in Section 3 immediately
+          const profile = await getProfile(m.sender_id)
+          setMessages((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, { ...m, sender: profile }]))
+
+          // Keep convo on top in Section 2
+          setConversations((prev) => {
+            const updated = prev.map((c) =>
+              c.id === conv.id
+                ? {
+                    ...c,
+                    updated_at: m.created_at,
+                    last_message: { content: m.content, sender_id: m.sender_id, created_at: m.created_at },
+                    unread_count: 0,
+                  }
+                : c
+            )
+            return updated.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
+          })
+
+          // If I’m recipient, mark as read so it never reappears as unread later
+          if (m.recipient_id === u.id) {
+            await supabase.from('messages').update({ read: true }).eq('id', m.id)
+            if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('messagesRead'))
+          }
+
+          if (autoScrollRef.current) requestAnimationFrame(scrollToBottom)
         }
-        if (autoScrollRef.current) requestAnimationFrame(scrollToBottom)
-        return
-      }
+      )
+      .subscribe()
 
-      // Not open — refresh the list so it moves to top
-      fetchConversations()
-    }
-
-    let v2Channel = null
-    let v1Subscription = null
-
-    if (typeof supabase.channel === 'function') {
-      // Supabase JS v2+
-      v2Channel = supabase
-        .channel(`rt-all-messages`)
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, handleInsert)
-        .subscribe()
-    } else {
-      // Supabase JS v1 fallback
-      v1Subscription = supabase.from('messages').on('INSERT', handleInsert).subscribe()
-    }
+    // Fallback polling (only while chat is open)
+    const poll = setInterval(() => {
+      fetchMessages(conv.id)
+    }, 2000)
 
     return () => {
-      if (v2Channel && supabase.removeChannel) supabase.removeChannel(v2Channel)
-      if (v1Subscription && supabase.removeSubscription) supabase.removeSubscription(v1Subscription)
+      try {
+        supabase.removeChannel(channel)
+      } catch {}
+      clearInterval(poll)
     }
-  }, [fetchConversations, getProfile])
+  }, [activeConversation?.id, getProfile, fetchMessages])
+
+  // -------- Global listener to refresh the list when other convos receive messages --------
+  useEffect(() => {
+    const u = userRef.current
+    if (!u) return
+    const ch = supabase
+      .channel(`rt-global-${u.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'messages' },
+        (payload) => {
+          const m = payload.new
+          if (!m) return
+          if (m.sender_id !== u.id && m.recipient_id !== u.id) return
+          // If it’s not the currently open conversation, refresh Section 2 list
+          if (activeConversationRef.current?.id !== m.conversation_id) fetchConversations()
+        }
+      )
+      .subscribe()
+    return () => {
+      try { supabase.removeChannel(ch) } catch {}
+    }
+  }, [fetchConversations])
 
   // -------- Send message --------
   const sendMessage = async () => {
