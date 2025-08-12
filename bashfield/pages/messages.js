@@ -21,9 +21,8 @@ export default function Messages() {
   const userRef = useRef(null)
   const activeConversationRef = useRef(null)
   const convsRef = useRef([])
-  const mountedAtRef = useRef(Date.now())
 
-  // scroll control
+  // scrolling control
   const messagesContainerRef = useRef(null)
   const autoScrollRef = useRef(true)
   const isNearBottom = () => {
@@ -38,7 +37,7 @@ export default function Messages() {
     if (el) el.scrollTop = el.scrollHeight
   }
 
-  // detect mobile once (for keyboard behavior)
+  // detect mobile once (mobile Enter should add newline, not send)
   const isMobileRef = useRef(false)
   useEffect(() => {
     if (typeof navigator !== 'undefined') {
@@ -76,7 +75,7 @@ export default function Messages() {
 
   useEffect(() => { convsRef.current = conversations }, [conversations])
 
-  // loader helpers
+  // load conversations
   const fetchConversations = useCallback(async (u = userRef.current) => {
     if (!u) return
     const { data: convs } = await supabase
@@ -207,55 +206,44 @@ export default function Messages() {
     return () => router.events.off('routeChangeStart', handleRouteChange)
   }, [router.events])
 
-  // ---------- Open logic (id param, or explicit peer/listing, or best-effort recent) ----------
+  // ---------- STRICT open logic: id OR (peer + listing) OR (peer only for profile chat). No random fallback ----------
   useEffect(() => {
-    if (!router.isReady || conversations.length === 0 || !userRef.current) return
+    (async () => {
+      if (!router.isReady || conversations.length === 0 || !userRef.current) return
 
-    const qs = new URLSearchParams(window.location.search)
-    const idFromQuery = qs.get('id')
-    const peer = qs.get('peer')
-    const listing = qs.get('listing')
+      const qs = new URLSearchParams(window.location.search)
+      const idFromQuery = qs.get('id')
+      const peer = qs.get('peer')
+      const listing = qs.get('listing')
 
-    // 1) id wins
-    if (idFromQuery) {
-      const c = conversations.find((x) => x.id === idFromQuery)
-      if (c) { selectConversation(c); return }
-    }
+      if (idFromQuery) {
+        const existing = conversations.find((x) => x.id === idFromQuery)
+        if (existing) selectConversation(existing)
+        return
+      }
 
-    // 2) If peer/listing provided (from cards/details), ensure and open that exact convo
-    ;(async () => {
       if (peer || listing) {
         try {
           const convId = await ensureConversation({
-            otherId: peer,
+            otherId: peer || null,
             listingId: listing || null
           })
           await fetchConversations()
           const c = convsRef.current.find((x) => x.id === convId)
           if (c) {
             await selectConversation(c)
-            // clean URL to /messages?id=<id>
+            // normalize URL to id-based for clarity
             router.replace(`/messages?id=${convId}`, undefined, { shallow: true })
-            return
           }
         } catch (e) {
-          // ignore and fall through to recent
+          // ignore
         }
+        return
       }
 
-      // 3) Best‑effort: auto-open newest conversation touched recently (e.g., coming from “Send Message” without params)
-      if (!activeConversationRef.current && conversations.length > 0) {
-        const now = Date.now()
-        const candidate = conversations.find((c) => {
-          const lastAt = c.last_message?.created_at ? new Date(c.last_message.created_at).getTime() : 0
-          const updatedAt = c.updated_at ? new Date(c.updated_at).getTime() : 0
-          // opened within last 2 minutes or since we mounted
-          return (now - Math.max(lastAt, updatedAt) < 2 * 60 * 1000) || (updatedAt >= mountedAtRef.current)
-        })
-        if (candidate) selectConversation(candidate)
-      }
+      // If no params: do NOT auto-open anything (prevents wrong chats)
     })()
-  }, [router.isReady, conversations])
+  }, [router.isReady, conversations, fetchConversations])
 
   // ---------- Realtime: open conversation stream ----------
   useEffect(() => {
@@ -316,7 +304,6 @@ export default function Messages() {
           if (!m) return
           if (m.sender_id !== user.id && m.recipient_id !== user.id) return
 
-          // If active convo is different, update Section 2 live
           if (activeConversationRef.current?.id !== m.conversation_id) {
             setConversations((prev) => {
               const idx = prev.findIndex((c) => c.id === m.conversation_id)
@@ -419,7 +406,7 @@ export default function Messages() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white rounded-xl shadow-sm overflow-hidden" style={{ height: 'calc(100vh - 120px)' }}>
           <div className="flex h-full">
-            {/* -------- Section 2: list -------- */}
+            {/* Section 2 */}
             <div className={`${activeConversation ? 'hidden md:block' : 'block'} w-full md:w-1/3 border-r border-gray-200 flex flex-col`}>
               <div className="p-4 border-b border-gray-200">
                 <h2 className="text-xl font-bold text-gray-900">💬 Messages</h2>
@@ -466,11 +453,11 @@ export default function Messages() {
               </div>
             </div>
 
-            {/* -------- Section 3: chat -------- */}
+            {/* Section 3 */}
             <div className={`${activeConversation ? 'block' : 'hidden md:block'} flex-1 flex flex-col`}>
               {activeConversation ? (
                 <>
-                  {/* Header (avatar/name link to profile) */}
+                  {/* Header with profile link */}
                   <div className="p-4 border-b border-gray-200 bg-gray-50">
                     <div className="flex items-center space-x-3">
                       <button onClick={leaveActiveConversation} className="md:hidden text-gray-600 hover:text-gray-900 p-1">
@@ -516,7 +503,7 @@ export default function Messages() {
                     ))}
                   </div>
 
-                  {/* Composer: desktop Enter sends; mobile Return = newline, tap Send to send */}
+                  {/* Composer */}
                   <div className="p-4 border-t border-gray-200">
                     <form
                       className="flex space-x-2 items-end"
