@@ -1,4 +1,4 @@
--- Bashfield consolidated setup — safe to re-run
+-- Bashfield consolidated setup — SAFE to re-run
 create extension if not exists pgcrypto;
 
 -- ================= ADMIN =================
@@ -19,19 +19,16 @@ create table if not exists public.user_profiles (
 
 alter table public.user_profiles enable row level security;
 
-do $$
-begin
-  -- drop BOTH old and new names to be idempotent
-  drop policy if exists "Enable read access for all users" on public.user_profiles;
-  drop policy if exists "Enable insert for authenticated users only" on public.user_profiles;
-  drop policy if exists "Enable update for users based on user_id" on public.user_profiles;
-  drop policy if exists "Enable delete for users based on user_id" on public.user_profiles;
+-- Drop any old/new policy names (idempotent)
+drop policy if exists "Enable read access for all users" on public.user_profiles;
+drop policy if exists "Enable insert for authenticated users only" on public.user_profiles;
+drop policy if exists "Enable update for users based on user_id" on public.user_profiles;
+drop policy if exists "Enable delete for users based on user_id" on public.user_profiles;
 
-  drop policy if exists "profiles_read_all"   on public.user_profiles;
-  drop policy if exists "profiles_insert_self" on public.user_profiles;
-  drop policy if exists "profiles_update_self" on public.user_profiles;
-  drop policy if exists "profiles_delete_self" on public.user_profiles;
-exception when others then null end$$;
+drop policy if exists "profiles_read_all" on public.user_profiles;
+drop policy if exists "profiles_insert_self" on public.user_profiles;
+drop policy if exists "profiles_update_self" on public.user_profiles;
+drop policy if exists "profiles_delete_self" on public.user_profiles;
 
 create policy "profiles_read_all" on public.user_profiles
   for select using (true);
@@ -47,7 +44,10 @@ create policy "profiles_delete_self" on public.user_profiles
 
 create or replace function public.set_updated_at()
 returns trigger language plpgsql as $$
-begin new.updated_at = now(); return new; end $$;
+begin
+  new.updated_at = now();
+  return new;
+end $$;
 
 drop trigger if exists user_profiles_set_updated_at on public.user_profiles;
 create trigger user_profiles_set_updated_at
@@ -79,21 +79,17 @@ insert into storage.buckets (id, name, public)
 values ('house-images', 'house-images', true)
 on conflict (id) do nothing;
 
-do $$
-begin
-  drop policy if exists "house_images_read_public" on storage.objects;
-  drop policy if exists "house_images_insert_owner" on storage.objects;
-  drop policy if exists "house_images_update_owner" on storage.objects;
-  drop policy if exists "house_images_delete_owner" on storage.objects;
+-- Reset storage policies
+drop policy if exists "house_images_read_public" on storage.objects;
+drop policy if exists "house_images_insert_owner" on storage.objects;
+drop policy if exists "house_images_update_owner" on storage.objects;
+drop policy if exists "house_images_delete_owner" on storage.objects;
 
-  -- also drop any previous generic policy names to avoid conflicts
-  drop policy if exists "Anyone can view images" on storage.objects;
-  drop policy if exists "Authenticated users can upload images" on storage.objects;
-  drop policy if exists "Users can update their own images" on storage.objects;
-  drop policy if exists "Users can delete their own images" on storage.objects;
-exception when others then null end$$;
+drop policy if exists "Anyone can view images" on storage.objects;
+drop policy if exists "Authenticated users can upload images" on storage.objects;
+drop policy if exists "Users can update their own images" on storage.objects;
+drop policy if exists "Users can delete their own images" on storage.objects;
 
--- Keep it simple and compatible with Supabase Storage SDK
 create policy "Anyone can view images" on storage.objects
   for select using (bucket_id = 'house-images');
 
@@ -132,23 +128,20 @@ create index if not exists idx_listings_created on public.listings(created_at de
 
 alter table public.listings enable row level security;
 
-do $$
-begin
-  drop policy if exists "Users can view approved listings" on public.listings;
-  drop policy if exists "Users can insert their own listings" on public.listings;
-  drop policy if exists "Users can view their own listings" on public.listings;
-  drop policy if exists "Admin can do everything" on public.listings;
-  drop policy if exists "Users can update their own listings" on public.listings;
-  drop policy if exists "Users can delete their own listings" on public.listings;
+drop policy if exists "Users can view approved listings" on public.listings;
+drop policy if exists "Users can insert their own listings" on public.listings;
+drop policy if exists "Users can view their own listings" on public.listings;
+drop policy if exists "Admin can do everything" on public.listings;
+drop policy if exists "Users can update their own listings" on public.listings;
+drop policy if exists "Users can delete their own listings" on public.listings;
 
-  drop policy if exists "listings_select_approved" on public.listings;
-  drop policy if exists "listings_select_own"      on public.listings;
-  drop policy if exists "listings_select_admin"    on public.listings;
-  drop policy if exists "listings_insert_self"     on public.listings;
-  drop policy if exists "listings_update_self"     on public.listings;
-  drop policy if exists "listings_delete_self"     on public.listings;
-  drop policy if exists "listings_admin_all"       on public.listings;
-exception when others then null end$$;
+drop policy if exists "listings_select_approved" on public.listings;
+drop policy if exists "listings_select_own" on public.listings;
+drop policy if exists "listings_select_admin" on public.listings;
+drop policy if exists "listings_insert_self" on public.listings;
+drop policy if exists "listings_update_self" on public.listings;
+drop policy if exists "listings_delete_self" on public.listings;
+drop policy if exists "listings_admin_all" on public.listings;
 
 create policy "listings_select_approved" on public.listings
   for select using (status = 'approved');
@@ -208,17 +201,13 @@ on public.conversations (
   greatest(participant1, participant2)
 );
 
-do $$
-begin
-  -- conversations policies
-  drop policy if exists "conversations_select_own" on public.conversations;
-  drop policy if exists "conversations_insert_own" on public.conversations;
+-- Policies
+drop policy if exists "conversations_select_own" on public.conversations;
+drop policy if exists "conversations_insert_own" on public.conversations;
 
-  -- messages policies
-  drop policy if exists "messages_select_own_convos" on public.messages;
-  drop policy if exists "messages_insert_sender"      on public.messages;
-  drop policy if exists "messages_update_recipient"   on public.messages;
-exception when others then null end$$;
+drop policy if exists "messages_select_own_convos" on public.messages;
+drop policy if exists "messages_insert_sender" on public.messages;
+drop policy if exists "messages_update_recipient" on public.messages;
 
 create policy "conversations_select_own" on public.conversations
   for select using (auth.uid() = participant1 or auth.uid() = participant2);
@@ -252,12 +241,18 @@ after insert on public.messages
 for each row execute function public.update_conversation_timestamp();
 
 -- ================= REALTIME =================
-do $$
+do $pub$
 begin
   begin
     alter publication supabase_realtime add table public.messages;
-  exception when duplicate_object then null; end;
+  exception
+    when duplicate_object then null;
+  end;
+
   begin
     alter publication supabase_realtime add table public.conversations;
-  exception when duplicate_object then null; end;
-end$$;
+  exception
+    when duplicate_object then null;
+  end;
+end
+$pub$;
