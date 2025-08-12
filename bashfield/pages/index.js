@@ -5,37 +5,38 @@ import { serverSideTranslations } from 'next-i18next/serverSideTranslations'
 import { useTranslation } from 'next-i18next'
 import { supabase } from '../lib/supabase'
 
-export default function PostDetails() {
+export default function Home() {
   const { t } = useTranslation('common')
   const router = useRouter()
-  const { id } = router.query
-
-  const [listing, setListing] = useState(null)
-  const [owner, setOwner] = useState(null)
+  const [listings, setListings] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!router.isReady || !id) return
     ;(async () => {
-      const { data: l } = await supabase
+      // fetch approved listings
+      const { data: items } = await supabase
         .from('listings')
         .select('*')
-        .eq('id', id)
-        .maybeSingle()
+        .eq('status', 'approved')
+        .order('created_at', { ascending: false })
 
-      if (!l) { setListing(null); setLoading(false); return }
+      const results = items || []
+      const ownerIds = [...new Set(results.map((r) => r.user_id))]
+      const { data: profiles } = ownerIds.length
+        ? await supabase.from('user_profiles')
+            .select('user_id, display_name, profile_picture')
+            .in('user_id', ownerIds)
+        : { data: [] }
 
-      const { data: p } = await supabase
-        .from('user_profiles')
-        .select('user_id, display_name, profile_picture')
-        .eq('user_id', l.user_id)
-        .maybeSingle()
+      const merged = results.map((l) => ({
+        ...l,
+        owner: profiles?.find((p) => p.user_id === l.user_id) || null
+      }))
 
-      setListing(l)
-      setOwner(p || null)
+      setListings(merged)
       setLoading(false)
     })()
-  }, [router.isReady, id])
+  }, [])
 
   const phoneToWhatsLink = (phone, title) => {
     if (!phone) return '#'
@@ -55,83 +56,82 @@ export default function PostDetails() {
     )
   }
 
-  if (!listing) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-xl font-semibold">Listing not found</p>
-          <Link href="/" className="text-blue-600 hover:underline mt-2 inline-block">Go home</Link>
-        </div>
-      </div>
-    )
-  }
-
-  const imgUrl = listing.images?.[0]
-    ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/house-images/${listing.images[0]}`
-    : null
-
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-          {imgUrl ? (
-            <img src={imgUrl} alt={listing.title} className="w-full h-72 object-cover" />
-          ) : (
-            <div className="w-full h-72 bg-gray-100 flex items-center justify-center text-gray-500">No image</div>
-          )}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <h1 className="text-2xl font-bold mb-6">Latest Listings</h1>
 
-          <div className="p-6">
-            <h1 className="text-2xl font-bold text-gray-900">{listing.title}</h1>
-            <p className="mt-2 text-gray-700 whitespace-pre-wrap">{listing.description}</p>
+        {listings.length === 0 ? (
+          <p className="text-gray-600">No listings yet.</p>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {listings.map((l) => {
+              const firstImg = (l.images && l.images.length > 0) ? l.images[0] : null
+              const imgUrl = firstImg
+                ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/house-images/${firstImg}`
+                : null
+              return (
+                <div key={l.id} className="bg-white rounded-xl shadow-sm overflow-hidden flex flex-col">
+                  {/* Image click -> details */}
+                  <Link href={`/post?id=${l.id}`}>
+                    {imgUrl ? (
+                      <img src={imgUrl} alt={l.title} className="w-full h-48 object-cover" />
+                    ) : (
+                      <div className="w-full h-48 bg-gray-100 flex items-center justify-center text-gray-500">No image</div>
+                    )}
+                  </Link>
 
-            {/* Owner row */}
-            <div className="mt-6 flex items-center">
-              <Link href={`/profile/${listing.user_id}`} className="flex items-center space-x-3 group">
-                {owner?.profile_picture ? (
-                  <img
-                    src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/house-images/${owner.profile_picture}`}
-                    className="w-10 h-10 rounded-full object-cover"
-                    alt="Avatar"
-                  />
-                ) : (
-                  <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                    <span className="text-blue-600 font-semibold">
-                      {owner?.display_name?.[0]?.toUpperCase() || '?'}
-                    </span>
+                  <div className="p-4 flex-1 flex flex-col">
+                    <h3 className="font-semibold text-gray-900 line-clamp-2">{l.title}</h3>
+                    <p className="text-sm text-gray-600 mt-1 line-clamp-2">{l.description}</p>
+
+                    {/* Owner row (avatar + name -> profile) */}
+                    <div className="flex items-center mt-3">
+                      <Link href={`/profile/${l.user_id}`} className="flex items-center space-x-2 group">
+                        {l.owner?.profile_picture ? (
+                          <img
+                            src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/house-images/${l.owner.profile_picture}`}
+                            className="w-8 h-8 rounded-full object-cover"
+                            alt="Avatar"
+                          />
+                        ) : (
+                          <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                            <span className="text-blue-600 text-sm font-semibold">{l.owner?.display_name?.[0]?.toUpperCase() || '?'}</span>
+                          </div>
+                        )}
+                        <span className="text-sm text-gray-900 group-hover:underline">{l.owner?.display_name || 'User'}</span>
+                      </Link>
+                    </div>
+
+                    <div className="mt-4 flex items-center gap-2">
+                      {/* View details */}
+                      <Link href={`/post?id=${l.id}`} className="px-3 py-1 rounded bg-gray-100 text-gray-800 text-sm hover:bg-gray-200">
+                        View Details
+                      </Link>
+
+                      {/* WhatsApp */}
+                      <a
+                        href={phoneToWhatsLink(l.phone, l.title)}
+                        target="_blank" rel="noopener noreferrer"
+                        className="px-3 py-1 rounded bg-green-600 text-white text-sm hover:bg-green-700"
+                      >
+                        WhatsApp
+                      </a>
+
+                      {/* Send Message -> exact property conversation */}
+                      <Link
+                        href={`/messages?peer=${l.user_id}&listing=${l.id}`}
+                        className="ml-auto px-3 py-1 rounded bg-blue-600 text-white text-sm hover:bg-blue-700"
+                      >
+                        Send Message
+                      </Link>
+                    </div>
                   </div>
-                )}
-                <div>
-                  <p className="text-gray-900 font-medium group-hover:underline">{owner?.display_name || 'User'}</p>
-                  <p className="text-gray-500 text-sm">Posted this listing</p>
                 </div>
-              </Link>
-            </div>
-
-            <div className="mt-6 flex items-center gap-2">
-              {/* WhatsApp */}
-              <a
-                href={phoneToWhatsLink(listing.phone, listing.title)}
-                target="_blank" rel="noopener noreferrer"
-                className="px-3 py-2 rounded bg-green-600 text-white text-sm hover:bg-green-700"
-              >
-                WhatsApp
-              </a>
-
-              {/* Send Message (per property) */}
-              <Link
-                href={`/messages?peer=${listing.user_id}&listing=${listing.id}`}
-                className="px-3 py-2 rounded bg-blue-600 text-white text-sm hover:bg-blue-700"
-              >
-                Send Message
-              </Link>
-
-              {/* Back */}
-              <Link href="/" className="ml-auto text-blue-600 hover:underline text-sm">
-                ← Back to listings
-              </Link>
-            </div>
+              )
+            })}
           </div>
-        </div>
+        )}
       </div>
     </div>
   )
