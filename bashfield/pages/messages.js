@@ -1,10 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations'
 import { useTranslation } from 'next-i18next'
 import { supabase } from '../lib/supabase'
-import { ensureConversation } from '../lib/chat'
 
 export default function Messages() {
   const { t } = useTranslation('common')
@@ -18,11 +16,15 @@ export default function Messages() {
   const [sending, setSending] = useState(false)
   const [loading, setLoading] = useState(true)
 
+  // Refs
   const userRef = useRef(null)
+  const convsRef = useRef([]) // always-current conversations list
   const activeConversationRef = useRef(null)
-  const convsRef = useRef([])
+  const mountedAtRef = useRef(Date.now())
+  const pendingOpenRef = useRef(null) // conversation_id we should auto-open when it appears
+  const isMobileRef = useRef(false)
 
-  // scrolling control
+  // Scrolling control (avoid snapping to bottom when user scrolls up)
   const messagesContainerRef = useRef(null)
   const autoScrollRef = useRef(true)
   const isNearBottom = () => {
@@ -31,14 +33,15 @@ export default function Messages() {
     const threshold = 80
     return el.scrollHeight - el.scrollTop - el.clientHeight < threshold
   }
-  const onScroll = () => { autoScrollRef.current = isNearBottom() }
+  const onScroll = () => {
+    autoScrollRef.current = isNearBottom()
+  }
   const scrollToBottom = () => {
     const el = messagesContainerRef.current
     if (el) el.scrollTop = el.scrollHeight
   }
 
-  // detect mobile once (mobile Enter should add newline, not send)
-  const isMobileRef = useRef(false)
+  // Device detection for keyboard behavior (mobile should insert newline on Return)
   useEffect(() => {
     if (typeof navigator !== 'undefined') {
       isMobileRef.current = /android|iphone|ipad|ipod|iemobile|opera mini/i.test(
@@ -47,7 +50,7 @@ export default function Messages() {
     }
   }, [])
 
-  // profile cache
+  // Profile cache
   const profileCacheRef = useRef(new Map())
   const getProfile = useCallback(async (userId) => {
     if (profileCacheRef.current.has(userId)) return profileCacheRef.current.get(userId)
@@ -61,7 +64,7 @@ export default function Messages() {
     return profile
   }, [])
 
-  // auth + initial list
+  // -------- Auth & initial load --------
   useEffect(() => {
     ;(async () => {
       const { data: { user: u } } = await supabase.auth.getUser()
@@ -73,9 +76,12 @@ export default function Messages() {
     })()
   }, [])
 
-  useEffect(() => { convsRef.current = conversations }, [conversations])
+  // Keep mirror of conversations in a ref (for realtime callbacks)
+  useEffect(() => {
+    convsRef.current = conversations
+  }, [conversations])
 
-  // load conversations
+  // -------- Loaders --------
   const fetchConversations = useCallback(async (u = userRef.current) => {
     if (!u) return
     const { data: convs } = await supabase
@@ -84,27 +90,33 @@ export default function Messages() {
       .or(`participant1.eq.${u.id},participant2.eq.${u.id}`)
       .order('updated_at', { ascending: false })
 
-    if (!convs) { setConversations([]); return }
+    if (!convs) {
+      setConversations([])
+      return
+    }
 
     const participantIds = [...new Set(convs.flatMap((c) => [c.participant1, c.participant2]))]
     const listingIds = [...new Set(convs.map((c) => c.listing_id).filter(Boolean))]
 
     const [{ data: profiles }, { data: listings }, { data: lastMsgs }, { data: unread }] =
       await Promise.all([
-        supabase.from('user_profiles')
+        supabase
+          .from('user_profiles')
           .select('user_id, display_name, profile_picture')
           .in('user_id', participantIds),
         listingIds.length
           ? supabase.from('listings').select('id, title').in('id', listingIds)
           : Promise.resolve({ data: [] }),
         convs.length
-          ? supabase.from('messages')
+          ? supabase
+              .from('messages')
               .select('conversation_id, content, created_at, sender_id')
               .in('conversation_id', convs.map((c) => c.id))
               .order('created_at', { ascending: false })
           : Promise.resolve({ data: [] }),
         convs.length
-          ? supabase.from('messages')
+          ? supabase
+              .from('messages')
               .select('conversation_id, id')
               .in('conversation_id', convs.map((c) => c.id))
               .eq('recipient_id', u.id)
@@ -112,23 +124,25 @@ export default function Messages() {
           : Promise.resolve({ data: [] }),
       ])
 
-    const processed = (convs || []).map((conv) => {
-      const otherId = conv.participant1 === u.id ? conv.participant2 : conv.participant1
-      const other = profiles?.find((p) => p.user_id === otherId) || null
-      const listing = listings?.find((l) => l.id === conv.listing_id) || null
-      const last = lastMsgs?.find((m) => m.conversation_id === conv.id) || null
-      let unreadCount = unread?.filter((m) => m.conversation_id === conv.id).length || 0
-      if (typeof window !== 'undefined' && window.activeConversationId && conv.id === window.activeConversationId) {
-        unreadCount = 0
-      }
-      return {
-        ...conv,
-        other_participant: other,
-        listing,
-        last_message: last,
-        unread_count: unreadCount,
-      }
-    }).sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
+    const processed = (convs || [])
+      .map((conv) => {
+        const otherId = conv.participant1 === u.id ? conv.participant2 : conv.participant1
+        const other = profiles?.find((p) => p.user_id === otherId) || null
+        const listing = listings?.find((l) => l.id === conv.listing_id) || null
+        const last = lastMsgs?.find((m) => m.conversation_id === conv.id) || null
+        let unreadCount = unread?.filter((m) => m.conversation_id === conv.id).length || 0
+        if (typeof window !== 'undefined' && window.activeConversationId && conv.id === window.activeConversationId) {
+          unreadCount = 0
+        }
+        return {
+          ...conv,
+          other_participant: other,
+          listing,
+          last_message: last,
+          unread_count: unreadCount,
+        }
+      })
+      .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
 
     setConversations(processed)
   }, [])
@@ -141,8 +155,7 @@ export default function Messages() {
       .select('*')
       .eq('conversation_id', id)
       .order('created_at', { ascending: true })
-
-    if (!msgs) { setMessages([]); return }
+    if (!msgs) return setMessages([])
 
     const uniqueSenders = [...new Set(msgs.map((m) => m.sender_id))]
     await Promise.all(uniqueSenders.map((uid) => getProfile(uid)))
@@ -166,7 +179,46 @@ export default function Messages() {
     await fetchConversations()
   }, [fetchConversations])
 
-  // open/select helpers
+  // -------- Open by query ?id=, or auto-open latest from “Send Message” --------
+  useEffect(() => {
+    if (!router.isReady || conversations.length === 0) return
+
+    // If a conversation id is in the URL, open it
+    const idFromQuery = router.query.id || new URLSearchParams(window.location.search).get('id')
+    if (idFromQuery) {
+      const c = conversations.find((x) => x.id === idFromQuery)
+      if (c) {
+        selectConversation(c)
+        pendingOpenRef.current = null
+        return
+      }
+    }
+
+    // If we landed here right after sending from a listing, open the newest convo we just touched
+    if (!activeConversationRef.current) {
+      const sinceMount = mountedAtRef.current
+      const recentMine = conversations.find((c) => {
+        const lastAt = c.last_message?.created_at ? new Date(c.last_message.created_at).getTime() : 0
+        return lastAt && lastAt >= sinceMount && c.last_message?.sender_id === userRef.current?.id
+      })
+      if (recentMine) {
+        selectConversation(recentMine)
+        pendingOpenRef.current = null
+        return
+      }
+    }
+
+    // If a realtime message arrived before the list fetched, we saved the id; open it now
+    if (pendingOpenRef.current) {
+      const c = conversations.find((x) => x.id === pendingOpenRef.current)
+      if (c) {
+        selectConversation(c)
+        pendingOpenRef.current = null
+      }
+    }
+  }, [router.isReady, conversations])
+
+  // -------- Select / leave conversation --------
   const selectConversation = async (conv) => {
     setActiveConversation(conv)
     await fetchMessages(conv.id)
@@ -182,7 +234,7 @@ export default function Messages() {
     setActiveConversation(null)
   }
 
-  // global flag for Section 1/2 muting
+  // Keep global flag so Section 1 + Section 2 can mute/open correctly
   useEffect(() => {
     activeConversationRef.current = activeConversation
     if (typeof window !== 'undefined') {
@@ -206,46 +258,7 @@ export default function Messages() {
     return () => router.events.off('routeChangeStart', handleRouteChange)
   }, [router.events])
 
-  // ---------- STRICT open logic: id OR (peer + listing) OR (peer only for profile chat). No random fallback ----------
-  useEffect(() => {
-    (async () => {
-      if (!router.isReady || conversations.length === 0 || !userRef.current) return
-
-      const qs = new URLSearchParams(window.location.search)
-      const idFromQuery = qs.get('id')
-      const peer = qs.get('peer')
-      const listing = qs.get('listing')
-
-      if (idFromQuery) {
-        const existing = conversations.find((x) => x.id === idFromQuery)
-        if (existing) selectConversation(existing)
-        return
-      }
-
-      if (peer || listing) {
-        try {
-          const convId = await ensureConversation({
-            otherId: peer || null,
-            listingId: listing || null
-          })
-          await fetchConversations()
-          const c = convsRef.current.find((x) => x.id === convId)
-          if (c) {
-            await selectConversation(c)
-            // normalize URL to id-based for clarity
-            router.replace(`/messages?id=${convId}`, undefined, { shallow: true })
-          }
-        } catch (e) {
-          // ignore
-        }
-        return
-      }
-
-      // If no params: do NOT auto-open anything (prevents wrong chats)
-    })()
-  }, [router.isReady, conversations, fetchConversations])
-
-  // ---------- Realtime: open conversation stream ----------
+  // -------- Realtime: OPEN conversation (Section 3 live stream) --------
   useEffect(() => {
     const u = userRef.current
     const conv = activeConversationRef.current
@@ -262,6 +275,7 @@ export default function Messages() {
           const profile = await getProfile(m.sender_id)
           setMessages((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, { ...m, sender: profile }]))
 
+          // Keep convo pinned on top and mute unread while it's open
           setConversations((prev) => {
             const updated = prev.map((c) =>
               c.id === conv.id
@@ -276,6 +290,7 @@ export default function Messages() {
             return updated.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
           })
 
+          // Auto-mark read if I’m the recipient
           if (m.recipient_id === u.id) {
             await supabase.from('messages').update({ read: true }).eq('id', m.id)
             if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('messagesRead'))
@@ -286,11 +301,15 @@ export default function Messages() {
       )
       .subscribe()
 
+    // Fallback polling (only while open)
     const poll = setInterval(() => fetchMessages(conv.id), 2000)
-    return () => { try { supabase.removeChannel(ch) } catch {} ; clearInterval(poll) }
+    return () => {
+      try { supabase.removeChannel(ch) } catch {}
+      clearInterval(poll)
+    }
   }, [activeConversation?.id, getProfile, fetchMessages])
 
-  // ---------- Realtime: Section 2 live list (any message involving me) ----------
+  // -------- Realtime: SECTION 2 live (catch-all listener). Key change: subscribe AFTER we have user id --------
   useEffect(() => {
     if (!user?.id) return
 
@@ -302,12 +321,24 @@ export default function Messages() {
         (payload) => {
           const m = payload.new
           if (!m) return
+          // Only care about messages that involve me
           if (m.sender_id !== user.id && m.recipient_id !== user.id) return
 
+          // If there is no active chat and this is **my** outgoing message (coming from a listing “Send Message”),
+          // open that conversation automatically.
+          if (!activeConversationRef.current && m.sender_id === user.id) {
+            pendingOpenRef.current = m.conversation_id
+          }
+
+          // If the open chat is not this one -> update Section 2 live (badge + top)
           if (activeConversationRef.current?.id !== m.conversation_id) {
             setConversations((prev) => {
               const idx = prev.findIndex((c) => c.id === m.conversation_id)
-              if (idx === -1) { fetchConversations(); return prev }
+              if (idx === -1) {
+                // List may not include it yet; fetch to be safe
+                fetchConversations()
+                return prev
+              }
               const c = prev[idx]
               const inc = m.recipient_id === user.id ? 1 : 0
               const updated = {
@@ -324,9 +355,11 @@ export default function Messages() {
       )
       .subscribe()
 
+    // Keep list fresh if page regains focus (covers any missed events)
     const onVis = () => { if (document.visibilityState === 'visible') fetchConversations() }
     document.addEventListener('visibilitychange', onVis)
 
+    // Safety polling
     const poll = setInterval(fetchConversations, 5000)
 
     return () => {
@@ -336,15 +369,14 @@ export default function Messages() {
     }
   }, [user?.id, fetchConversations])
 
-  // send
+  // -------- Send message --------
   const sendMessage = async () => {
     if (!newMessage.trim() || !activeConversation || sending) return
     setSending(true)
 
     const me = userRef.current
-    const otherId = activeConversation.participant1 === me.id
-      ? activeConversation.participant2
-      : activeConversation.participant1
+    const otherId =
+      activeConversation.participant1 === me.id ? activeConversation.participant2 : activeConversation.participant1
 
     const content = newMessage.trim()
     const { data, error } = await supabase
@@ -353,14 +385,17 @@ export default function Messages() {
       .select('*')
       .single()
 
-    if (error) { setSending(false); alert('Failed to send message. Please try again.'); return }
+    if (error) {
+      setSending(false)
+      alert('Failed to send message. Please try again.')
+      return
+    }
 
     const myProfile =
       profileCacheRef.current.get(me.id) || {
         user_id: me.id,
         display_name: me.user_metadata?.full_name || me.email?.split('@')[0] || 'Me',
       }
-
     setMessages((prev) => [...prev, { ...data, sender: myProfile }])
     setNewMessage('')
 
@@ -383,12 +418,13 @@ export default function Messages() {
     setSending(false)
   }
 
-  // autoscroll on new messages
+  // Keep autoscroll polite
   useEffect(() => {
     if (autoScrollRef.current) requestAnimationFrame(scrollToBottom)
   }, [messages])
 
-  const formatTime = (ts) => new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  const formatTime = (ts) =>
+    new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
   if (loading) {
     return (
@@ -406,7 +442,7 @@ export default function Messages() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="bg-white rounded-xl shadow-sm overflow-hidden" style={{ height: 'calc(100vh - 120px)' }}>
           <div className="flex h-full">
-            {/* Section 2 */}
+            {/* -------- Section 2: conversation list -------- */}
             <div className={`${activeConversation ? 'hidden md:block' : 'block'} w-full md:w-1/3 border-r border-gray-200 flex flex-col`}>
               <div className="p-4 border-b border-gray-200">
                 <h2 className="text-xl font-bold text-gray-900">💬 Messages</h2>
@@ -429,7 +465,19 @@ export default function Messages() {
                       }`}
                     >
                       <div className="flex items-center space-x-3">
-                        <AvatarCircle profile={conversation.other_participant} size={48} />
+                        {conversation.other_participant?.profile_picture ? (
+                          <img
+                            src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/house-images/${conversation.other_participant.profile_picture}`}
+                            alt="Profile"
+                            className="w-12 h-12 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                            <span className="text-blue-600 font-semibold">
+                              {conversation.other_participant?.display_name?.[0]?.toUpperCase() || '?'}
+                            </span>
+                          </div>
+                        )}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between">
                             <p className="text-sm font-medium text-gray-900 truncate">
@@ -453,11 +501,11 @@ export default function Messages() {
               </div>
             </div>
 
-            {/* Section 3 */}
+            {/* -------- Section 3: chat window -------- */}
             <div className={`${activeConversation ? 'block' : 'hidden md:block'} flex-1 flex flex-col`}>
               {activeConversation ? (
                 <>
-                  {/* Header with profile link */}
+                  {/* Header */}
                   <div className="p-4 border-b border-gray-200 bg-gray-50">
                     <div className="flex items-center space-x-3">
                       <button onClick={leaveActiveConversation} className="md:hidden text-gray-600 hover:text-gray-900 p-1">
@@ -465,18 +513,25 @@ export default function Messages() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                         </svg>
                       </button>
-
-                      <Link href={`/profile/${activeConversation.other_participant?.user_id || ''}`} className="flex items-center space-x-3 group">
-                        <AvatarCircle profile={activeConversation.other_participant} size={40} />
-                        <div>
-                          <h3 className="font-medium text-gray-900 group-hover:underline">
-                            {activeConversation.other_participant?.display_name || 'Unknown User'}
-                          </h3>
-                          <p className="text-sm text-gray-600">
-                            About: {activeConversation.listing?.title || 'Property'}
-                          </p>
+                      {activeConversation.other_participant?.profile_picture ? (
+                        <img
+                          src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/house-images/${activeConversation.other_participant.profile_picture}`}
+                          alt="Profile"
+                          className="w-10 h-10 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                          <span className="text-blue-600 font-semibold">
+                            {activeConversation.other_participant?.display_name?.[0]?.toUpperCase() || '?'}
+                          </span>
                         </div>
-                      </Link>
+                      )}
+                      <div>
+                        <h3 className="font-medium text-gray-900">
+                          {activeConversation.other_participant?.display_name || 'Unknown User'}
+                        </h3>
+                        <p className="text-sm text-gray-600">About: {activeConversation.listing?.title || 'Property'}</p>
+                      </div>
                     </div>
                   </div>
 
@@ -489,12 +544,7 @@ export default function Messages() {
                             m.sender_id === user?.id ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-900'
                           }`}
                         >
-                          <p
-                            className="text-sm whitespace-pre-wrap break-words"
-                            style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}
-                          >
-                            {m.content}
-                          </p>
+                          <p className="text-sm whitespace-pre-wrap">{m.content}</p>
                           <p className={`text-xs mt-1 ${m.sender_id === user?.id ? 'text-blue-100' : 'text-gray-500'}`}>
                             {formatTime(m.created_at)}
                           </p>
@@ -503,21 +553,27 @@ export default function Messages() {
                     ))}
                   </div>
 
-                  {/* Composer */}
+                  {/* Composer (multiline, mobile newline key shows; Enter sends only on desktop) */}
                   <div className="p-4 border-t border-gray-200">
                     <form
                       className="flex space-x-2 items-end"
-                      onSubmit={(e) => { e.preventDefault(); sendMessage() }}
+                      onSubmit={(e) => {
+                        e.preventDefault()
+                        sendMessage()
+                      }}
                       autoComplete="off"
                     >
                       <textarea
                         value={newMessage}
                         onChange={(e) => {
                           setNewMessage(e.target.value)
+                          // auto-grow
                           e.target.style.height = 'auto'
                           e.target.style.height = `${e.target.scrollHeight}px`
                         }}
                         onKeyDown={(e) => {
+                          // Desktop: Enter sends, Shift+Enter newline
+                          // Mobile: Return inserts newline (do NOT send)
                           if (!isMobileRef.current && e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault()
                             sendMessage()
@@ -527,6 +583,7 @@ export default function Messages() {
                         className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none overflow-hidden min-h-[44px] max-h-60"
                         disabled={sending}
                         rows={1}
+                        // mobile + autofill fixes
                         name="message"
                         id="message"
                         autoComplete="off"
@@ -534,6 +591,7 @@ export default function Messages() {
                         autoCapitalize="sentences"
                         spellCheck={true}
                         inputMode="text"
+                        /* IMPORTANT: don't set enterKeyHint='send' so mobile shows newline key */
                         data-form-type="other"
                       />
                       <button
@@ -558,25 +616,10 @@ export default function Messages() {
                 </div>
               )}
             </div>
-            {/* ---- end layout ---- */}
+            {/* -------------------------------------------------------------- */}
           </div>
         </div>
       </div>
-    </div>
-  )
-}
-
-function AvatarCircle({ profile, size = 40 }) {
-  const url = profile?.profile_picture
-    ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/house-images/${profile.profile_picture}`
-    : null
-  if (url) {
-    return <img src={url} alt="Profile" className="rounded-full object-cover" style={{ width: size, height: size }} />
-  }
-  const letter = profile?.display_name?.[0]?.toUpperCase() || '?'
-  return (
-    <div className="rounded-full bg-blue-100 flex items-center justify-center" style={{ width: size, height: size }}>
-      <span className="text-blue-600 font-semibold">{letter}</span>
     </div>
   )
 }
