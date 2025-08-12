@@ -1,9 +1,8 @@
-// Helper utilities for starting or finding conversations (per listing)
+// Helper utilities for starting or finding conversations
 import { supabase } from './supabase'
 
 /**
- * Ensure there is a single conversation between me and otherId for a given listingId.
- * If listingId is null, this is a generic (non-listing) chat.
+ * Ensure there is a single conversation between me and otherId for the given listingId (or null).
  * Returns the conversation id.
  */
 export async function ensureConversation({ otherId, listingId = null }) {
@@ -11,11 +10,11 @@ export async function ensureConversation({ otherId, listingId = null }) {
   if (!user) throw new Error('Not authenticated')
 
   const meId = user.id
-  const listFilter = listingId !== null
+  const listFilter = listingId
     ? `listing_id.eq.${listingId}`
     : 'listing_id.is.null'
 
-  // look both directions (same listing id)
+  // look both directions
   const { data: found, error: selErr } = await supabase
     .from('conversations')
     .select('id')
@@ -30,13 +29,23 @@ export async function ensureConversation({ otherId, listingId = null }) {
   if (selErr) throw selErr
   if (found?.id) return found.id
 
-  // create conversation scoped to this listing
+  // create conversation
   const { data: created, error: insErr } = await supabase
     .from('conversations')
-    .insert([{ listing_id: listingId, participant1: meId, participant2: otherId }])
+    .insert([{ listing_id: listingId || null, participant1: meId, participant2: otherId }])
     .select('id')
     .single()
 
   if (insErr) throw insErr
   return created.id
+}
+
+/**
+ * Ensure conversation and navigate to /messages?id=<conversationId>
+ */
+export async function ensureConversationAndGo({ router, otherId, listingId = null }) {
+  const id = await ensureConversation({ otherId, listingId })
+  // Use replace so the peer/listing params don't linger
+  await router.replace(`/messages?id=${id}`)
+  return id
 }
