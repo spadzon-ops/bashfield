@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/router'
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations'
 import { useTranslation } from 'next-i18next'
@@ -17,18 +17,20 @@ export default function Messages() {
   const [sending, setSending] = useState(false)
   const [loading, setLoading] = useState(true)
 
-  // scrolling control (fix #2)
-  const messagesContainerRef = useRef(null)
-  const messagesEndRef = useRef(null)
-  const autoScrollRef = useRef(true) // only true when user is near bottom or just switched convo
+  // Refs to avoid stale closures
+  const userRef = useRef(null)
+  const activeConversationRef = useRef(null)
 
+  // Scrolling control (prevents “snap to bottom” while scrolling up)
+  const messagesContainerRef = useRef(null)
+  const autoScrollRef = useRef(true)
   const isNearBottom = () => {
     const el = messagesContainerRef.current
     if (!el) return true
-    const threshold = 80 // px
+    const threshold = 80
     return el.scrollHeight - el.scrollTop - el.clientHeight < threshold
   }
-  const handleScroll = () => {
+  const onScroll = () => {
     autoScrollRef.current = isNearBottom()
   }
   const scrollToBottom = () => {
@@ -36,117 +38,126 @@ export default function Messages() {
     if (el) el.scrollTop = el.scrollHeight
   }
 
-  // -----------------------------------------
-  // Auth + initial load
-  // -----------------------------------------
-  useEffect(() => {
-    checkAuth()
+  // Profile cache for quick sender labels
+  const profileCacheRef = useRef(new Map())
+  const getProfile = useCallback(async (userId) => {
+    if (profileCacheRef.current.has(userId)) {
+      return profileCacheRef.current.get(userId)
+    }
+    const { data } = await supabase
+      .from('user_profiles')
+      .select('user_id, display_name, profile_picture')
+      .eq('user_id', userId)
+      .single()
+    const profile = data || { user_id: userId, display_name: 'Unknown User' }
+    profileCacheRef.current.set(userId, profile)
+    return profile
   }, [])
 
-  const checkAuth = async () => {
-    const {
-      data: { user: u },
-    } = await supabase.auth.getUser()
-    if (!u) {
-      router.push('/')
-      return
-    }
-    setUser(u)
-    setCurrentUser(u)
-    await fetchConversations(u)
-    setLoading(false)
-  }
+  // ========== AUTH ==========
+  useEffect(() => {
+    ;(async () => {
+      const { data: { user: u } } = await supabase.auth.getUser()
+      if (!u) {
+        router.push('/')
+        return
+      }
+      setUser(u)
+      setCurrentUser(u)
+      userRef.current = u
+      await fetchConversations(u)
+      setLoading(false)
+    })()
+  }, [])
 
-  // open conversation from query string if present
+  // Open conversation from query if present
   useEffect(() => {
     if (!router.isReady || conversations.length === 0) return
-    const idFromQuery =
-      router.query.id || new URLSearchParams(window.location.search).get('id')
+    const idFromQuery = router.query.id || new URLSearchParams(window.location.search).get('id')
     if (idFromQuery) {
       const c = conversations.find((x) => x.id === idFromQuery)
       if (c) selectConversation(c)
     }
   }, [router.isReady, conversations])
 
-  // clear active conversation when leaving page (fix #1)
+  // Keep global “active” flag synced for header/left list muting
+  useEffect(() => {
+    activeConversationRef.current = activeConversation
+    window.activeConversationId = activeConversation?.id || null
+    window.dispatchEvent(
+      new CustomEvent('activeConversationChanged', { detail: { id: window.activeConversationId } })
+    )
+    // When switching chats, stay at bottom initially
+    if (activeConversation) {
+      autoScrollRef.current = true
+      requestAnimationFrame(scrollToBottom)
+    }
+  }, [activeConversation])
+
+  // Clear flag on page leave
   useEffect(() => {
     const handleRouteChange = () => {
       window.activeConversationId = null
-      window.dispatchEvent(
-        new CustomEvent('activeConversationChanged', { detail: { id: null } })
-      )
+      window.dispatchEvent(new CustomEvent('activeConversationChanged', { detail: { id: null } }))
     }
     router.events.on('routeChangeStart', handleRouteChange)
     return () => router.events.off('routeChangeStart', handleRouteChange)
   }, [router.events])
 
-  // -----------------------------------------
-  // Conversations list
-  // -----------------------------------------
-  const fetchConversations = async (u = user) => {
+  // ========== DATA LOADERS ==========
+  const fetchConversations = useCallback(async (u = userRef.current) => {
     if (!u) return
-
-    const { data: convData, error } = await supabase
+    const { data: convs } = await supabase
       .from('conversations')
       .select('*')
       .or(`participant1.eq.${u.id},participant2.eq.${u.id}`)
       .order('updated_at', { ascending: false })
-    if (error || !convData) return
 
-    const participantIds = [
-      ...new Set(convData.flatMap((c) => [c.participant1, c.participant2])),
-    ]
-    const listingIds = [
-      ...new Set(convData.map((c) => c.listing_id).filter(Boolean)),
-    ]
+    if (!convs) {
+      setConversations([])
+      return
+    }
 
-    const { data: profiles } = await supabase
-      .from('user_profiles')
-      .select('user_id, display_name, profile_picture')
-      .in('user_id', participantIds)
+    const participantIds = [...new Set(convs.flatMap((c) => [c.participant1, c.participant2]))]
+    const listingIds = [...new Set(convs.map((c) => c.listing_id).filter(Boolean))]
 
-    const { data: listings } = listingIds.length
-      ? await supabase.from('listings').select('id, title').in('id', listingIds)
-      : { data: [] }
+    const [{ data: profiles }, { data: listings }, { data: lastMsgs }, { data: unread }] =
+      await Promise.all([
+        supabase
+          .from('user_profiles')
+          .select('user_id, display_name, profile_picture')
+          .in('user_id', participantIds),
+        listingIds.length
+          ? supabase.from('listings').select('id, title').in('id', listingIds)
+          : Promise.resolve({ data: [] }),
+        convs.length
+          ? supabase
+              .from('messages')
+              .select('conversation_id, content, created_at, sender_id')
+              .in('conversation_id', convs.map((c) => c.id))
+              .order('created_at', { ascending: false })
+          : Promise.resolve({ data: [] }),
+        convs.length
+          ? supabase
+              .from('messages')
+              .select('conversation_id, id')
+              .in('conversation_id', convs.map((c) => c.id))
+              .eq('recipient_id', u.id)
+              .eq('read', false)
+          : Promise.resolve({ data: [] }),
+      ])
 
-    const { data: lastMsgs } = convData.length
-      ? await supabase
-          .from('messages')
-          .select('conversation_id, content, created_at, sender_id')
-          .in(
-            'conversation_id',
-            convData.map((c) => c.id)
-          )
-          .order('created_at', { ascending: false })
-      : { data: [] }
-
-    const { data: unread } = convData.length
-      ? await supabase
-          .from('messages')
-          .select('conversation_id, id')
-          .in(
-            'conversation_id',
-            convData.map((c) => c.id)
-          )
-          .eq('recipient_id', u.id)
-          .eq('read', false)
-      : { data: [] }
-
-    const processed = convData
+    const processed = (convs || [])
       .map((conv) => {
-        const otherId =
-          conv.participant1 === u.id ? conv.participant2 : conv.participant1
+        const otherId = conv.participant1 === u.id ? conv.participant2 : conv.participant1
         const other = profiles?.find((p) => p.user_id === otherId) || null
         const listing = listings?.find((l) => l.id === conv.listing_id) || null
         const last = lastMsgs?.find((m) => m.conversation_id === conv.id) || null
 
-        let unreadCount =
-          unread?.filter((m) => m.conversation_id === conv.id).length || 0
+        let unreadCount = unread?.filter((m) => m.conversation_id === conv.id).length || 0
 
-        // fix #1: never show unread on the open conversation in Section 2
-        if (window.activeConversationId && conv.id === window.activeConversationId) {
-          unreadCount = 0
-        }
+        // Mute unread for the currently open conversation
+        if (window.activeConversationId && conv.id === window.activeConversationId) unreadCount = 0
 
         return {
           ...conv,
@@ -159,165 +170,117 @@ export default function Messages() {
       .sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
 
     setConversations(processed)
-  }
+  }, [])
 
-  // global realtime: keep Section 2 fresh and mute Section 1 for open convo (fix #1 & #3)
-  useEffect(() => {
-    if (!user) return
-    const channel = supabase
-      .channel(`global-messages-${user.id}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages' },
-        (payload) => {
-          const m = payload.new
-          if (m.recipient_id === user.id || m.sender_id === user.id) {
-            // always refresh conversations (fix #3: this moves the convo to top)
-            fetchConversations(user)
-
-            // mute Section 1 badge only if the open conversation receives a message
-            if (
-              window.activeConversationId &&
-              m.conversation_id === window.activeConversationId
-            ) {
-              // no global unread updates for the open conversation
-              return
-            }
-            // otherwise update global unread count (Layout listens to this)
-            window.dispatchEvent(new CustomEvent('messagesRead'))
-          }
-        }
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
+  const fetchMessages = useCallback(async (conversationId) => {
+    const id = conversationId || activeConversationRef.current?.id
+    if (!id) return
+    const { data: msgs } = await supabase
+      .from('messages')
+      .select('*')
+      .eq('conversation_id', id)
+      .order('created_at', { ascending: true })
+    if (!msgs) {
+      setMessages([])
+      return
     }
-  }, [user?.id])
+    // attach cached profiles
+    const uniqueSenders = [...new Set(msgs.map((m) => m.sender_id))]
+    await Promise.all(uniqueSenders.map((uid) => getProfile(uid)))
+    const merged = msgs.map((m) => ({
+      ...m,
+      sender: profileCacheRef.current.get(m.sender_id) || { display_name: 'Unknown User' },
+    }))
+    setMessages(merged)
+  }, [getProfile])
 
-  // -----------------------------------------
-  // Open/select a conversation
-  // -----------------------------------------
+  const markAsRead = useCallback(async (conversationId) => {
+    const uid = userRef.current?.id
+    if (!conversationId || !uid) return
+    await supabase
+      .from('messages')
+      .update({ read: true })
+      .eq('conversation_id', conversationId)
+      .eq('recipient_id', uid)
+      .eq('read', false)
+    // refresh header + left list counters
+    window.dispatchEvent(new CustomEvent('messagesRead'))
+    await fetchConversations()
+  }, [fetchConversations])
+
+  // ========== SELECT / LEAVE CONVERSATION ==========
   const selectConversation = async (conv) => {
     setActiveConversation(conv)
-
-    // set global lock so Section 1/2 don't notify (fix #1)
-    window.activeConversationId = conv.id
-    window.dispatchEvent(
-      new CustomEvent('activeConversationChanged', { detail: { id: conv.id } })
-    )
-
     await fetchMessages(conv.id)
     await markAsRead(conv.id)
-
-    // zero unread locally for this conversation
-    setConversations((prev) =>
-      prev.map((c) => (c.id === conv.id ? { ...c, unread_count: 0 } : c))
-    )
-
-    // autoscroll on open
+    // Zero unread locally
+    setConversations((prev) => prev.map((c) => (c.id === conv.id ? { ...c, unread_count: 0 } : c)))
     autoScrollRef.current = true
     requestAnimationFrame(scrollToBottom)
   }
 
-  // -----------------------------------------
-  // Messages for the active conversation
-  // -----------------------------------------
-  const attachSenderProfile = async (msg) => {
-    const { data: profile } = await supabase
-      .from('user_profiles')
-      .select('display_name, profile_picture')
-      .eq('user_id', msg.sender_id)
-      .single()
-    return { ...msg, sender: profile || { display_name: 'Unknown User' } }
+  const leaveActiveConversation = async () => {
+    const prev = activeConversationRef.current
+    if (prev) await markAsRead(prev.id) // double-sure
+    setActiveConversation(null)
   }
 
-  const fetchMessages = async (conversationId = activeConversation?.id) => {
-    if (!conversationId) return
-    const { data: msgs, error } = await supabase
-      .from('messages')
-      .select('*')
-      .eq('conversation_id', conversationId)
-      .order('created_at', { ascending: true })
-    if (error || !msgs) return
-
-    const senderIds = [...new Set(msgs.map((m) => m.sender_id))]
-    const { data: profiles } = senderIds.length
-      ? await supabase
-          .from('user_profiles')
-          .select('user_id, display_name, profile_picture')
-          .in('user_id', senderIds)
-      : { data: [] }
-
-    const merged = msgs.map((m) => ({
-      ...m,
-      sender:
-        profiles?.find((p) => p.user_id === m.sender_id) || {
-          display_name: 'Unknown User',
-        },
-    }))
-
-    setMessages(merged)
-  }
-
-  // realtime for the currently open conversation
+  // ========== REALTIME ==========
+  // Global listener (reliable). Also updates the open chat instantly.
   useEffect(() => {
-    if (!activeConversation || !user) return
-
+    if (!userRef.current) return
     const ch = supabase
-      .channel(`conversation-${activeConversation.id}`)
+      .channel(`rt-global-${userRef.current.id}`)
       .on(
         'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `conversation_id=eq.${activeConversation.id}`,
-        },
+        { event: 'INSERT', schema: 'public', table: 'messages' },
         async (payload) => {
           const m = payload.new
+          const uid = userRef.current?.id
+          if (!uid) return
+          if (m.sender_id !== uid && m.recipient_id !== uid) return
 
-          // append if not duplicate
-          setMessages((prev) => {
-            if (prev.find((x) => x.id === m.id)) return prev
-            return prev
-          })
+          // If the message belongs to the currently open conversation,
+          // show it immediately in Section 3 with NO unread notifications.
+          if (activeConversationRef.current?.id === m.conversation_id) {
+            // attach profile & append if not duplicate
+            const profile = await getProfile(m.sender_id)
+            setMessages((prev) => {
+              if (prev.some((x) => x.id === m.id)) return prev
+              return [...prev, { ...m, sender: profile }]
+            })
 
-          // attach sender profile
-          const withProfile = await attachSenderProfile(m)
-          setMessages((prev) => [...prev, withProfile])
+            // keep that conversation pinned at the top of Section 2
+            setConversations((prev) => {
+              const updated = prev.map((c) =>
+                c.id === m.conversation_id
+                  ? {
+                      ...c,
+                      updated_at: m.created_at,
+                      last_message: {
+                        content: m.content,
+                        sender_id: m.sender_id,
+                        created_at: m.created_at,
+                      },
+                      unread_count: 0, // keep muted while open
+                    }
+                  : c
+              )
+              return updated.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
+            })
 
-          // keep this conversation on top in Section 2 (fix #3)
-          setConversations((prev) => {
-            const updated = prev.map((c) =>
-              c.id === activeConversation.id
-                ? {
-                    ...c,
-                    updated_at: new Date().toISOString(),
-                    last_message: {
-                      content: m.content,
-                      sender_id: m.sender_id,
-                      created_at: m.created_at,
-                    },
-                  }
-                : c
-            )
-            return updated.sort(
-              (a, b) => new Date(b.updated_at) - new Date(a.updated_at)
-            )
-          })
+            // mark as read if I'm the recipient, so it never shows as unread later
+            if (m.recipient_id === uid) {
+              await supabase.from('messages').update({ read: true }).eq('id', m.id)
+              window.dispatchEvent(new CustomEvent('messagesRead'))
+            }
 
-          // if recipient is me and chat is open => mark as read & mute badges (fix #1)
-          if (
-            m.recipient_id === user.id &&
-            window.activeConversationId === m.conversation_id
-          ) {
-            await supabase.from('messages').update({ read: true }).eq('id', m.id)
-            window.dispatchEvent(new CustomEvent('messagesRead'))
+            if (autoScrollRef.current) requestAnimationFrame(scrollToBottom)
+            return
           }
 
-          // auto-scroll only if user is near bottom (fix #2)
-          if (autoScrollRef.current) requestAnimationFrame(scrollToBottom)
+          // Not the open chat: just refresh the left list (will move it to top)
+          fetchConversations()
         }
       )
       .subscribe()
@@ -325,29 +288,14 @@ export default function Messages() {
     return () => {
       supabase.removeChannel(ch)
     }
-  }, [activeConversation?.id, user?.id])
+  }, [fetchConversations, getProfile])
 
-  // mark messages as read
-  const markAsRead = async (conversationId = activeConversation?.id) => {
-    if (!conversationId || !user) return
-    await supabase
-      .from('messages')
-      .update({ read: true })
-      .eq('conversation_id', conversationId)
-      .eq('recipient_id', user.id)
-      .eq('read', false)
-
-    // tell Layout to update Section 1 counter
-    window.dispatchEvent(new CustomEvent('messagesRead'))
-  }
-
-  // send a new message
+  // ========== SEND ==========
   const sendMessage = async () => {
     if (!newMessage.trim() || !activeConversation || sending) return
     setSending(true)
-
     const otherId =
-      activeConversation.participant1 === user.id
+      activeConversation.participant1 === userRef.current.id
         ? activeConversation.participant2
         : activeConversation.participant1
 
@@ -356,7 +304,7 @@ export default function Messages() {
       .insert([
         {
           conversation_id: activeConversation.id,
-          sender_id: user.id,
+          sender_id: userRef.current.id,
           recipient_id: otherId,
           content: newMessage.trim(),
         },
@@ -370,51 +318,49 @@ export default function Messages() {
       return
     }
 
-    // show immediately
-    const local = {
-      ...data,
-      sender: {
-        user_id: user.id,
-        display_name: user.user_metadata?.full_name || user.email.split('@')[0],
-      },
-    }
-    setMessages((prev) => [...prev, local])
+    // optimistic append
+    const myProfile =
+      profileCacheRef.current.get(userRef.current.id) || {
+        user_id: userRef.current.id,
+        display_name:
+          userRef.current.user_metadata?.full_name ||
+          userRef.current.email?.split('@')[0] ||
+          'Me',
+      }
+    setMessages((prev) => [...prev, { ...data, sender: myProfile }])
     setNewMessage('')
 
-    // bump this conversation to the top locally (fix #3)
+    // bump conversation to the top locally
     setConversations((prev) => {
       const updated = prev.map((c) =>
         c.id === activeConversation.id
           ? {
               ...c,
-              updated_at: new Date().toISOString(),
+              updated_at: data.created_at,
               last_message: {
                 content: data.content,
-                sender_id: user.id,
+                sender_id: data.sender_id,
                 created_at: data.created_at,
               },
+              unread_count: 0,
             }
           : c
       )
-      return updated.sort(
-        (a, b) => new Date(b.updated_at) - new Date(a.updated_at)
-      )
+      return updated.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
     })
 
-    // auto-scroll after send (fix #2)
     autoScrollRef.current = true
     requestAnimationFrame(scrollToBottom)
-
     setSending(false)
   }
 
-  // on messages change, only autoscroll when allowed (fix #2)
+  // Keep autoscroll behavior tight
   useEffect(() => {
     if (autoScrollRef.current) requestAnimationFrame(scrollToBottom)
   }, [messages])
 
-  const formatTime = (timestamp) =>
-    new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  const formatTime = (ts) =>
+    new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
   if (loading) {
     return (
@@ -435,7 +381,7 @@ export default function Messages() {
           style={{ height: 'calc(100vh - 120px)' }}
         >
           <div className="flex h-full">
-            {/* ---------------- Section 2: Conversations list ---------------- */}
+            {/* -------- Section 2: conversation list -------- */}
             <div
               className={`${
                 activeConversation ? 'hidden md:block' : 'block'
@@ -483,8 +429,7 @@ export default function Messages() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between">
                             <p className="text-sm font-medium text-gray-900 truncate">
-                              {conversation.other_participant?.display_name ||
-                                'Unknown User'}
+                              {conversation.other_participant?.display_name || 'Unknown User'}
                             </p>
 
                             {conversation.unread_count > 0 && (
@@ -511,7 +456,7 @@ export default function Messages() {
               </div>
             </div>
 
-            {/* ---------------- Section 3: Chat ---------------- */}
+            {/* -------- Section 3: chat window -------- */}
             <div
               className={`${
                 activeConversation ? 'block' : 'hidden md:block'
@@ -523,21 +468,11 @@ export default function Messages() {
                   <div className="p-4 border-b border-gray-200 bg-gray-50">
                     <div className="flex items-center space-x-3">
                       <button
-                        onClick={() => setActiveConversation(null)}
+                        onClick={leaveActiveConversation}
                         className="md:hidden text-gray-600 hover:text-gray-900 p-1"
                       >
-                        <svg
-                          className="w-5 h-5"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M15 19l-7-7 7-7"
-                          />
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                         </svg>
                       </button>
 
@@ -550,30 +485,24 @@ export default function Messages() {
                       ) : (
                         <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
                           <span className="text-blue-600 font-semibold">
-                            {activeConversation.other_participant?.display_name?.[0]?.toUpperCase() ||
-                              '?'}
+                            {activeConversation.other_participant?.display_name?.[0]?.toUpperCase() || '?'}
                           </span>
                         </div>
                       )}
 
                       <div>
-                        {currentUser?.email ===
-                        process.env.NEXT_PUBLIC_ADMIN_EMAIL ? (
+                        {currentUser?.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL ? (
                           <button
                             onClick={() =>
-                              router.push(
-                                `/admin/profile/${activeConversation.other_participant?.user_id}`
-                              )
+                              router.push(`/admin/profile/${activeConversation.other_participant?.user_id}`)
                             }
                             className="font-medium text-blue-600 hover:text-blue-800"
                           >
-                            {activeConversation.other_participant?.display_name ||
-                              'Unknown User'}
+                            {activeConversation.other_participant?.display_name || 'Unknown User'}
                           </button>
                         ) : (
                           <h3 className="font-medium text-gray-900">
-                            {activeConversation.other_participant?.display_name ||
-                              'Unknown User'}
+                            {activeConversation.other_participant?.display_name || 'Unknown User'}
                           </h3>
                         )}
                         <p className="text-sm text-gray-600">
@@ -586,39 +515,23 @@ export default function Messages() {
                   {/* Messages */}
                   <div
                     ref={messagesContainerRef}
-                    onScroll={handleScroll}
+                    onScroll={onScroll}
                     className="flex-1 overflow-y-auto p-4 space-y-4"
                   >
-                    {messages.map((message) => (
-                      <div
-                        key={message.id}
-                        className={`flex ${
-                          message.sender_id === user.id
-                            ? 'justify-end'
-                            : 'justify-start'
-                        }`}
-                      >
+                    {messages.map((m) => (
+                      <div key={m.id} className={`flex ${m.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}>
                         <div
                           className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                            message.sender_id === user.id
-                              ? 'bg-blue-500 text-white'
-                              : 'bg-gray-200 text-gray-900'
+                            m.sender_id === user?.id ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-900'
                           }`}
                         >
-                          <p className="text-sm">{message.content}</p>
-                          <p
-                            className={`text-xs mt-1 ${
-                              message.sender_id === user.id
-                                ? 'text-blue-100'
-                                : 'text-gray-500'
-                            }`}
-                          >
-                            {formatTime(message.created_at)}
+                          <p className="text-sm">{m.content}</p>
+                          <p className={`text-xs mt-1 ${m.sender_id === user?.id ? 'text-blue-100' : 'text-gray-500'}`}>
+                            {formatTime(m.created_at)}
                           </p>
                         </div>
                       </div>
                     ))}
-                    <div ref={messagesEndRef} />
                   </div>
 
                   {/* Input */}
@@ -649,12 +562,8 @@ export default function Messages() {
                     <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
                       <span className="text-4xl">💬</span>
                     </div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">
-                      Select a conversation
-                    </h3>
-                    <p className="text-gray-600">
-                      Choose a conversation from the list to start messaging
-                    </p>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">Select a conversation</h3>
+                    <p className="text-gray-600">Choose a conversation from the list to start messaging</p>
                   </div>
                 </div>
               )}
