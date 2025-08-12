@@ -4,7 +4,6 @@ import { useRouter } from 'next/router'
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations'
 import { useTranslation } from 'next-i18next'
 import { supabase } from '../../lib/supabase'
-import { ensureConversationAndGo } from '../../lib/chat'
 
 export default function UserProfilePage() {
   const { t } = useTranslation('common')
@@ -17,8 +16,6 @@ export default function UserProfilePage() {
   const [isAdmin, setIsAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
 
-  const meRef = useRef(null)
-
   const load = useCallback(async () => {
     const [{ data: { user } }, { data: prof }] = await Promise.all([
       supabase.auth.getUser(),
@@ -28,19 +25,17 @@ export default function UserProfilePage() {
         .maybeSingle()
     ])
     setMe(user || null)
-    meRef.current = user || null
     setProfile(prof || null)
 
-    // admin?
+    let adminFlag = false
     if (user?.email) {
       const { data: rows } = await supabase.from('admin_emails').select('email').eq('email', user.email)
-      setIsAdmin((rows?.length || 0) > 0)
-    } else {
-      setIsAdmin(false)
+      adminFlag = (rows?.length || 0) > 0
     }
+    setIsAdmin(adminFlag)
 
-    // Listings: show approved to everyone; if owner/admin, also show pending/rejected
-    if (user && (user.id === userId || isAdmin)) {
+    // show all owner listings to owner or admin; otherwise only approved
+    if (user && (user.id === userId || adminFlag)) {
       const { data: own } = await supabase
         .from('listings')
         .select('*')
@@ -57,12 +52,19 @@ export default function UserProfilePage() {
       setListings(approved || [])
     }
     setLoading(false)
-  }, [userId, isAdmin])
+  }, [userId])
 
   useEffect(() => {
     if (!router.isReady || !userId) return
     load()
   }, [router.isReady, userId, load])
+
+  const phoneToWhatsLink = (phone, title) => {
+    if (!phone) return '#'
+    const digits = String(phone).replace(/[^\d+]/g, '')
+    const text = encodeURIComponent(`Hi, I'm interested in: ${title}`)
+    return `https://wa.me/${digits}?text=${text}`
+  }
 
   if (loading) {
     return (
@@ -90,23 +92,7 @@ export default function UserProfilePage() {
     ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/house-images/${profile.profile_picture}`
     : null
 
-  const onMessage = async () => {
-    await ensureConversationAndGo({
-      router,
-      otherId: profile.user_id,
-      listingId: null,
-    })
-  }
-
-  const moderate = async (id, action) => {
-    if (!isAdmin) return
-    if (action === 'delete') {
-      await supabase.from('listings').delete().eq('id', id)
-    } else {
-      await supabase.from('listings').update({ status: action }).eq('id', id)
-    }
-    await load()
-  }
+  const showEmail = isAdmin || (me?.id === profile.user_id)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -124,19 +110,23 @@ export default function UserProfilePage() {
             )}
             <div className="ml-4">
               <h1 className="text-2xl font-bold text-gray-900">{profile.display_name}</h1>
-              <p className="text-gray-600">{profile.email}</p>
+              {showEmail ? (
+                <p className="text-gray-600">{profile.email}</p>
+              ) : (
+                <p className="text-gray-500 text-sm">Email hidden</p>
+              )}
               <p className="text-gray-500 text-sm">
                 Joined {new Date(profile.created_at).toLocaleDateString()}
               </p>
             </div>
             <div className="ml-auto">
               {me?.id !== profile.user_id && (
-                <button
-                  onClick={onMessage}
+                <Link
+                  href={`/messages?peer=${profile.user_id}`}
                   className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
                 >
                   Message
-                </button>
+                </Link>
               )}
             </div>
           </div>
@@ -155,25 +145,42 @@ export default function UserProfilePage() {
                   : null
                 return (
                   <div key={l.id} className="border rounded-lg overflow-hidden">
-                    {imgUrl ? (
-                      <img src={imgUrl} alt={l.title} className="w-full h-40 object-cover" />
-                    ) : (
-                      <div className="w-full h-40 bg-gray-100 flex items-center justify-center text-gray-500">No image</div>
-                    )}
+                    {/* Clickable image -> details */}
+                    <Link href={`/post?id=${l.id}`}>
+                      {imgUrl ? (
+                        <img src={imgUrl} alt={l.title} className="w-full h-40 object-cover" />
+                      ) : (
+                        <div className="w-full h-40 bg-gray-100 flex items-center justify-center text-gray-500">No image</div>
+                      )}
+                    </Link>
+
                     <div className="p-4">
                       <h3 className="font-semibold">{l.title}</h3>
                       <p className="text-sm text-gray-600 truncate">{l.description}</p>
-                      <div className="flex items-center justify-between mt-3">
-                        <Link href={`/post?id=${l.id}`} className="text-blue-600 hover:underline">View</Link>
-                        <span className="text-xs px-2 py-1 rounded bg-gray-100 text-gray-700">{l.status}</span>
+
+                      <div className="flex items-center gap-2 mt-3">
+                        <Link href={`/post?id=${l.id}`} className="text-blue-600 hover:underline">
+                          View Details
+                        </Link>
+
+                        <a
+                          href={phoneToWhatsLink(l.phone, l.title)}
+                          target="_blank" rel="noopener noreferrer"
+                          className="text-green-700 border border-green-700 px-2 py-1 rounded text-xs"
+                        >
+                          WhatsApp
+                        </a>
+
+                        <Link
+                          href={`/messages?peer=${l.user_id}&listing=${l.id}`}
+                          className="text-white bg-blue-600 hover:bg-blue-700 px-2 py-1 rounded text-xs"
+                        >
+                          Send Message
+                        </Link>
+
+                        {/* Admin quick actions (optional) */}
+                        {/* You can keep your previous admin controls here if needed */}
                       </div>
-                      {(isAdmin) && (
-                        <div className="flex items-center gap-2 mt-3">
-                          <button onClick={() => moderate(l.id, 'approved')} className="text-green-700 border border-green-700 px-2 py-1 rounded text-xs">Approve</button>
-                          <button onClick={() => moderate(l.id, 'rejected')} className="text-yellow-700 border border-yellow-700 px-2 py-1 rounded text-xs">Reject</button>
-                          <button onClick={() => moderate(l.id, 'delete')} className="text-red-700 border border-red-700 px-2 py-1 rounded text-xs">Delete</button>
-                        </div>
-                      )}
                     </div>
                   </div>
                 )
