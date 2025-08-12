@@ -18,10 +18,13 @@ export default function Messages() {
 
   // Refs
   const userRef = useRef(null)
+  const convsRef = useRef([]) // always-current conversations list
   const activeConversationRef = useRef(null)
-  const mountedAtRef = useRef(Date.now()) // used for "auto-open latest" after navigation
+  const mountedAtRef = useRef(Date.now())
+  const pendingOpenRef = useRef(null) // conversation_id we should auto-open when it appears
+  const isMobileRef = useRef(false)
 
-  // Scrolling control
+  // Scrolling control (avoid snapping to bottom when user scrolls up)
   const messagesContainerRef = useRef(null)
   const autoScrollRef = useRef(true)
   const isNearBottom = () => {
@@ -38,6 +41,15 @@ export default function Messages() {
     if (el) el.scrollTop = el.scrollHeight
   }
 
+  // Device detection for keyboard behavior (mobile should insert newline on Return)
+  useEffect(() => {
+    if (typeof navigator !== 'undefined') {
+      isMobileRef.current = /android|iphone|ipad|ipod|iemobile|opera mini/i.test(
+        navigator.userAgent.toLowerCase()
+      )
+    }
+  }, [])
+
   // Profile cache
   const profileCacheRef = useRef(new Map())
   const getProfile = useCallback(async (userId) => {
@@ -52,14 +64,11 @@ export default function Messages() {
     return profile
   }, [])
 
-  // ---------- Auth & initial load ----------
+  // -------- Auth & initial load --------
   useEffect(() => {
     ;(async () => {
       const { data: { user: u } } = await supabase.auth.getUser()
-      if (!u) {
-        router.push('/')
-        return
-      }
+      if (!u) return router.push('/')
       setUser(u)
       userRef.current = u
       await fetchConversations(u)
@@ -67,56 +76,12 @@ export default function Messages() {
     })()
   }, [])
 
-  // ---------- Open by query ?id=, or auto-open latest recent one ----------
+  // Keep mirror of conversations in a ref (for realtime callbacks)
   useEffect(() => {
-    if (!router.isReady || conversations.length === 0) return
+    convsRef.current = conversations
+  }, [conversations])
 
-    // 1) explicit id takes precedence
-    const idFromQuery = router.query.id || new URLSearchParams(window.location.search).get('id')
-    if (idFromQuery) {
-      const c = conversations.find((x) => x.id === idFromQuery)
-      if (c) {
-        selectConversation(c)
-        return
-      }
-    }
-
-    // 2) If no id: auto-open the newest conversation that changed very recently (e.g., came from "Send Message" on a property)
-    if (!activeConversation) {
-      const now = Date.now()
-      const recent = conversations.find((c) => {
-        const ts = c.last_message?.created_at ? new Date(c.last_message.created_at).getTime() : 0
-        return ts && now - ts < 15000 // within last 15s
-      })
-      if (recent) selectConversation(recent)
-    }
-  }, [router.isReady, conversations])
-
-  // ---------- Keep global flag so headers/left badges mute when open ----------
-  useEffect(() => {
-    activeConversationRef.current = activeConversation
-    if (typeof window !== 'undefined') {
-      window.activeConversationId = activeConversation?.id || null
-      window.dispatchEvent(new CustomEvent('activeConversationChanged', { detail: { id: window.activeConversationId } }))
-    }
-    if (activeConversation) {
-      autoScrollRef.current = true
-      requestAnimationFrame(scrollToBottom)
-    }
-  }, [activeConversation])
-
-  useEffect(() => {
-    const handleRouteChange = () => {
-      if (typeof window !== 'undefined') {
-        window.activeConversationId = null
-        window.dispatchEvent(new CustomEvent('activeConversationChanged', { detail: { id: null } }))
-      }
-    }
-    router.events.on('routeChangeStart', handleRouteChange)
-    return () => router.events.off('routeChangeStart', handleRouteChange)
-  }, [router.events])
-
-  // ---------- Loaders ----------
+  // -------- Loaders --------
   const fetchConversations = useCallback(async (u = userRef.current) => {
     if (!u) return
     const { data: convs } = await supabase
@@ -190,10 +155,8 @@ export default function Messages() {
       .select('*')
       .eq('conversation_id', id)
       .order('created_at', { ascending: true })
-    if (!msgs) {
-      setMessages([])
-      return
-    }
+    if (!msgs) return setMessages([])
+
     const uniqueSenders = [...new Set(msgs.map((m) => m.sender_id))]
     await Promise.all(uniqueSenders.map((uid) => getProfile(uid)))
     const merged = msgs.map((m) => ({
@@ -216,7 +179,46 @@ export default function Messages() {
     await fetchConversations()
   }, [fetchConversations])
 
-  // ---------- Select / leave ----------
+  // -------- Open by query ?id=, or auto-open latest from “Send Message” --------
+  useEffect(() => {
+    if (!router.isReady || conversations.length === 0) return
+
+    // If a conversation id is in the URL, open it
+    const idFromQuery = router.query.id || new URLSearchParams(window.location.search).get('id')
+    if (idFromQuery) {
+      const c = conversations.find((x) => x.id === idFromQuery)
+      if (c) {
+        selectConversation(c)
+        pendingOpenRef.current = null
+        return
+      }
+    }
+
+    // If we landed here right after sending from a listing, open the newest convo we just touched
+    if (!activeConversationRef.current) {
+      const sinceMount = mountedAtRef.current
+      const recentMine = conversations.find((c) => {
+        const lastAt = c.last_message?.created_at ? new Date(c.last_message.created_at).getTime() : 0
+        return lastAt && lastAt >= sinceMount && c.last_message?.sender_id === userRef.current?.id
+      })
+      if (recentMine) {
+        selectConversation(recentMine)
+        pendingOpenRef.current = null
+        return
+      }
+    }
+
+    // If a realtime message arrived before the list fetched, we saved the id; open it now
+    if (pendingOpenRef.current) {
+      const c = conversations.find((x) => x.id === pendingOpenRef.current)
+      if (c) {
+        selectConversation(c)
+        pendingOpenRef.current = null
+      }
+    }
+  }, [router.isReady, conversations])
+
+  // -------- Select / leave conversation --------
   const selectConversation = async (conv) => {
     setActiveConversation(conv)
     await fetchMessages(conv.id)
@@ -232,7 +234,31 @@ export default function Messages() {
     setActiveConversation(null)
   }
 
-  // ---------- Realtime: open conversation stream (shows messages instantly in Section 3) ----------
+  // Keep global flag so Section 1 + Section 2 can mute/open correctly
+  useEffect(() => {
+    activeConversationRef.current = activeConversation
+    if (typeof window !== 'undefined') {
+      window.activeConversationId = activeConversation?.id || null
+      window.dispatchEvent(new CustomEvent('activeConversationChanged', { detail: { id: window.activeConversationId } }))
+    }
+    if (activeConversation) {
+      autoScrollRef.current = true
+      requestAnimationFrame(scrollToBottom)
+    }
+  }, [activeConversation])
+
+  useEffect(() => {
+    const handleRouteChange = () => {
+      if (typeof window !== 'undefined') {
+        window.activeConversationId = null
+        window.dispatchEvent(new CustomEvent('activeConversationChanged', { detail: { id: null } }))
+      }
+    }
+    router.events.on('routeChangeStart', handleRouteChange)
+    return () => router.events.off('routeChangeStart', handleRouteChange)
+  }, [router.events])
+
+  // -------- Realtime: OPEN conversation (Section 3 live stream) --------
   useEffect(() => {
     const u = userRef.current
     const conv = activeConversationRef.current
@@ -246,11 +272,10 @@ export default function Messages() {
         async (payload) => {
           const m = payload.new
           if (!m) return
-
           const profile = await getProfile(m.sender_id)
           setMessages((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, { ...m, sender: profile }]))
 
-          // keep convo at top and mute unread while open
+          // Keep convo pinned on top and mute unread while it's open
           setConversations((prev) => {
             const updated = prev.map((c) =>
               c.id === conv.id
@@ -265,7 +290,7 @@ export default function Messages() {
             return updated.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
           })
 
-          // auto-read if I am the recipient
+          // Auto-mark read if I’m the recipient
           if (m.recipient_id === u.id) {
             await supabase.from('messages').update({ read: true }).eq('id', m.id)
             if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('messagesRead'))
@@ -276,7 +301,7 @@ export default function Messages() {
       )
       .subscribe()
 
-    // polling fallback (only while chat open)
+    // Fallback polling (only while open)
     const poll = setInterval(() => fetchMessages(conv.id), 2000)
     return () => {
       try { supabase.removeChannel(ch) } catch {}
@@ -284,101 +309,67 @@ export default function Messages() {
     }
   }, [activeConversation?.id, getProfile, fetchMessages])
 
-  // ---------- NEW APPROACH: make Section 2 live with precise filtered subscriptions ----------
+  // -------- Realtime: SECTION 2 live (catch-all listener). Key change: subscribe AFTER we have user id --------
   useEffect(() => {
-    const u = userRef.current
-    if (!u) return
+    if (!user?.id) return
 
-    // Incoming messages to me (other chats)
-    const chIn = supabase
-      .channel(`in-${u.id}`)
+    const chAll = supabase
+      .channel(`all-messages-${user.id}`)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages', filter: `recipient_id=eq.${u.id}` },
+        { event: 'INSERT', schema: 'public', table: 'messages' },
         (payload) => {
           const m = payload.new
           if (!m) return
+          // Only care about messages that involve me
+          if (m.sender_id !== user.id && m.recipient_id !== user.id) return
 
-          // If it's the open chat, the other effect handles it
-          if (activeConversationRef.current?.id === m.conversation_id) return
+          // If there is no active chat and this is **my** outgoing message (coming from a listing “Send Message”),
+          // open that conversation automatically.
+          if (!activeConversationRef.current && m.sender_id === user.id) {
+            pendingOpenRef.current = m.conversation_id
+          }
 
-          // Update Section 2 locally: bump to top + increment unread
-          setConversations((prev) => {
-            const idx = prev.findIndex((c) => c.id === m.conversation_id)
-            if (idx === -1) {
-              // not loaded yet -> refetch list
-              fetchConversations()
-              return prev
-            }
-            const c = prev[idx]
-            const updated = {
-              ...c,
-              updated_at: m.created_at,
-              last_message: { content: m.content, sender_id: m.sender_id, created_at: m.created_at },
-              unread_count: (c.unread_count || 0) + 1,
-            }
-            const rest = prev.filter((_, i) => i !== idx)
-            return [updated, ...rest]
-          })
+          // If the open chat is not this one -> update Section 2 live (badge + top)
+          if (activeConversationRef.current?.id !== m.conversation_id) {
+            setConversations((prev) => {
+              const idx = prev.findIndex((c) => c.id === m.conversation_id)
+              if (idx === -1) {
+                // List may not include it yet; fetch to be safe
+                fetchConversations()
+                return prev
+              }
+              const c = prev[idx]
+              const inc = m.recipient_id === user.id ? 1 : 0
+              const updated = {
+                ...c,
+                updated_at: m.created_at,
+                last_message: { content: m.content, sender_id: m.sender_id, created_at: m.created_at },
+                unread_count: (c.unread_count || 0) + inc,
+              }
+              const rest = prev.filter((_, i) => i !== idx)
+              return [updated, ...rest]
+            })
+          }
         }
       )
       .subscribe()
 
-    // Outgoing messages from me (to keep other chats live-sorted)
-    const chOut = supabase
-      .channel(`out-${u.id}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages', filter: `sender_id=eq.${u.id}` },
-        (payload) => {
-          const m = payload.new
-          if (!m) return
-          // If it's the open chat, the open-stream already handles UI
-          if (activeConversationRef.current?.id === m.conversation_id) return
+    // Keep list fresh if page regains focus (covers any missed events)
+    const onVis = () => { if (document.visibilityState === 'visible') fetchConversations() }
+    document.addEventListener('visibilitychange', onVis)
 
-          setConversations((prev) => {
-            const idx = prev.findIndex((c) => c.id === m.conversation_id)
-            if (idx === -1) {
-              fetchConversations()
-              return prev
-            }
-            const c = prev[idx]
-            const updated = {
-              ...c,
-              updated_at: m.created_at,
-              last_message: { content: m.content, sender_id: m.sender_id, created_at: m.created_at },
-              // no unread increment when I'm the sender
-              unread_count: c.unread_count || 0,
-            }
-            const rest = prev.filter((_, i) => i !== idx)
-            return [updated, ...rest]
-          })
-        }
-      )
-      .subscribe()
-
-    // Safety: also watch conversation UPDATEs to reflect DB trigger ordering
-    const chConv = supabase
-      .channel(`conv-updates-${u.id}`)
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'conversations' },
-        () => fetchConversations()
-      )
-      .subscribe()
-
-    // Light periodic safety (covers any missed events)
+    // Safety polling
     const poll = setInterval(fetchConversations, 5000)
 
     return () => {
-      try { supabase.removeChannel(chIn) } catch {}
-      try { supabase.removeChannel(chOut) } catch {}
-      try { supabase.removeChannel(chConv) } catch {}
+      try { supabase.removeChannel(chAll) } catch {}
+      document.removeEventListener('visibilitychange', onVis)
       clearInterval(poll)
     }
-  }, [fetchConversations])
+  }, [user?.id, fetchConversations])
 
-  // ---------- Send ----------
+  // -------- Send message --------
   const sendMessage = async () => {
     if (!newMessage.trim() || !activeConversation || sending) return
     setSending(true)
@@ -400,7 +391,6 @@ export default function Messages() {
       return
     }
 
-    // Optimistic append
     const myProfile =
       profileCacheRef.current.get(me.id) || {
         user_id: me.id,
@@ -436,7 +426,6 @@ export default function Messages() {
   const formatTime = (ts) =>
     new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
-  // ----------- UI -----------
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -564,7 +553,7 @@ export default function Messages() {
                     ))}
                   </div>
 
-                  {/* Composer */}
+                  {/* Composer (multiline, mobile newline key shows; Enter sends only on desktop) */}
                   <div className="p-4 border-t border-gray-200">
                     <form
                       className="flex space-x-2 items-end"
@@ -583,7 +572,9 @@ export default function Messages() {
                           e.target.style.height = `${e.target.scrollHeight}px`
                         }}
                         onKeyDown={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
+                          // Desktop: Enter sends, Shift+Enter newline
+                          // Mobile: Return inserts newline (do NOT send)
+                          if (!isMobileRef.current && e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault()
                             sendMessage()
                           }
@@ -600,7 +591,7 @@ export default function Messages() {
                         autoCapitalize="sentences"
                         spellCheck={true}
                         inputMode="text"
-                        enterKeyHint="send"
+                        /* IMPORTANT: don't set enterKeyHint='send' so mobile shows newline key */
                         data-form-type="other"
                       />
                       <button
