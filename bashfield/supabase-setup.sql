@@ -204,6 +204,7 @@ on public.conversations (
 -- Policies
 drop policy if exists "conversations_select_own" on public.conversations;
 drop policy if exists "conversations_insert_own" on public.conversations;
+drop policy if exists "conversations_update_participants" on public.conversations;
 
 drop policy if exists "messages_select_own_convos" on public.messages;
 drop policy if exists "messages_insert_sender" on public.messages;
@@ -214,6 +215,11 @@ create policy "conversations_select_own" on public.conversations
 
 create policy "conversations_insert_own" on public.conversations
   for insert with check (auth.uid() = participant1 or auth.uid() = participant2);
+
+-- **NEW** allow participants to update their conversation (needed for trigger to bump updated_at)
+create policy "conversations_update_participants" on public.conversations
+  for update using (auth.uid() = participant1 or auth.uid() = participant2)
+  with check (auth.uid() = participant1 or auth.uid() = participant2);
 
 create index if not exists idx_messages_conversation   on public.messages(conversation_id);
 create index if not exists idx_messages_recipient_read on public.messages(recipient_id, read);
