@@ -16,10 +16,12 @@ export default function Messages() {
   const [sending, setSending] = useState(false)
   const [loading, setLoading] = useState(true)
 
+  // Refs
   const userRef = useRef(null)
   const activeConversationRef = useRef(null)
+  const mountedAtRef = useRef(Date.now()) // used for "auto-open latest" after navigation
 
-  // scrolling control
+  // Scrolling control
   const messagesContainerRef = useRef(null)
   const autoScrollRef = useRef(true)
   const isNearBottom = () => {
@@ -36,7 +38,7 @@ export default function Messages() {
     if (el) el.scrollTop = el.scrollHeight
   }
 
-  // profile cache
+  // Profile cache
   const profileCacheRef = useRef(new Map())
   const getProfile = useCallback(async (userId) => {
     if (profileCacheRef.current.has(userId)) return profileCacheRef.current.get(userId)
@@ -50,7 +52,7 @@ export default function Messages() {
     return profile
   }, [])
 
-  // ---------- auth ----------
+  // ---------- Auth & initial load ----------
   useEffect(() => {
     ;(async () => {
       const { data: { user: u } } = await supabase.auth.getUser()
@@ -65,17 +67,32 @@ export default function Messages() {
     })()
   }, [])
 
-  // open by query ?id=
+  // ---------- Open by query ?id=, or auto-open latest recent one ----------
   useEffect(() => {
     if (!router.isReady || conversations.length === 0) return
+
+    // 1) explicit id takes precedence
     const idFromQuery = router.query.id || new URLSearchParams(window.location.search).get('id')
     if (idFromQuery) {
       const c = conversations.find((x) => x.id === idFromQuery)
-      if (c) selectConversation(c)
+      if (c) {
+        selectConversation(c)
+        return
+      }
+    }
+
+    // 2) If no id: auto-open the newest conversation that changed very recently (e.g., came from "Send Message" on a property)
+    if (!activeConversation) {
+      const now = Date.now()
+      const recent = conversations.find((c) => {
+        const ts = c.last_message?.created_at ? new Date(c.last_message.created_at).getTime() : 0
+        return ts && now - ts < 15000 // within last 15s
+      })
+      if (recent) selectConversation(recent)
     }
   }, [router.isReady, conversations])
 
-  // keep global flag for header/left muting
+  // ---------- Keep global flag so headers/left badges mute when open ----------
   useEffect(() => {
     activeConversationRef.current = activeConversation
     if (typeof window !== 'undefined') {
@@ -99,7 +116,7 @@ export default function Messages() {
     return () => router.events.off('routeChangeStart', handleRouteChange)
   }, [router.events])
 
-  // ---------- loaders ----------
+  // ---------- Loaders ----------
   const fetchConversations = useCallback(async (u = userRef.current) => {
     if (!u) return
     const { data: convs } = await supabase
@@ -199,7 +216,7 @@ export default function Messages() {
     await fetchConversations()
   }, [fetchConversations])
 
-  // ---------- select / leave ----------
+  // ---------- Select / leave ----------
   const selectConversation = async (conv) => {
     setActiveConversation(conv)
     await fetchMessages(conv.id)
@@ -215,13 +232,13 @@ export default function Messages() {
     setActiveConversation(null)
   }
 
-  // ---------- realtime: open conversation + polling fallback ----------
+  // ---------- Realtime: open conversation stream (shows messages instantly in Section 3) ----------
   useEffect(() => {
     const u = userRef.current
     const conv = activeConversationRef.current
     if (!u || !conv) return
 
-    const channel = supabase
+    const ch = supabase
       .channel(`conv-${conv.id}`)
       .on(
         'postgres_changes',
@@ -233,6 +250,7 @@ export default function Messages() {
           const profile = await getProfile(m.sender_id)
           setMessages((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, { ...m, sender: profile }]))
 
+          // keep convo at top and mute unread while open
           setConversations((prev) => {
             const updated = prev.map((c) =>
               c.id === conv.id
@@ -247,6 +265,7 @@ export default function Messages() {
             return updated.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
           })
 
+          // auto-read if I am the recipient
           if (m.recipient_id === u.id) {
             await supabase.from('messages').update({ read: true }).eq('id', m.id)
             if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('messagesRead'))
@@ -257,83 +276,109 @@ export default function Messages() {
       )
       .subscribe()
 
+    // polling fallback (only while chat open)
     const poll = setInterval(() => fetchMessages(conv.id), 2000)
     return () => {
-      try { supabase.removeChannel(channel) } catch {}
+      try { supabase.removeChannel(ch) } catch {}
       clearInterval(poll)
     }
   }, [activeConversation?.id, getProfile, fetchMessages])
 
-  // ---------- NEW: make Section 2 live for other chats (no refresh needed) ----------
+  // ---------- NEW APPROACH: make Section 2 live with precise filtered subscriptions ----------
   useEffect(() => {
     const u = userRef.current
     if (!u) return
 
-    // When any message involving me is inserted
-    const msgCh = supabase
-      .channel(`rt-msg-${u.id}`)
+    // Incoming messages to me (other chats)
+    const chIn = supabase
+      .channel(`in-${u.id}`)
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'messages' },
+        { event: 'INSERT', schema: 'public', table: 'messages', filter: `recipient_id=eq.${u.id}` },
         (payload) => {
           const m = payload.new
           if (!m) return
-          if (m.sender_id !== u.id && m.recipient_id !== u.id) return
 
-          // if it is the currently open chat, let the other effect handle it
+          // If it's the open chat, the other effect handles it
           if (activeConversationRef.current?.id === m.conversation_id) return
 
-          // Live-update Section 2 in-place (unread badge + move to top), no fetch needed
+          // Update Section 2 locally: bump to top + increment unread
           setConversations((prev) => {
             const idx = prev.findIndex((c) => c.id === m.conversation_id)
             if (idx === -1) {
-              // not in list yet (rare) -> fall back to fetch
+              // not loaded yet -> refetch list
               fetchConversations()
               return prev
             }
             const c = prev[idx]
-            const inc = m.recipient_id === u.id ? 1 : 0
             const updated = {
               ...c,
-              last_message: { content: m.content, sender_id: m.sender_id, created_at: m.created_at },
               updated_at: m.created_at,
-              unread_count: (c.unread_count || 0) + inc,
+              last_message: { content: m.content, sender_id: m.sender_id, created_at: m.created_at },
+              unread_count: (c.unread_count || 0) + 1,
             }
             const rest = prev.filter((_, i) => i !== idx)
-            // put updated conversation at the top
             return [updated, ...rest]
           })
         }
       )
       .subscribe()
 
-    // Also reflect DB-updated ordering if trigger updates updated_at
-    const convCh = supabase
-      .channel(`rt-conv-${u.id}`)
+    // Outgoing messages from me (to keep other chats live-sorted)
+    const chOut = supabase
+      .channel(`out-${u.id}`)
       .on(
         'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'conversations' },
+        { event: 'INSERT', schema: 'public', table: 'messages', filter: `sender_id=eq.${u.id}` },
         (payload) => {
-          const row = payload.new
-          if (!row) return
-          if (row.participant1 === u.id || row.participant2 === u.id) {
-            fetchConversations()
-          }
+          const m = payload.new
+          if (!m) return
+          // If it's the open chat, the open-stream already handles UI
+          if (activeConversationRef.current?.id === m.conversation_id) return
+
+          setConversations((prev) => {
+            const idx = prev.findIndex((c) => c.id === m.conversation_id)
+            if (idx === -1) {
+              fetchConversations()
+              return prev
+            }
+            const c = prev[idx]
+            const updated = {
+              ...c,
+              updated_at: m.created_at,
+              last_message: { content: m.content, sender_id: m.sender_id, created_at: m.created_at },
+              // no unread increment when I'm the sender
+              unread_count: c.unread_count || 0,
+            }
+            const rest = prev.filter((_, i) => i !== idx)
+            return [updated, ...rest]
+          })
         }
       )
       .subscribe()
 
-    // safety polling
-    const poll = setInterval(fetchConversations, 4000)
+    // Safety: also watch conversation UPDATEs to reflect DB trigger ordering
+    const chConv = supabase
+      .channel(`conv-updates-${u.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'conversations' },
+        () => fetchConversations()
+      )
+      .subscribe()
+
+    // Light periodic safety (covers any missed events)
+    const poll = setInterval(fetchConversations, 5000)
 
     return () => {
-      try { supabase.removeChannel(msgCh) } catch {}
-      try { supabase.removeChannel(convCh) } catch {}
+      try { supabase.removeChannel(chIn) } catch {}
+      try { supabase.removeChannel(chOut) } catch {}
+      try { supabase.removeChannel(chConv) } catch {}
       clearInterval(poll)
     }
   }, [fetchConversations])
 
-  // ---------- send ----------
+  // ---------- Send ----------
   const sendMessage = async () => {
     if (!newMessage.trim() || !activeConversation || sending) return
     setSending(true)
@@ -342,9 +387,10 @@ export default function Messages() {
     const otherId =
       activeConversation.participant1 === me.id ? activeConversation.participant2 : activeConversation.participant1
 
+    const content = newMessage.trim()
     const { data, error } = await supabase
       .from('messages')
-      .insert([{ conversation_id: activeConversation.id, sender_id: me.id, recipient_id: otherId, content: newMessage.trim() }])
+      .insert([{ conversation_id: activeConversation.id, sender_id: me.id, recipient_id: otherId, content }])
       .select('*')
       .single()
 
@@ -354,6 +400,7 @@ export default function Messages() {
       return
     }
 
+    // Optimistic append
     const myProfile =
       profileCacheRef.current.get(me.id) || {
         user_id: me.id,
@@ -381,6 +428,7 @@ export default function Messages() {
     setSending(false)
   }
 
+  // Keep autoscroll polite
   useEffect(() => {
     if (autoScrollRef.current) requestAnimationFrame(scrollToBottom)
   }, [messages])
@@ -388,6 +436,7 @@ export default function Messages() {
   const formatTime = (ts) =>
     new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
+  // ----------- UI -----------
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -506,7 +555,7 @@ export default function Messages() {
                             m.sender_id === user?.id ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-900'
                           }`}
                         >
-                          <p className="text-sm">{m.content}</p>
+                          <p className="text-sm whitespace-pre-wrap">{m.content}</p>
                           <p className={`text-xs mt-1 ${m.sender_id === user?.id ? 'text-blue-100' : 'text-gray-500'}`}>
                             {formatTime(m.created_at)}
                           </p>
@@ -515,34 +564,53 @@ export default function Messages() {
                     ))}
                   </div>
 
-                  {/* Input */}
+                  {/* Composer */}
                   <div className="p-4 border-t border-gray-200">
-                    <div className="flex space-x-2">
-                      <input
-                        type="text"
+                    <form
+                      className="flex space-x-2 items-end"
+                      onSubmit={(e) => {
+                        e.preventDefault()
+                        sendMessage()
+                      }}
+                      autoComplete="off"
+                    >
+                      <textarea
                         value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-                        placeholder="Type your message..."
-                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        onChange={(e) => {
+                          setNewMessage(e.target.value)
+                          // auto-grow
+                          e.target.style.height = 'auto'
+                          e.target.style.height = `${e.target.scrollHeight}px`
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault()
+                            sendMessage()
+                          }
+                        }}
+                        placeholder="Type your message…"
+                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none overflow-hidden min-h-[44px] max-h-60"
                         disabled={sending}
-                        autoComplete="new-password"
-                        autoCorrect="off"
+                        rows={1}
+                        // mobile + autofill fixes
+                        name="message"
+                        id="message"
+                        autoComplete="off"
+                        autoCorrect="on"
                         autoCapitalize="sentences"
+                        spellCheck={true}
                         inputMode="text"
                         enterKeyHint="send"
-                        name="chat-message"
-                        id="chat-message"
                         data-form-type="other"
                       />
                       <button
-                        onClick={sendMessage}
+                        type="submit"
                         disabled={!newMessage.trim() || sending}
                         className="bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white px-6 py-2 rounded-lg transition-colors"
                       >
                         {sending ? '...' : 'Send'}
                       </button>
-                    </div>
+                    </form>
                   </div>
                 </>
               ) : (
@@ -557,6 +625,7 @@ export default function Messages() {
                 </div>
               )}
             </div>
+            {/* -------------------------------------------------------------- */}
           </div>
         </div>
       </div>
