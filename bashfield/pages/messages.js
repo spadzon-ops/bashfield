@@ -16,11 +16,10 @@ export default function Messages() {
   const [sending, setSending] = useState(false)
   const [loading, setLoading] = useState(true)
 
-  // Refs to avoid stale closures
   const userRef = useRef(null)
   const activeConversationRef = useRef(null)
 
-  // Scrolling control
+  // scrolling control
   const messagesContainerRef = useRef(null)
   const autoScrollRef = useRef(true)
   const isNearBottom = () => {
@@ -37,7 +36,7 @@ export default function Messages() {
     if (el) el.scrollTop = el.scrollHeight
   }
 
-  // Profile cache
+  // profile cache
   const profileCacheRef = useRef(new Map())
   const getProfile = useCallback(async (userId) => {
     if (profileCacheRef.current.has(userId)) return profileCacheRef.current.get(userId)
@@ -51,11 +50,14 @@ export default function Messages() {
     return profile
   }, [])
 
-  // -------- Auth & initial load --------
+  // ---------- auth ----------
   useEffect(() => {
     ;(async () => {
       const { data: { user: u } } = await supabase.auth.getUser()
-      if (!u) return router.push('/')
+      if (!u) {
+        router.push('/')
+        return
+      }
       setUser(u)
       userRef.current = u
       await fetchConversations(u)
@@ -63,7 +65,7 @@ export default function Messages() {
     })()
   }, [])
 
-  // Open by query ?id=
+  // open by query ?id=
   useEffect(() => {
     if (!router.isReady || conversations.length === 0) return
     const idFromQuery = router.query.id || new URLSearchParams(window.location.search).get('id')
@@ -78,9 +80,7 @@ export default function Messages() {
     activeConversationRef.current = activeConversation
     if (typeof window !== 'undefined') {
       window.activeConversationId = activeConversation?.id || null
-      window.dispatchEvent(
-        new CustomEvent('activeConversationChanged', { detail: { id: window.activeConversationId } })
-      )
+      window.dispatchEvent(new CustomEvent('activeConversationChanged', { detail: { id: window.activeConversationId } }))
     }
     if (activeConversation) {
       autoScrollRef.current = true
@@ -99,7 +99,7 @@ export default function Messages() {
     return () => router.events.off('routeChangeStart', handleRouteChange)
   }, [router.events])
 
-  // -------- Data loaders --------
+  // ---------- loaders ----------
   const fetchConversations = useCallback(async (u = userRef.current) => {
     if (!u) return
     const { data: convs } = await supabase
@@ -108,7 +108,10 @@ export default function Messages() {
       .or(`participant1.eq.${u.id},participant2.eq.${u.id}`)
       .order('updated_at', { ascending: false })
 
-    if (!convs) return setConversations([])
+    if (!convs) {
+      setConversations([])
+      return
+    }
 
     const participantIds = [...new Set(convs.flatMap((c) => [c.participant1, c.participant2]))]
     const listingIds = [...new Set(convs.map((c) => c.listing_id).filter(Boolean))]
@@ -146,7 +149,9 @@ export default function Messages() {
         const listing = listings?.find((l) => l.id === conv.listing_id) || null
         const last = lastMsgs?.find((m) => m.conversation_id === conv.id) || null
         let unreadCount = unread?.filter((m) => m.conversation_id === conv.id).length || 0
-        if (typeof window !== 'undefined' && window.activeConversationId && conv.id === window.activeConversationId) unreadCount = 0
+        if (typeof window !== 'undefined' && window.activeConversationId && conv.id === window.activeConversationId) {
+          unreadCount = 0
+        }
         return {
           ...conv,
           other_participant: other,
@@ -168,8 +173,10 @@ export default function Messages() {
       .select('*')
       .eq('conversation_id', id)
       .order('created_at', { ascending: true })
-    if (!msgs) return setMessages([])
-
+    if (!msgs) {
+      setMessages([])
+      return
+    }
     const uniqueSenders = [...new Set(msgs.map((m) => m.sender_id))]
     await Promise.all(uniqueSenders.map((uid) => getProfile(uid)))
     const merged = msgs.map((m) => ({
@@ -192,7 +199,7 @@ export default function Messages() {
     await fetchConversations()
   }, [fetchConversations])
 
-  // -------- Select / leave conversation --------
+  // ---------- select / leave ----------
   const selectConversation = async (conv) => {
     setActiveConversation(conv)
     await fetchMessages(conv.id)
@@ -208,7 +215,7 @@ export default function Messages() {
     setActiveConversation(null)
   }
 
-  // -------- Realtime for the open conversation (v2) + polling fallback --------
+  // ---------- realtime: open conversation + polling fallback ----------
   useEffect(() => {
     const u = userRef.current
     const conv = activeConversationRef.current
@@ -223,11 +230,9 @@ export default function Messages() {
           const m = payload.new
           if (!m) return
 
-          // Show in Section 3 immediately
           const profile = await getProfile(m.sender_id)
           setMessages((prev) => (prev.some((x) => x.id === m.id) ? prev : [...prev, { ...m, sender: profile }]))
 
-          // Keep convo on top in Section 2
           setConversations((prev) => {
             const updated = prev.map((c) =>
               c.id === conv.id
@@ -242,7 +247,6 @@ export default function Messages() {
             return updated.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
           })
 
-          // If I’m recipient, mark as read so it never reappears as unread later
           if (m.recipient_id === u.id) {
             await supabase.from('messages').update({ read: true }).eq('id', m.id)
             if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('messagesRead'))
@@ -253,25 +257,21 @@ export default function Messages() {
       )
       .subscribe()
 
-    // Fallback polling (only while chat is open)
-    const poll = setInterval(() => {
-      fetchMessages(conv.id)
-    }, 2000)
-
+    const poll = setInterval(() => fetchMessages(conv.id), 2000)
     return () => {
-      try {
-        supabase.removeChannel(channel)
-      } catch {}
+      try { supabase.removeChannel(channel) } catch {}
       clearInterval(poll)
     }
   }, [activeConversation?.id, getProfile, fetchMessages])
 
-  // -------- Global listener to refresh the list when other convos receive messages --------
+  // ---------- NEW: make Section 2 live for other chats (no refresh needed) ----------
   useEffect(() => {
     const u = userRef.current
     if (!u) return
-    const ch = supabase
-      .channel(`rt-global-${u.id}`)
+
+    // When any message involving me is inserted
+    const msgCh = supabase
+      .channel(`rt-msg-${u.id}`)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages' },
@@ -279,17 +279,61 @@ export default function Messages() {
           const m = payload.new
           if (!m) return
           if (m.sender_id !== u.id && m.recipient_id !== u.id) return
-          // If it’s not the currently open conversation, refresh Section 2 list
-          if (activeConversationRef.current?.id !== m.conversation_id) fetchConversations()
+
+          // if it is the currently open chat, let the other effect handle it
+          if (activeConversationRef.current?.id === m.conversation_id) return
+
+          // Live-update Section 2 in-place (unread badge + move to top), no fetch needed
+          setConversations((prev) => {
+            const idx = prev.findIndex((c) => c.id === m.conversation_id)
+            if (idx === -1) {
+              // not in list yet (rare) -> fall back to fetch
+              fetchConversations()
+              return prev
+            }
+            const c = prev[idx]
+            const inc = m.recipient_id === u.id ? 1 : 0
+            const updated = {
+              ...c,
+              last_message: { content: m.content, sender_id: m.sender_id, created_at: m.created_at },
+              updated_at: m.created_at,
+              unread_count: (c.unread_count || 0) + inc,
+            }
+            const rest = prev.filter((_, i) => i !== idx)
+            // put updated conversation at the top
+            return [updated, ...rest]
+          })
         }
       )
       .subscribe()
+
+    // Also reflect DB-updated ordering if trigger updates updated_at
+    const convCh = supabase
+      .channel(`rt-conv-${u.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'conversations' },
+        (payload) => {
+          const row = payload.new
+          if (!row) return
+          if (row.participant1 === u.id || row.participant2 === u.id) {
+            fetchConversations()
+          }
+        }
+      )
+      .subscribe()
+
+    // safety polling
+    const poll = setInterval(fetchConversations, 4000)
+
     return () => {
-      try { supabase.removeChannel(ch) } catch {}
+      try { supabase.removeChannel(msgCh) } catch {}
+      try { supabase.removeChannel(convCh) } catch {}
+      clearInterval(poll)
     }
   }, [fetchConversations])
 
-  // -------- Send message --------
+  // ---------- send ----------
   const sendMessage = async () => {
     if (!newMessage.trim() || !activeConversation || sending) return
     setSending(true)
@@ -310,7 +354,6 @@ export default function Messages() {
       return
     }
 
-    // Optimistic update
     const myProfile =
       profileCacheRef.current.get(me.id) || {
         user_id: me.id,
@@ -338,7 +381,6 @@ export default function Messages() {
     setSending(false)
   }
 
-  // Keep autoscroll polite
   useEffect(() => {
     if (autoScrollRef.current) requestAnimationFrame(scrollToBottom)
   }, [messages])
@@ -484,6 +526,14 @@ export default function Messages() {
                         placeholder="Type your message..."
                         className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         disabled={sending}
+                        autoComplete="new-password"
+                        autoCorrect="off"
+                        autoCapitalize="sentences"
+                        inputMode="text"
+                        enterKeyHint="send"
+                        name="chat-message"
+                        id="chat-message"
+                        data-form-type="other"
                       />
                       <button
                         onClick={sendMessage}
