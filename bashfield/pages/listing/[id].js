@@ -1,12 +1,15 @@
-import { useEffect, useState } from 'react'
+// bashfield/pages/listing/[id].js
+import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/router'
 import Link from 'next/link'
+import Head from 'next/head'
 import { supabase } from '../../lib/supabase'
 
 export default function ListingDetails() {
   const router = useRouter()
   const { id, admin } = router.query
-  const [me, setMe] = useState(null)
+
+  const [viewer, setViewer] = useState(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [listing, setListing] = useState(null)
   const [poster, setPoster] = useState(null)
@@ -16,21 +19,34 @@ export default function ListingDetails() {
     if (!router.isReady) return
     ;(async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      setMe(user || null)
+      setViewer(user || null)
+
       if (user?.email) {
-        const { data: adminRow } = await supabase.from('admin_emails').select('email').eq('email', user.email).maybeSingle()
+        const { data: adminRow } = await supabase
+          .from('admin_emails')
+          .select('email')
+          .eq('email', user.email)
+          .maybeSingle()
         setIsAdmin(!!adminRow)
       }
-      await loadListing(id, !!admin)
+
+      await loadListing(id, admin === '1')
       setLoading(false)
     })()
   }, [router.isReady, id, admin])
 
-  const loadListing = async (lid, forceAdmin) => {
+  const loadListing = async (lid, adminOverride) => {
     if (!lid) return
-    let q = supabase.from('listings').select('*').eq('id', lid).limit(1).single()
-    // If not admin override, apply public visibility
-    if (!forceAdmin) {
+
+    // Public view (approved + active). Admin override sees any listing.
+    let q = supabase
+      .from('listings')
+      .select('*')
+      .eq('id', lid)
+      .limit(1)
+      .single()
+
+    if (!adminOverride) {
       q = supabase
         .from('listings')
         .select('*')
@@ -40,26 +56,49 @@ export default function ListingDetails() {
         .limit(1)
         .single()
     }
+
     let { data, error } = await q
-    if (error && !forceAdmin && isAdmin) {
-      // if query failed but we ARE admin (without ?admin=1), try admin fetch
+
+    // If not found under public constraints but viewer is admin, fetch directly
+    if ((!data || error) && !adminOverride && isAdmin) {
       const r = await supabase.from('listings').select('*').eq('id', lid).limit(1).single()
       data = r.data || null
     }
+
     setListing(data || null)
 
     if (data?.user_id) {
       const { data: prof } = await supabase
         .from('user_profiles')
-        .select('user_id, display_name, profile_picture')
+        .select('user_id, display_name, profile_picture, email')
         .eq('user_id', data.user_id)
         .maybeSingle()
       setPoster(prof || null)
     }
   }
 
+  const mapUrl = useMemo(() => {
+    if (!listing?.latitude || !listing?.longitude) return null
+    const lat = Number(listing.latitude)
+    const lon = Number(listing.longitude)
+    const z = 14
+    // Free interactive embed (no API key)
+    return `https://www.google.com/maps?q=${lat},${lon}&z=${z}&output=embed`
+  }, [listing])
+
+  const waHref = useMemo(() => {
+    if (!poster?.user_id) return '#'
+    const message = `Hello, I'm interested in "${listing?.title}" (Code ${listing?.reference_code}).`
+    // No phone field for user, so open WhatsApp with just text; user can pick contact
+    return `https://wa.me/?text=${encodeURIComponent(message)}`
+  }, [poster?.user_id, listing?.title, listing?.reference_code])
+
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center text-gray-600">Loading listing…</div>
+    return (
+      <div className="min-h-screen flex items-center justify-center text-gray-600">
+        Loading listing…
+      </div>
+    )
   }
 
   if (!listing) {
@@ -75,7 +114,7 @@ export default function ListingDetails() {
     )
   }
 
-  const img = listing.images?.[0]
+  const hero = listing.images?.[0]
     ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/house-images/${listing.images[0]}`
     : null
 
@@ -84,56 +123,122 @@ export default function ListingDetails() {
     : null
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden">
-          {img ? (
-            <img src={img} className="w-full h-72 object-cover" alt={listing.title} />
-          ) : (
-            <div className="w-full h-72 flex items-center justify-center text-6xl text-gray-300">🏠</div>
-          )}
+    <>
+      <Head>
+        {/* keep layout tidy on mobile */}
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+      </Head>
 
-          <div className="p-6 space-y-4">
-            <div className="flex items-start justify-between">
-              <h1 className="text-2xl font-semibold text-gray-900">{listing.title}</h1>
-              <div className="text-blue-600 font-mono">#{listing.reference_code}</div>
-            </div>
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+          {/* Card */}
+          <div className="bg-white rounded-xl shadow-sm overflow-hidden">
+            {/* Hero image */}
+            {hero ? (
+              <img src={hero} alt={listing.title} className="w-full h-72 object-cover" />
+            ) : (
+              <div className="w-full h-72 flex items-center justify-center text-6xl text-gray-300">🏠</div>
+            )}
 
-            <div className="flex items-center gap-3">
-              <Link href={poster ? `/profile/${poster.user_id}` : '#'} className="flex items-center gap-2 group">
-                {avatar ? (
-                  <img src={avatar} className="w-9 h-9 rounded-full object-cover" alt="Poster" />
-                ) : (
-                  <div className="w-9 h-9 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center">
-                    {(poster?.display_name?.[0] || '?').toUpperCase()}
+            {/* Content */}
+            <div className="p-6 space-y-6">
+              {/* Title + Code */}
+              <div className="flex items-start justify-between gap-4">
+                <h1 className="text-2xl font-semibold text-gray-900">{listing.title}</h1>
+                <div className="text-blue-600 font-mono whitespace-nowrap">#{listing.reference_code}</div>
+              </div>
+
+              {/* Poster */}
+              <div className="flex items-center gap-3">
+                <Link
+                  href={poster ? `/profile/${poster.user_id}` : '#'}
+                  className="flex items-center gap-2 group"
+                >
+                  {avatar ? (
+                    <img src={avatar} className="w-10 h-10 rounded-full object-cover" alt="Poster" />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center">
+                      {(poster?.display_name?.[0] || '?').toUpperCase()}
+                    </div>
+                  )}
+                  <span className="text-sm text-gray-700 group-hover:underline">
+                    {poster?.display_name || 'Unknown User'}
+                  </span>
+                </Link>
+              </div>
+
+              {/* Info grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm text-gray-700">
+                <div><span className="font-medium">City:</span> {listing.city}</div>
+                <div><span className="font-medium">Rooms:</span> {listing.rooms}</div>
+                <div><span className="font-medium">Price:</span> {Number(listing.price || 0).toLocaleString()} {listing.currency}</div>
+                <div><span className="font-medium">Status:</span> {listing.status}</div>
+                <div><span className="font-medium">Active:</span> {listing.is_active ? 'Yes' : 'No'}</div>
+              </div>
+
+              {/* Description */}
+              <div className="prose max-w-none">
+                <p className="text-gray-800 whitespace-pre-wrap">{listing.description}</p>
+              </div>
+
+              {/* Map (restored) */}
+              {mapUrl && (
+                <div className="space-y-2">
+                  <h2 className="text-lg font-semibold text-gray-900">Location</h2>
+                  <div className="rounded-lg overflow-hidden border border-gray-200">
+                    <iframe
+                      src={mapUrl}
+                      className="w-full h-72"
+                      style={{ border: 0 }}
+                      loading="lazy"
+                      referrerPolicy="no-referrer-when-downgrade"
+                      title="Property location map"
+                    />
                   </div>
-                )}
-                <span className="text-sm text-gray-700 group-hover:underline">{poster?.display_name || 'Unknown User'}</span>
-              </Link>
-            </div>
+                </div>
+              )}
 
-            <div className="text-gray-700 leading-relaxed whitespace-pre-wrap">{listing.description}</div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm text-gray-700">
-              <div><span className="font-medium">City:</span> {listing.city}</div>
-              <div><span className="font-medium">Rooms:</span> {listing.rooms}</div>
-              <div><span className="font-medium">Price:</span> {Number(listing.price || 0).toLocaleString()} {listing.currency}</div>
-              <div><span className="font-medium">Status:</span> {listing.status}</div>
-              <div><span className="font-medium">Active:</span> {listing.is_active ? 'Yes' : 'No'}</div>
-            </div>
-
-            <div className="pt-2">
-              <Link href={`/messages?peer=${poster?.user_id || ''}&listing=${listing.id}`} className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700">
-                Send Message
-              </Link>
+              {/* Actions */}
+              <div className="flex flex-wrap items-center gap-3 pt-2">
+                <Link
+                  href={`/messages?peer=${poster?.user_id || ''}&listing=${listing.id}`}
+                  className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+                >
+                  Send Message
+                </Link>
+                <a
+                  href={waHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700"
+                >
+                  WhatsApp
+                </a>
+                <Link href="/" className="text-blue-600 hover:underline ml-auto">← Back to home</Link>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="text-center">
-          <Link href="/" className="text-blue-600 hover:underline">← Back to home</Link>
+          {/* (Optional) Gallery thumbnails */}
+          {Array.isArray(listing.images) && listing.images.length > 1 && (
+            <div className="bg-white rounded-xl shadow-sm p-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
+                {listing.images.slice(1).map((img, i) => {
+                  const url = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/house-images/${img}`
+                  return (
+                    <img
+                      key={i}
+                      src={url}
+                      alt={`Photo ${i + 2}`}
+                      className="w-full h-28 object-cover rounded-lg border border-gray-200"
+                    />
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
       </div>
-    </div>
+    </>
   )
 }
