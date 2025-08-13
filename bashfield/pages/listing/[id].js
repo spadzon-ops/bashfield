@@ -122,6 +122,8 @@ export default function ListingDetail({ listing: initialListing }) {
     window.open(whatsappUrl, '_blank')
   }
 
+  const displayCode = listing.reference_code || (listing.id || '').replace(/-/g, '').slice(0, 8).toUpperCase()
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -186,7 +188,7 @@ export default function ListingDetail({ listing: initialListing }) {
             </div>
 
             <div className="bg-white rounded-xl shadow-sm p-6 mt-6">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-2">
                 <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
                   {listing.title}
                 </h1>
@@ -201,7 +203,13 @@ export default function ListingDetail({ listing: initialListing }) {
                 )}
               </div>
 
-              {/* Owner block (clickable) */}
+              {/* Property Code (visible to everyone) */}
+              <div className="mb-4 text-sm text-gray-600">
+                <span className="font-medium">Property Code:</span>{' '}
+                <code className="font-mono px-1.5 py-0.5 rounded bg-gray-100 text-gray-800">{displayCode}</code>
+              </div>
+
+              {/* Owner (clickable) */}
               <div className="flex items-center space-x-3 mb-6">
                 <Link href={`/profile/${listing.user_id}`} className="flex items-center space-x-3 group">
                   {ownerAvatar ? (
@@ -227,14 +235,13 @@ export default function ListingDetail({ listing: initialListing }) {
                 <p className="text-gray-700 leading-relaxed whitespace-pre-line">{listing.description}</p>
               </div>
 
-              {/* LOCATION (map restored exactly like before) */}
+              {/* LOCATION (map) */}
               {(listing.address || (listing.latitude && listing.longitude)) && (
                 <div className="mt-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-3">Location</h3>
                   {listing.address && (
                     <p className="text-gray-700 mb-4">{listing.address}</p>
                   )}
-
                   {(listing.latitude && listing.longitude) && (
                     <div className="mt-4">
                       <div className="flex items-center justify-between mb-3">
@@ -274,7 +281,7 @@ export default function ListingDetail({ listing: initialListing }) {
               </div>
               <div className="text-sm text-gray-500 mb-4">per month</div>
 
-              {/* No View Details loop; Send Message + WhatsApp */}
+              {/* Actions */}
               <div className="grid grid-cols-1 gap-2 mb-4">
                 <button
                   onClick={startConversation}
