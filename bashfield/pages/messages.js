@@ -22,8 +22,6 @@ export default function Messages() {
   const activeConversationRef = useRef(null)
   const convsRef = useRef([])
   const mountedAtRef = useRef(Date.now())
-
-  // prevent boot loop & track manual selection
   const bootstrappedRef = useRef(false)
   const manualSelectRef = useRef(false)
 
@@ -419,11 +417,11 @@ export default function Messages() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* NOTE: removed overflow-hidden and enforced min-h-0 everywhere to keep both panes scrollable */}
-        <div className="bg-white rounded-xl shadow-sm min-h-0" style={{ height: 'calc(100vh - 120px)' }}>
+        {/* Keep both panes scrollable: NO overflow-hidden; enforce min-h-0 on every flex level */}
+        <div className="bg-white rounded-xl shadow-sm h-[calc(100vh-120px)] min-h-0">
           <div className="flex h-full min-h-0">
             {/* -------- Section 2: list -------- */}
-            <div className={`${activeConversation ? 'hidden md:block' : 'block'} w-full md:w-1/3 border-r border-gray-200 flex flex-col min-h-0 relative z-10`}>
+            <div className={`${activeConversation ? 'hidden md:flex' : 'flex'} w-full md:w-1/3 border-r border-gray-200 flex-col min-h-0 relative z-10`}>
               <div className="p-4 border-b border-gray-200 flex-none">
                 <h2 className="text-xl font-bold text-gray-900">💬 Messages</h2>
               </div>
@@ -470,7 +468,7 @@ export default function Messages() {
             </div>
 
             {/* -------- Section 3: chat -------- */}
-            <div className={`${activeConversation ? 'block' : 'hidden md:block'} flex-1 flex flex-col min-h-0 relative z-0`}>
+            <div className={`${activeConversation ? 'flex' : 'hidden md:flex'} flex-1 flex-col min-h-0 relative z-0`}>
               {activeConversation ? (
                 <>
                   {/* Header */}
