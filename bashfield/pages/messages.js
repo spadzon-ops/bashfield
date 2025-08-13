@@ -4,7 +4,6 @@ import { useRouter } from 'next/router'
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations'
 import { useTranslation } from 'next-i18next'
 import { supabase } from '../lib/supabase'
-import { ensureConversation } from '../lib/chat'
 
 export default function Messages() {
   const { t } = useTranslation('common')
@@ -22,10 +21,6 @@ export default function Messages() {
   const activeConversationRef = useRef(null)
   const convsRef = useRef([])
   const mountedAtRef = useRef(Date.now())
-
-  // prevent boot loop & track manual selection
-  const bootstrappedRef = useRef(false)
-  const manualSelectRef = useRef(false)
 
   // scroll control
   const messagesContainerRef = useRef(null)
@@ -173,21 +168,18 @@ export default function Messages() {
 
   // open/select helpers
   const selectConversation = async (conv) => {
-    manualSelectRef.current = true
     setActiveConversation(conv)
     await fetchMessages(conv.id)
     await markAsRead(conv.id)
     setConversations((prev) => prev.map((c) => (c.id === conv.id ? { ...c, unread_count: 0 } : c)))
     autoScrollRef.current = true
     requestAnimationFrame(scrollToBottom)
-    router.replace(`/messages?id=${conv.id}`, undefined, { shallow: true })
   }
 
   const leaveActiveConversation = async () => {
     const prev = activeConversationRef.current
     if (prev) await markAsRead(prev.id)
     setActiveConversation(null)
-    router.replace(`/messages`, undefined, { shallow: true })
   }
 
   // global flag for Section 1/2 muting
@@ -214,66 +206,19 @@ export default function Messages() {
     return () => router.events.off('routeChangeStart', handleRouteChange)
   }, [router.events])
 
-  // Deep-link bootstrap (runs once)
+  // ---------- Open logic (id/peer/listing) ----------
   useEffect(() => {
     if (!router.isReady || conversations.length === 0 || !userRef.current) return
 
     const qs = new URLSearchParams(window.location.search)
-    const idFromQuery = qs.get('id')
-    const peer = qs.get('peer')
-    const listing = qs.get('listing')
-
-    if (manualSelectRef.current) {
-      manualSelectRef.current = false
-      return
-    }
-    if (bootstrappedRef.current && !peer && !listing) {
-      if (idFromQuery && activeConversationRef.current?.id === idFromQuery) return
-      if (activeConversationRef.current && !idFromQuery) return
-    }
-
+    const idFromQuery = qs.get('id') || qs.get('conversation')
     if (idFromQuery) {
       const c = conversations.find((x) => x.id === idFromQuery)
-      if (c) {
-        if (activeConversationRef.current?.id !== idFromQuery) selectConversation(c)
-        bootstrappedRef.current = true
-        return
-      }
+      if (c) { selectConversation(c); return }
     }
-
-    ;(async () => {
-      if (peer || listing) {
-        try {
-          const convId = await ensureConversation({ otherId: peer, listingId: listing || null })
-          await fetchConversations()
-          const c = convsRef.current.find((x) => x.id === convId)
-          if (c) {
-            await selectConversation(c)
-            router.replace(`/messages?id=${convId}`, undefined, { shallow: true })
-            bootstrappedRef.current = true
-            return
-          }
-        } catch {}
-      }
-
-      if (!bootstrappedRef.current && !activeConversationRef.current && conversations.length > 0) {
-        const now = Date.now()
-        const candidate = conversations.find((c) => {
-          const lastAt = c.last_message?.created_at ? new Date(c.last_message.created_at).getTime() : 0
-          const updatedAt = c.updated_at ? new Date(c.updated_at).getTime() : 0
-          return (now - Math.max(lastAt, updatedAt) < 2 * 60 * 1000) || (updatedAt >= mountedAtRef.current)
-        })
-        if (candidate) {
-          await selectConversation(candidate)
-          bootstrappedRef.current = true
-          return
-        }
-      }
-      bootstrappedRef.current = true
-    })()
   }, [router.isReady, conversations]) // eslint-disable-line
 
-  // Realtime: open conversation stream
+  // ---------- Realtime: open conversation stream ----------
   useEffect(() => {
     const u = userRef.current
     const conv = activeConversationRef.current
@@ -316,11 +261,12 @@ export default function Messages() {
 
     const poll = setInterval(() => fetchMessages(conv.id), 2000)
     return () => { try { supabase.removeChannel(ch) } catch {} ; clearInterval(poll) }
-  }, [activeConversation?.id, getProfile, fetchMessages])
+  }, [activeConversation?.id, getProfile, fetchMessages]) // eslint-disable-line
 
-  // Realtime: Section 2 live list
+  // ---------- Realtime: Section 2 live list (any message involving me) ----------
   useEffect(() => {
     if (!user?.id) return
+
     const chAll = supabase
       .channel(`all-messages-${user.id}`)
       .on(
@@ -331,6 +277,7 @@ export default function Messages() {
           if (!m) return
           if (m.sender_id !== user.id && m.recipient_id !== user.id) return
 
+          // If active convo is different, update Section 2 live
           if (activeConversationRef.current?.id !== m.conversation_id) {
             setConversations((prev) => {
               const idx = prev.findIndex((c) => c.id === m.conversation_id)
@@ -353,6 +300,7 @@ export default function Messages() {
 
     const onVis = () => { if (document.visibilityState === 'visible') fetchConversations() }
     document.addEventListener('visibilitychange', onVis)
+
     const poll = setInterval(fetchConversations, 5000)
 
     return () => {
@@ -360,7 +308,7 @@ export default function Messages() {
       document.removeEventListener('visibilitychange', onVis)
       clearInterval(poll)
     }
-  }, [user?.id, fetchConversations])
+  }, [user?.id, fetchConversations]) // eslint-disable-line
 
   // send
   const sendMessage = async () => {
@@ -430,13 +378,16 @@ export default function Messages() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden min-h-0" style={{ height: 'calc(100vh - 120px)' }}>
+        {/* Card container has fixed height; children need min-h-0 to allow inner scrolling */}
+        <div className="bg-white rounded-xl shadow-sm overflow-hidden" style={{ height: 'calc(100vh - 120px)' }}>
+          {/* >>> add min-h-0 here <<< */}
           <div className="flex h-full min-h-0">
-            {/* -------- Section 2: list -------- */}
+            {/* -------- Section 2: list (make the column itself min-h-0) -------- */}
             <div className={`${activeConversation ? 'hidden md:block' : 'block'} w-full md:w-1/3 border-r border-gray-200 flex flex-col min-h-0`}>
               <div className="p-4 border-b border-gray-200">
                 <h2 className="text-xl font-bold text-gray-900">💬 Messages</h2>
               </div>
+              {/* >>> this part scrolls <<< */}
               <div className="flex-1 overflow-y-auto">
                 {conversations.length === 0 ? (
                   <div className="p-8 text-center">
@@ -479,11 +430,11 @@ export default function Messages() {
               </div>
             </div>
 
-            {/* -------- Section 3: chat -------- */}
+            {/* -------- Section 3: chat (also min-h-0 so inner scroll works) -------- */}
             <div className={`${activeConversation ? 'block' : 'hidden md:block'} flex-1 flex flex-col min-h-0`}>
               {activeConversation ? (
                 <>
-                  {/* Header */}
+                  {/* Header (avatar/name link to profile) */}
                   <div className="p-4 border-b border-gray-200 bg-gray-50">
                     <div className="flex items-center space-x-3">
                       <button onClick={leaveActiveConversation} className="md:hidden text-gray-600 hover:text-gray-900 p-1">
@@ -506,7 +457,7 @@ export default function Messages() {
                     </div>
                   </div>
 
-                  {/* Messages */}
+                  {/* Messages (scroll area) */}
                   <div ref={messagesContainerRef} onScroll={onScroll} className="flex-1 overflow-y-auto p-4 space-y-4">
                     {messages.map((m) => (
                       <div key={m.id} className={`flex ${m.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}>
@@ -515,7 +466,10 @@ export default function Messages() {
                             m.sender_id === user?.id ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-900'
                           }`}
                         >
-                          <p className="text-sm whitespace-pre-wrap break-words" style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
+                          <p
+                            className="text-sm whitespace-pre-wrap break-words"
+                            style={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}
+                          >
                             {m.content}
                           </p>
                           <p className={`text-xs mt-1 ${m.sender_id === user?.id ? 'text-blue-100' : 'text-gray-500'}`}>
@@ -528,7 +482,11 @@ export default function Messages() {
 
                   {/* Composer */}
                   <div className="p-4 border-t border-gray-200">
-                    <form className="flex space-x-2 items-end" onSubmit={(e) => { e.preventDefault(); sendMessage() }} autoComplete="off">
+                    <form
+                      className="flex space-x-2 items-end"
+                      onSubmit={(e) => { e.preventDefault(); sendMessage() }}
+                      autoComplete="off"
+                    >
                       <textarea
                         value={newMessage}
                         onChange={(e) => {
