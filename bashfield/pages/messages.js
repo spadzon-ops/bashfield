@@ -123,16 +123,8 @@ export default function Messages() {
       const listing = listings?.find((l) => l.id === conv.listing_id) || null
       const last = lastMsgs?.find((m) => m.conversation_id === conv.id) || null
       let unreadCount = unread?.filter((m) => m.conversation_id === conv.id).length || 0
-      if (typeof window !== 'undefined' && window.activeConversationId && conv.id === window.activeConversationId) {
-        unreadCount = 0
-      }
-      return {
-        ...conv,
-        other_participant: other,
-        listing,
-        last_message: last,
-        unread_count: unreadCount,
-      }
+      if (typeof window !== 'undefined' && window.activeConversationId && conv.id === window.activeConversationId) unreadCount = 0
+      return { ...conv, other_participant: other, listing, last_message: last, unread_count: unreadCount }
     }).sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at))
 
     setConversations(processed)
@@ -223,10 +215,7 @@ export default function Messages() {
     const peer = qs.get('peer')
     const listing = qs.get('listing')
 
-    if (manualSelectRef.current) {
-      manualSelectRef.current = false
-      return
-    }
+    if (manualSelectRef.current) { manualSelectRef.current = false; return }
     if (bootstrappedRef.current && !peer && !listing) {
       if (idFromQuery && activeConversationRef.current?.id === idFromQuery) return
       if (activeConversationRef.current && !idFromQuery) return
@@ -430,14 +419,15 @@ export default function Messages() {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-white rounded-xl shadow-sm overflow-hidden min-h-0" style={{ height: 'calc(100vh - 120px)' }}>
+        {/* NOTE: removed overflow-hidden and enforced min-h-0 everywhere to keep both panes scrollable */}
+        <div className="bg-white rounded-xl shadow-sm min-h-0" style={{ height: 'calc(100vh - 120px)' }}>
           <div className="flex h-full min-h-0">
             {/* -------- Section 2: list -------- */}
-            <div className={`${activeConversation ? 'hidden md:block' : 'block'} w-full md:w-1/3 border-r border-gray-200 flex flex-col min-h-0`}>
-              <div className="p-4 border-b border-gray-200">
+            <div className={`${activeConversation ? 'hidden md:block' : 'block'} w-full md:w-1/3 border-r border-gray-200 flex flex-col min-h-0 relative z-10`}>
+              <div className="p-4 border-b border-gray-200 flex-none">
                 <h2 className="text-xl font-bold text-gray-900">💬 Messages</h2>
               </div>
-              <div className="flex-1 overflow-y-auto">
+              <div className="flex-1 min-h-0 overflow-y-auto">
                 {conversations.length === 0 ? (
                   <div className="p-8 text-center">
                     <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -480,11 +470,11 @@ export default function Messages() {
             </div>
 
             {/* -------- Section 3: chat -------- */}
-            <div className={`${activeConversation ? 'block' : 'hidden md:block'} flex-1 flex flex-col min-h-0`}>
+            <div className={`${activeConversation ? 'block' : 'hidden md:block'} flex-1 flex flex-col min-h-0 relative z-0`}>
               {activeConversation ? (
                 <>
                   {/* Header */}
-                  <div className="p-4 border-b border-gray-200 bg-gray-50">
+                  <div className="p-4 border-b border-gray-200 bg-gray-50 flex-none">
                     <div className="flex items-center space-x-3">
                       <button onClick={leaveActiveConversation} className="md:hidden text-gray-600 hover:text-gray-900 p-1">
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -498,16 +488,14 @@ export default function Messages() {
                           <h3 className="font-medium text-gray-900 group-hover:underline">
                             {activeConversation.other_participant?.display_name || 'Unknown User'}
                           </h3>
-                          <p className="text-sm text-gray-600">
-                            About: {activeConversation.listing?.title || 'Property'}
-                          </p>
+                          <p className="text-sm text-gray-600">About: {activeConversation.listing?.title || 'Property'}</p>
                         </div>
                       </Link>
                     </div>
                   </div>
 
                   {/* Messages */}
-                  <div ref={messagesContainerRef} onScroll={onScroll} className="flex-1 overflow-y-auto p-4 space-y-4">
+                  <div ref={messagesContainerRef} onScroll={onScroll} className="flex-1 min-h-0 overflow-y-auto p-4 space-y-4">
                     {messages.map((m) => (
                       <div key={m.id} className={`flex ${m.sender_id === user?.id ? 'justify-end' : 'justify-start'}`}>
                         <div
@@ -527,7 +515,7 @@ export default function Messages() {
                   </div>
 
                   {/* Composer */}
-                  <div className="p-4 border-t border-gray-200">
+                  <div className="p-4 border-t border-gray-200 flex-none">
                     <form className="flex space-x-2 items-end" onSubmit={(e) => { e.preventDefault(); sendMessage() }} autoComplete="off">
                       <textarea
                         value={newMessage}
