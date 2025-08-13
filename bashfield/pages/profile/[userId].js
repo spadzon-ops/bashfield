@@ -8,7 +8,6 @@ export default function ProfilePage() {
   const router = useRouter()
   const { userId } = router.query
 
-  const [viewer, setViewer] = useState(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [profile, setProfile] = useState(null)
   const [listings, setListings] = useState([])
@@ -18,15 +17,16 @@ export default function ProfilePage() {
     if (!router.isReady) return
     ;(async () => {
       const { data: { user } } = await supabase.auth.getUser()
-      setViewer(user || null)
+      let admin = false
       if (user?.email) {
         const { data: adminRow } = await supabase.from('admin_emails').select('email').eq('email', user.email).maybeSingle()
-        setIsAdmin(!!adminRow)
+        admin = !!adminRow
       }
-      await load(userId, isAdmin)
+      setIsAdmin(admin)
+      await load(userId, admin)
       setLoading(false)
     })()
-  }, [router.isReady, userId, isAdmin])
+  }, [router.isReady, userId])
 
   const load = async (uid, adminFlag) => {
     if (!uid) return
@@ -37,7 +37,7 @@ export default function ProfilePage() {
       .maybeSingle()
     setProfile(prof || null)
 
-    // IMPORTANT: Non-admins see only approved + active, EVEN when viewing their own profile
+    // IMPORTANT: hide inactive/rejected for everyone except admin (even if viewing own profile)
     let q = supabase.from('listings').select('*').eq('user_id', uid).order('created_at', { ascending: false })
     if (!adminFlag) q = q.eq('status', 'approved').eq('is_active', true)
     const { data: ls } = await q
