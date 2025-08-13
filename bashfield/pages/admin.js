@@ -1,291 +1,142 @@
-import { useState, useEffect } from 'react'
-import { serverSideTranslations } from 'next-i18next/serverSideTranslations'
-import { useTranslation } from 'next-i18next'
+import { useEffect, useState, useMemo } from 'react'
+import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
 import ListingCard from '../components/ListingCard'
 
-export default function Admin() {
-  const { t } = useTranslation('common')
+export default function AdminPage() {
+  const router = useRouter()
   const [user, setUser] = useState(null)
-  const [listings, setListings] = useState({ pending: [], approved: [], rejected: [], old: [] })
-  const [activeTab, setActiveTab] = useState('pending')
+  const [isAdmin, setIsAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [stats, setStats] = useState({ total: 0, thisMonth: 0, oldCount: 0 })
+
+  const [query, setQuery] = useState('')
+  const [listings, setListings] = useState([])
+  const [statusFilter, setStatusFilter] = useState('all')
 
   useEffect(() => {
-    const getUser = async () => {
+    ;(async () => {
       const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { router.push('/'); return }
       setUser(user)
-      if (user?.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL) {
-        fetchListings()
+
+      // Check admin via admin_emails table
+      const { data: adminMatch } = await supabase
+        .from('admin_emails')
+        .select('email')
+        .eq('email', user.email)
+        .maybeSingle()
+
+      setIsAdmin(!!adminMatch)
+      if (!adminMatch) { router.push('/'); return }
+
+      await loadListings()
+      setLoading(false)
+    })()
+  }, []) // eslint-disable-line
+
+  const loadListings = async (search = query, status = statusFilter) => {
+    let q = supabase.from('listings').select('*').order('created_at', { ascending: false })
+
+    if (status !== 'all') q = q.eq('status', status)
+
+    const trimmed = (search || '').trim().toUpperCase()
+    if (trimmed) {
+      // If looks like a code (e.g., BF-XXXXXX), prefer exact match, else try partial on reference_code or title
+      if (/^BF-[A-Z0-9]{4,}$/.test(trimmed)) {
+        q = q.eq('reference_code', trimmed)
       } else {
-        setLoading(false)
+        q = q.or(`reference_code.ilike.%${trimmed}%,title.ilike.%${trimmed}%`)
       }
     }
-    getUser()
-  }, [])
 
-  const fetchListings = async () => {
-    const { data: listingsData, error } = await supabase
-      .from('listings')
-      .select('*')
-      .order('created_at', { ascending: false })
-
-    if (error) {
-      console.error('Error fetching listings:', error)
-    } else {
-      // Get all unique user IDs
-      const userIds = [...new Set(listingsData?.map(l => l.user_id))]
-      
-      // Fetch profiles for all users
-      const { data: profilesData } = await supabase
-        .from('user_profiles')
-        .select('user_id, display_name, profile_picture')
-        .in('user_id', userIds)
-      
-      // Merge listings with profile data
-      const listingsWithProfiles = listingsData?.map(listing => ({
-        ...listing,
-        user_profiles: profilesData?.find(p => p.user_id === listing.user_id) || null
-      })) || []
-      
-      const now = new Date()
-      const oneMonthAgo = new Date(now.getFullYear(), now.getMonth() - 1, now.getDate())
-      
-      const grouped = {
-        pending: listingsWithProfiles.filter(l => l.status === 'pending'),
-        approved: listingsWithProfiles.filter(l => l.status === 'approved'),
-        rejected: listingsWithProfiles.filter(l => l.status === 'rejected'),
-        old: listingsWithProfiles.filter(l => new Date(l.created_at) < oneMonthAgo)
-      }
-      
-      setListings(grouped)
-      setStats({
-        total: listingsWithProfiles.length,
-        thisMonth: listingsWithProfiles.filter(l => new Date(l.created_at) >= oneMonthAgo).length,
-        oldCount: grouped.old.length
-      })
-    }
-    setLoading(false)
+    const { data } = await q
+    setListings(data || [])
   }
 
-  const updateListingStatus = async (id, status) => {
-    const { error } = await supabase
-      .from('listings')
-      .update({ status })
-      .eq('id', id)
-
-    if (!error) {
-      fetchListings()
-    }
+  const onApprove = async (id) => {
+    await supabase.from('listings').update({ status: 'approved' }).eq('id', id)
+    await loadListings()
   }
-
-  const deleteListing = async (id) => {
-    if (!confirm('Are you sure you want to delete this listing?')) return
-    
-    const { error } = await supabase
-      .from('listings')
-      .delete()
-      .eq('id', id)
-
-    if (!error) {
-      fetchListings()
-      alert('Listing deleted successfully!')
-    }
+  const onReject = async (id) => {
+    await supabase.from('listings').update({ status: 'rejected' }).eq('id', id)
+    await loadListings()
   }
-
-  const bulkApproveAll = async () => {
-    if (!confirm(`Approve all ${listings.pending.length} pending listings?`)) return
-    
-    const { error } = await supabase
-      .from('listings')
-      .update({ status: 'approved' })
-      .eq('status', 'pending')
-
-    if (!error) {
-      fetchListings()
-      alert('All pending listings approved!')
-    }
-  }
-
-  const bulkDeleteOld = async () => {
-    if (!confirm(`Delete all ${listings.old.length} listings older than 1 month?`)) return
-    
-    const oneMonthAgo = new Date()
-    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1)
-    
-    const { error } = await supabase
-      .from('listings')
-      .delete()
-      .lt('created_at', oneMonthAgo.toISOString())
-
-    if (!error) {
-      fetchListings()
-      alert('Old listings deleted successfully!')
-    }
+  const onDelete = async (id) => {
+    if (!confirm('Delete this listing?')) return
+    await supabase.from('listings').delete().eq('id', id)
+    await loadListings()
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading admin panel...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (!user || user.email !== process.env.NEXT_PUBLIC_ADMIN_EMAIL) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
-        <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <span className="text-2xl">🚫</span>
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h2>
-          <p className="text-gray-600 mb-6">You don't have admin privileges</p>
-          <button 
-            onClick={() => window.location.href = '/'}
-            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
-          >
-            Go to Homepage
-          </button>
-        </div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-gray-600">Loading admin…</div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">🛡️ Admin Dashboard</h1>
-          <p className="text-gray-600">Manage property listings and moderate content</p>
-        </div>
-
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-sm p-6 text-center">
-            <div className="text-3xl font-bold text-blue-600 mb-2">{stats.total}</div>
-            <div className="text-gray-600 text-sm">Total Listings</div>
-          </div>
-          <div className="bg-white rounded-xl shadow-sm p-6 text-center">
-            <div className="text-3xl font-bold text-green-600 mb-2">{listings.approved.length}</div>
-            <div className="text-gray-600 text-sm">Approved</div>
-          </div>
-          <div className="bg-white rounded-xl shadow-sm p-6 text-center">
-            <div className="text-3xl font-bold text-yellow-600 mb-2">{listings.pending.length}</div>
-            <div className="text-gray-600 text-sm">Pending Review</div>
-          </div>
-          <div className="bg-white rounded-xl shadow-sm p-6 text-center">
-            <div className="text-3xl font-bold text-orange-600 mb-2">{stats.oldCount}</div>
-            <div className="text-gray-600 text-sm">Older than 1 Month</div>
-          </div>
-        </div>
-
-        {/* Quick Actions */}
-        <div className="bg-white rounded-xl shadow-sm p-6 mb-8">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">⚡ Quick Actions</h3>
-          <div className="flex flex-wrap gap-4">
-            {listings.pending.length > 0 && (
-              <button
-                onClick={bulkApproveAll}
-                className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center space-x-2"
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
+          <div className="flex flex-col md:flex-row md:items-end md:space-x-3 space-y-3 md:space-y-0">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Search by Property Code or Title</label>
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && loadListings(e.target.value, statusFilter)}
+                placeholder="e.g. BF-9A3C71"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+              <select
+                value={statusFilter}
+                onChange={(e) => { setStatusFilter(e.target.value); loadListings(query, e.target.value) }}
+                className="border border-gray-300 rounded-lg px-3 py-2"
               >
-                <span>✅</span>
-                <span>Approve All Pending ({listings.pending.length})</span>
-              </button>
-            )}
-            {listings.old.length > 0 && (
-              <button
-                onClick={bulkDeleteOld}
-                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center space-x-2"
-              >
-                <span>🗑️</span>
-                <span>Delete Old Listings ({listings.old.length})</span>
-              </button>
-            )}
+                <option value="all">All</option>
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+              </select>
+            </div>
             <button
-              onClick={fetchListings}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center space-x-2"
+              onClick={() => loadListings()}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
             >
-              <span>🔄</span>
-              <span>Refresh Data</span>
+              Search
+            </button>
+            <button
+              onClick={() => { setQuery(''); setStatusFilter('all'); loadListings('', 'all') }}
+              className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg"
+            >
+              Clear
             </button>
           </div>
+          <p className="text-xs text-gray-500 mt-2">Tip: users can read the <strong>Property Code</strong> on the listing details page and tell it to you by phone or chat.</p>
         </div>
 
-        {/* Tabs */}
-        <div className="bg-white rounded-xl shadow-sm mb-8">
-          <div className="border-b border-gray-200">
-            <nav className="flex space-x-8 px-6">
-              {[
-                { key: 'pending', label: '⏳ Pending', count: listings.pending.length },
-                { key: 'approved', label: '✅ Approved', count: listings.approved.length },
-                { key: 'rejected', label: '❌ Rejected', count: listings.rejected.length },
-                { key: 'old', label: '📅 Old (1M+)', count: listings.old.length }
-              ].map(tab => (
-                <button
-                  key={tab.key}
-                  onClick={() => setActiveTab(tab.key)}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                    activeTab === tab.key
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  {tab.label} ({tab.count})
-                </button>
-              ))}
-            </nav>
+        {listings.length === 0 ? (
+          <div className="bg-white rounded-xl shadow-sm p-8 text-center text-gray-600">No listings found.</div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {listings.map((listing) => (
+              <ListingCard
+                key={listing.id}
+                listing={listing}
+                showActions
+                isAdmin
+                onApprove={onApprove}
+                onReject={onReject}
+                onDelete={onDelete}
+              />
+            ))}
           </div>
-
-          <div className="p-6">
-            {listings[activeTab].length === 0 ? (
-              <div className="text-center py-12">
-                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <span className="text-3xl">
-                    {activeTab === 'pending' ? '⏳' : 
-                     activeTab === 'approved' ? '✅' : 
-                     activeTab === 'rejected' ? '❌' : '📅'}
-                  </span>
-                </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">No {activeTab} listings</h3>
-                <p className="text-gray-600">All caught up! No {activeTab} listings to show.</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {listings[activeTab].map(listing => (
-                  <div key={listing.id} className="relative">
-                    <ListingCard 
-                      listing={listing} 
-                      showActions={true}
-                      isAdmin={true}
-                      onApprove={() => updateListingStatus(listing.id, 'approved')}
-                      onReject={() => updateListingStatus(listing.id, 'rejected')}
-                      onDelete={() => deleteListing(listing.id)}
-                    />
-                    {/* Date Badge */}
-                    <div className="absolute top-2 left-2 bg-black bg-opacity-75 text-white px-2 py-1 rounded text-xs">
-                      {new Date(listing.created_at).toLocaleDateString()}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
+        )}
       </div>
     </div>
   )
-}
-
-export async function getServerSideProps({ locale }) {
-  return {
-    props: {
-      ...(await serverSideTranslations(locale, ['common'])),
-    },
-  }
 }
