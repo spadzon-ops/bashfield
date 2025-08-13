@@ -1,7 +1,19 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
-import ListingCard from '../components/ListingCard'
+
+function fmtDate(ts) {
+  const d = new Date(ts)
+  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) +
+         ' ' +
+         d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+}
+
+function ageThreshold(months) {
+  const d = new Date()
+  d.setMonth(d.getMonth() - months)
+  return d.toISOString()
+}
 
 export default function AdminPage() {
   const router = useRouter()
@@ -10,8 +22,12 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true)
 
   const [query, setQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')      // all | pending | approved | rejected
+  const [activeFilter, setActiveFilter] = useState('any')      // any | active | inactive
+  const [ageFilter, setAgeFilter] = useState('any')            // any | 1m | 3m | 6m | 12m
+
   const [listings, setListings] = useState([])
-  const [statusFilter, setStatusFilter] = useState('all')
+  const [working, setWorking] = useState(false)
 
   useEffect(() => {
     ;(async () => {
@@ -19,37 +35,46 @@ export default function AdminPage() {
       if (!user) { router.push('/'); return }
       setUser(user)
 
-      // Check admin via admin_emails table
       const { data: adminMatch } = await supabase
         .from('admin_emails')
         .select('email')
         .eq('email', user.email)
         .maybeSingle()
 
-      setIsAdmin(!!adminMatch)
       if (!adminMatch) { router.push('/'); return }
-
+      setIsAdmin(true)
       await loadListings()
       setLoading(false)
     })()
   }, []) // eslint-disable-line
 
-  const loadListings = async (search = query, status = statusFilter) => {
-    let q = supabase.from('listings').select('*').order('created_at', { ascending: false })
+  const buildQuery = (q = query, status = statusFilter, active = activeFilter, age = ageFilter) => {
+    let r = supabase.from('listings').select('*').order('created_at', { ascending: false })
 
-    if (status !== 'all') q = q.eq('status', status)
+    if (status !== 'all') r = r.eq('status', status)
+    if (active === 'active') r = r.eq('is_active', true)
+    if (active === 'inactive') r = r.eq('is_active', false)
 
-    const trimmed = (search || '').trim().toUpperCase()
-    if (trimmed) {
-      // If looks like a code (e.g., BF-XXXXXX), prefer exact match, else try partial on reference_code or title
-      if (/^BF-[A-Z0-9]{4,}$/.test(trimmed)) {
-        q = q.eq('reference_code', trimmed)
-      } else {
-        q = q.or(`reference_code.ilike.%${trimmed}%,title.ilike.%${trimmed}%`)
-      }
+    if (age !== 'any') {
+      const map = { '1m': 1, '3m': 3, '6m': 6, '12m': 12 }
+      const iso = ageThreshold(map[age])
+      // "older than X months" => created_at <= threshold
+      r = r.lte('created_at', iso)
     }
 
-    const { data } = await q
+    const trimmed = (q || '').trim().toUpperCase()
+    if (trimmed) {
+      if (/^BF-[A-Z0-9-]{4,}$/.test(trimmed)) {
+        r = r.eq('reference_code', trimmed)
+      } else {
+        r = r.or(`reference_code.ilike.%${trimmed}%,title.ilike.%${trimmed}%`)
+      }
+    }
+    return r
+  }
+
+  const loadListings = async (q = query, s = statusFilter, a = activeFilter, g = ageFilter) => {
+    const { data } = await buildQuery(q, s, a, g)
     setListings(data || [])
   }
 
@@ -66,6 +91,38 @@ export default function AdminPage() {
     await supabase.from('listings').delete().eq('id', id)
     await loadListings()
   }
+  const onToggleActive = async (id, to) => {
+    await supabase.from('listings').update({ is_active: to }).eq('id', id)
+    await loadListings()
+  }
+
+  // BULK ACTIONS (apply to current filtered results)
+  const idsOfFiltered = useMemo(() => listings.map(l => l.id), [listings])
+
+  const bulkInactivate = async () => {
+    if (idsOfFiltered.length === 0) return alert('Nothing to inactivate.')
+    if (!confirm(`Inactivate ${idsOfFiltered.length} listing(s)?`)) return
+    setWorking(true)
+    await supabase.from('listings').update({ is_active: false }).in('id', idsOfFiltered)
+    setWorking(false)
+    await loadListings()
+  }
+  const bulkActivate = async () => {
+    if (idsOfFiltered.length === 0) return alert('Nothing to activate.')
+    if (!confirm(`Activate ${idsOfFiltered.length} listing(s)?`)) return
+    setWorking(true)
+    await supabase.from('listings').update({ is_active: true }).in('id', idsOfFiltered)
+    setWorking(false)
+    await loadListings()
+  }
+  const bulkDelete = async () => {
+    if (idsOfFiltered.length === 0) return alert('Nothing to delete.')
+    if (!confirm(`PERMANENTLY delete ${idsOfFiltered.length} listing(s)? This cannot be undone.`)) return
+    setWorking(true)
+    await supabase.from('listings').delete().in('id', idsOfFiltered)
+    setWorking(false)
+    await loadListings()
+  }
 
   if (loading) {
     return (
@@ -77,25 +134,27 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
-          <div className="flex flex-col md:flex-row md:items-end md:space-x-3 space-y-3 md:space-y-0">
-            <div className="flex-1">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+        {/* Search & Filters */}
+        <div className="bg-white rounded-xl shadow-sm p-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+            <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">Search by Property Code or Title</label>
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && loadListings(e.target.value, statusFilter)}
+                onKeyDown={(e) => e.key === 'Enter' && loadListings(e.target.value, statusFilter, activeFilter, ageFilter)}
                 placeholder="e.g. BF-9A3C71"
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
               <select
                 value={statusFilter}
-                onChange={(e) => { setStatusFilter(e.target.value); loadListings(query, e.target.value) }}
-                className="border border-gray-300 rounded-lg px-3 py-2"
+                onChange={(e) => { setStatusFilter(e.target.value); loadListings(query, e.target.value, activeFilter, ageFilter) }}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2"
               >
                 <option value="all">All</option>
                 <option value="pending">Pending</option>
@@ -103,37 +162,138 @@ export default function AdminPage() {
                 <option value="rejected">Rejected</option>
               </select>
             </div>
-            <button
-              onClick={() => loadListings()}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
-            >
-              Search
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Active</label>
+              <select
+                value={activeFilter}
+                onChange={(e) => { setActiveFilter(e.target.value); loadListings(query, statusFilter, e.target.value, ageFilter) }}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2"
+              >
+                <option value="any">Any</option>
+                <option value="active">Active only</option>
+                <option value="inactive">Inactive only</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Age</label>
+              <select
+                value={ageFilter}
+                onChange={(e) => { setAgeFilter(e.target.value); loadListings(query, statusFilter, activeFilter, e.target.value) }}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2"
+              >
+                <option value="any">Any</option>
+                <option value="1m">Older than 1 month</option>
+                <option value="3m">Older than 3 months</option>
+                <option value="6m">Older than 6 months</option>
+                <option value="12m">Older than 12 months</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Bulk actions */}
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <button onClick={() => loadListings()} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
+              Apply Filters
             </button>
-            <button
-              onClick={() => { setQuery(''); setStatusFilter('all'); loadListings('', 'all') }}
-              className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg"
-            >
-              Clear
+            <span className="text-sm text-gray-600 ml-2">Filtered: <b>{listings.length}</b></span>
+            <div className="flex-1" />
+            <button onClick={bulkInactivate} disabled={working || listings.length === 0}
+                    className="bg-amber-500 hover:bg-amber-600 disabled:bg-amber-300 text-white px-3 py-2 rounded-lg">
+              Inactivate All Filtered
+            </button>
+            <button onClick={bulkActivate} disabled={working || listings.length === 0}
+                    className="bg-green-600 hover:bg-green-700 disabled:bg-green-300 text-white px-3 py-2 rounded-lg">
+              Activate All Filtered
+            </button>
+            <button onClick={bulkDelete} disabled={working || listings.length === 0}
+                    className="bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white px-3 py-2 rounded-lg">
+              Delete All Filtered
             </button>
           </div>
-          <p className="text-xs text-gray-500 mt-2">Tip: users can read the <strong>Property Code</strong> on the listing details page and tell it to you by phone or chat.</p>
         </div>
 
+        {/* Results */}
         {listings.length === 0 ? (
           <div className="bg-white rounded-xl shadow-sm p-8 text-center text-gray-600">No listings found.</div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {listings.map((listing) => (
-              <ListingCard
-                key={listing.id}
-                listing={listing}
-                showActions
-                isAdmin
-                onApprove={onApprove}
-                onReject={onReject}
-                onDelete={onDelete}
-              />
-            ))}
+            {listings.map((l) => {
+              const thumb = l.images?.[0]
+                ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/house-images/${l.images[0]}`
+                : null
+              return (
+                <div key={l.id} className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
+                  <div className="relative h-40 bg-gray-100">
+                    {thumb ? (
+                      <img src={thumb} alt={l.title} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-5xl text-gray-300">🏠</div>
+                    )}
+                    <div className="absolute top-2 left-2">
+                      <span className={`px-2 py-1 rounded text-xs font-semibold ${
+                        l.status === 'approved' ? 'bg-green-100 text-green-800'
+                          : l.status === 'pending' ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-red-100 text-red-800'
+                      }`}>
+                        {l.status}
+                      </span>
+                    </div>
+                    <div className="absolute top-2 right-2">
+                      <span className={`px-2 py-1 rounded text-xs font-semibold ${l.is_active ? 'bg-blue-100 text-blue-800' : 'bg-gray-200 text-gray-700'}`}>
+                        {l.is_active ? 'active' : 'inactive'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="p-4 space-y-2">
+                    <div className="flex items-start justify-between">
+                      <h3 className="font-semibold text-gray-900 pr-2">{l.title}</h3>
+                      <div className="text-blue-600 text-sm font-mono">#{l.reference_code}</div>
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      <span className="font-medium">Posted:</span> {fmtDate(l.created_at)}
+                    </div>
+                    <div className="text-sm text-gray-600">City: {l.city}</div>
+                    <div className="text-sm text-gray-600">Price: {Number(l.price || 0).toLocaleString()} {l.currency}</div>
+
+                    <div className="pt-3 flex items-center gap-2">
+                      <button onClick={() => router.push(`/listing/${l.id}?admin=true`)}
+                              className="px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-800 text-sm">
+                        View details
+                      </button>
+                      <button onClick={() => onApprove(l.id)}
+                              className="px-3 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm">
+                        Approve
+                      </button>
+                      <button onClick={() => onReject(l.id)}
+                              className="px-3 py-2 rounded-lg bg-yellow-500 hover:bg-yellow-600 text-white text-sm">
+                        Reject
+                      </button>
+                      <button onClick={() => onDelete(l.id)}
+                              className="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm">
+                        Delete
+                      </button>
+                    </div>
+
+                    <div className="pt-1 flex items-center gap-2">
+                      {l.is_active ? (
+                        <button onClick={() => onToggleActive(l.id, false)}
+                                className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs">
+                          Inactivate
+                        </button>
+                      ) : (
+                        <button onClick={() => onToggleActive(l.id, true)}
+                                className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs">
+                          Activate
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         )}
       </div>
