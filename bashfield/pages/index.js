@@ -1,387 +1,141 @@
-import { useState, useEffect } from 'react'
+// bashfield/bashfield/pages/index.js
+import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
+import Head from 'next/head'
+import dynamic from 'next/dynamic'
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations'
 import { useTranslation } from 'next-i18next'
-import { supabase, CITIES } from '../lib/supabase'
-import ListingCard from '../components/ListingCard'
-import MapView from '../components/MapView'
+import { supabase } from '../lib/supabase'
+
+const OpenStreetListingsMap = dynamic(() => import('../components/OpenStreetListingsMap'), { ssr: false })
 
 export default function Home() {
   const { t } = useTranslation('common')
   const [listings, setListings] = useState([])
-  const [filteredListings, setFilteredListings] = useState([])
-  const [filters, setFilters] = useState({
-    city: '',
-    minPrice: '',
-    maxPrice: '',
-    rooms: '',
-    currency: 'USD'
-  })
   const [loading, setLoading] = useState(true)
-  const [viewMode, setViewMode] = useState('list')
 
   useEffect(() => {
-    fetchListings()
-  }, [])
-
-  useEffect(() => {
-    applyFilters()
-  }, [filters, listings])
-
-  const fetchListings = async () => {
-    try {
-      // First get all approved listings
-      const { data: listingsData, error: listingsError } = await supabase
+    ;(async () => {
+      // PUBLIC feed: only approved + active
+      const { data } = await supabase
         .from('listings')
         .select('*')
         .eq('status', 'approved')
+        .eq('is_active', true)
         .order('created_at', { ascending: false })
+      setListings(data || [])
+      setLoading(false)
+    })()
+  }, [])
 
-      if (listingsError) {
-        console.error('Error fetching listings:', listingsError)
-        setListings([])
-        setLoading(false)
-        return
-      }
+  const markers = useMemo(() => {
+    return (listings || [])
+      .filter(l => l.latitude && l.longitude)
+      .map(l => ({
+        id: l.id,
+        lat: Number(l.latitude),
+        lng: Number(l.longitude),
+        title: l.title,
+        href: `/listing/${l.id}`
+      }))
+  }, [listings])
 
-      // Then get all user profiles
-      const { data: profilesData, error: profilesError } = await supabase
-        .from('user_profiles')
-        .select('user_id, display_name, profile_picture')
-
-      if (profilesError) {
-        console.error('Error fetching profiles:', profilesError)
-      }
-
-      // Merge the data
-      const listingsWithProfiles = listingsData.map(listing => {
-        const profile = profilesData?.find(p => p.user_id === listing.user_id)
-        return {
-          ...listing,
-          user_profiles: profile || null
-        }
-      })
-
-      setListings(listingsWithProfiles || [])
-    } catch (error) {
-      console.error('Error in fetchListings:', error)
-      setListings([])
-    }
-    setLoading(false)
-  }
-
-  const applyFilters = () => {
-    let filtered = listings
-
-    if (filters.city) {
-      filtered = filtered.filter(listing => listing.city === filters.city)
-    }
-
-    if (filters.rooms) {
-      filtered = filtered.filter(listing => listing.rooms >= parseInt(filters.rooms))
-    }
-
-    if (filters.minPrice || filters.maxPrice) {
-      filtered = filtered.filter(listing => {
-        if (listing.currency !== filters.currency) return true
-        const price = listing.price
-        if (filters.minPrice && price < parseInt(filters.minPrice)) return false
-        if (filters.maxPrice && price > parseInt(filters.maxPrice)) return false
-        return true
-      })
-    }
-
-    setFilteredListings(filtered)
-  }
-
-  const clearFilters = () => {
-    setFilters({
-      city: '',
-      minPrice: '',
-      maxPrice: '',
-      rooms: '',
-      currency: 'USD'
-    })
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-gray-600">Loading…</div>
+      </div>
+    )
   }
 
   return (
-    <div className="min-h-screen">
-      {/* Modern Hero Section */}
-      <div className="relative bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 overflow-hidden">
-        <div className="absolute inset-0 bg-black opacity-20"></div>
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
-          <div className="text-center">
-            <h1 className="text-3xl sm:text-4xl md:text-6xl font-bold text-white mb-6 leading-tight">
-              Find Your Perfect
-              <span className="block text-yellow-400">Home in Iraq</span>
-            </h1>
-            <p className="text-lg sm:text-xl text-blue-100 mb-8 max-w-3xl mx-auto">
-              Discover thousands of verified rental properties across Iraq's major cities. 
-              Safe, simple, and trusted by locals.
-            </p>
-            
-            {/* Quick Search */}
-            <div className="max-w-4xl mx-auto mb-8">
-              <div className="bg-white rounded-2xl shadow-2xl p-4 sm:p-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <select
-                    value={filters.city}
-                    onChange={(e) => setFilters(prev => ({ ...prev, city: e.target.value }))}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">🏙️ All Cities</option>
-                    {CITIES.map(city => (
-                      <option key={city} value={city}>{city.charAt(0).toUpperCase() + city.slice(1)}</option>
-                    ))}
-                  </select>
-                  
-                  <select
-                    value={filters.rooms}
-                    onChange={(e) => setFilters(prev => ({ ...prev, rooms: e.target.value }))}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="">🛏️ Any Rooms</option>
-                    <option value="1">1+ Room</option>
-                    <option value="2">2+ Rooms</option>
-                    <option value="3">3+ Rooms</option>
-                    <option value="4">4+ Rooms</option>
-                  </select>
-                  
-                  <div className="flex space-x-2">
-                    <select
-                      value={filters.currency}
-                      onChange={(e) => setFilters(prev => ({ ...prev, currency: e.target.value }))}
-                      className="w-20 px-2 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                    >
-                      <option value="USD">USD</option>
-                      <option value="IQD">IQD</option>
-                    </select>
-                    <input
-                      type="number"
-                      placeholder="Max Price"
-                      value={filters.maxPrice}
-                      onChange={(e) => setFilters(prev => ({ ...prev, maxPrice: e.target.value }))}
-                      className="flex-1 px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    />
-                  </div>
-                  
-                  <button
-                    onClick={() => document.getElementById('listings').scrollIntoView({ behavior: 'smooth' })}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors duration-200"
-                  >
-                    🔍 Search
-                  </button>
-                </div>
-              </div>
-            </div>
+    <>
+      <Head><meta name="viewport" content="width=device-width, initial-scale=1" /></Head>
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+          {/* Map View (OpenStreetMap) */}
+          <section>
+            <h2 className="text-xl font-semibold text-gray-900 mb-3">Map View</h2>
+            <OpenStreetListingsMap markers={markers} />
+          </section>
 
-            {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <button 
-                onClick={() => window.location.href = '/post'}
-                className="bg-yellow-400 hover:bg-yellow-500 text-gray-900 font-bold py-4 px-8 rounded-xl text-lg transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-1"
-              >
-                🏠 List Your Property
-              </button>
-              <button 
-                onClick={() => document.getElementById('listings').scrollIntoView({ behavior: 'smooth' })}
-                className="border-2 border-white text-white hover:bg-white hover:text-blue-600 font-semibold py-4 px-8 rounded-xl text-lg transition-all duration-200"
-              >
-                👀 Browse Properties
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Stats Section */}
-      <div className="bg-white py-12 sm:py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 text-center">
-            <div className="p-6">
-              <div className="text-3xl sm:text-4xl font-bold text-blue-600 mb-2">{listings.length}+</div>
-              <div className="text-gray-600 text-sm sm:text-base">Properties</div>
-            </div>
-            <div className="p-6">
-              <div className="text-3xl sm:text-4xl font-bold text-green-600 mb-2">9</div>
-              <div className="text-gray-600 text-sm sm:text-base">Cities</div>
-            </div>
-            <div className="p-6">
-              <div className="text-3xl sm:text-4xl font-bold text-purple-600 mb-2">100%</div>
-              <div className="text-gray-600 text-sm sm:text-base">Verified</div>
-            </div>
-            <div className="p-6">
-              <div className="text-3xl sm:text-4xl font-bold text-orange-600 mb-2">24/7</div>
-              <div className="text-gray-600 text-sm sm:text-base">Support</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Listings Section */}
-      <div id="listings" className="bg-gray-50 py-12 sm:py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-8">
-            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-4">
-              Featured Properties
-            </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto mb-6">
-              Discover amazing rental opportunities across Iraq's major cities
-            </p>
-            
-            {/* Prominent View Toggle */}
-            <div className="inline-flex bg-white rounded-xl shadow-lg p-2 border border-gray-200">
-              <button
-                onClick={() => setViewMode('list')}
-                className={`px-6 py-3 rounded-lg text-sm font-semibold transition-all duration-200 flex items-center space-x-2 ${
-                  viewMode === 'list'
-                    ? 'bg-blue-600 text-white shadow-md transform scale-105'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                <span>📋</span>
-                <span>List View</span>
-              </button>
-              <button
-                onClick={() => setViewMode('map')}
-                className={`px-6 py-3 rounded-lg text-sm font-semibold transition-all duration-200 flex items-center space-x-2 ${
-                  viewMode === 'map'
-                    ? 'bg-blue-600 text-white shadow-md transform scale-105'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                <span>🗺️</span>
-                <span>Map View</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Active Filters */}
-          {(filters.city || filters.rooms || filters.maxPrice) && (
-            <div className="mb-6 flex flex-wrap items-center gap-2 justify-center">
-              <span className="text-sm text-gray-600">Active filters:</span>
-              {filters.city && (
-                <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
-                  📍 {filters.city.charAt(0).toUpperCase() + filters.city.slice(1)}
-                </span>
-              )}
-              {filters.rooms && (
-                <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm">
-                  🛏️ {filters.rooms}+ rooms
-                </span>
-              )}
-              {filters.maxPrice && (
-                <span className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm">
-                  💰 Under {filters.maxPrice} {filters.currency}
-                </span>
-              )}
-              <button
-                onClick={clearFilters}
-                className="text-red-600 hover:text-red-800 text-sm underline ml-2"
-              >
-                Clear all
-              </button>
-            </div>
-          )}
-
-          {loading ? (
-            <div className="flex justify-center py-20">
-              <div className="text-center">
-                <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                <p className="text-gray-600">Loading properties...</p>
-              </div>
-            </div>
-          ) : filteredListings.length === 0 ? (
-            <div className="text-center py-20">
-              <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <span className="text-4xl">🏠</span>
-              </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-4">No properties found</h3>
-              <p className="text-gray-600 mb-6">Try adjusting your filters or be the first to list in this area!</p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <button 
-                  onClick={clearFilters}
-                  className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-lg transition-colors"
-                >
-                  Clear Filters
-                </button>
-                <button 
-                  onClick={() => window.location.href = '/post'}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors"
-                >
-                  List Your Property
-                </button>
-              </div>
-            </div>
-          ) : (
-            <>
-              <div className="mb-6 text-center">
-                <p className="text-gray-600">
-                  Showing <span className="font-semibold">{filteredListings.length}</span> of <span className="font-semibold">{listings.length}</span> properties
-                  {viewMode === 'list' && <span className="ml-2">in list view</span>}
-                </p>
-              </div>
-              
-              {/* List View */}
-              {viewMode === 'list' && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-                  {filteredListings.map(listing => (
-                    <ListingCard key={listing.id} listing={listing} />
-                  ))}
-                </div>
-              )}
-              
-              {/* Map View */}
-              {viewMode === 'map' && (
-                <div className="space-y-6">
-                  {/* Map Header */}
-                  <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6">
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <h3 className="text-xl font-bold text-gray-900 mb-2">🗺️ Interactive Property Map</h3>
-                        <p className="text-gray-600">Explore properties across Iraq by location</p>
+          {/* Listings grid */}
+          <section>
+            <h2 className="text-xl font-semibold text-gray-900 mb-3">Latest Listings</h2>
+            {listings.length === 0 ? (
+              <div className="bg-white rounded-xl shadow-sm p-8 text-center text-gray-600">No listings yet.</div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {listings.map(l => {
+                  const img = l.images?.[0]
+                    ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/house-images/${l.images[0]}`
+                    : null
+                  return (
+                    <div key={l.id} className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
+                      <div className="h-40 bg-gray-100">
+                        {img ? <img src={img} alt={l.title} className="w-full h-full object-cover" /> : (
+                          <div className="w-full h-full flex items-center justify-center text-5xl text-gray-300">🏠</div>
+                        )}
                       </div>
-                      <div className="text-right">
-                        <div className="text-2xl font-bold text-blue-600">{filteredListings.length}</div>
-                        <div className="text-sm text-gray-500">properties shown</div>
+                      <div className="p-4 space-y-2">
+                        <div className="flex items-start justify-between">
+                          <h3 className="font-semibold text-gray-900 pr-2">{l.title}</h3>
+                          <div className="text-blue-600 text-sm font-mono">#{l.reference_code}</div>
+                        </div>
+                        <PostedBy userId={l.user_id} />
+                        <div className="text-sm text-gray-600">City: {l.city}</div>
+                        <div className="text-sm text-gray-600">Price: {Number(l.price || 0).toLocaleString()} {l.currency}</div>
+                        <div className="pt-2 flex gap-2">
+                          <Link href={`/listing/${l.id}`} className="px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-800 text-sm">
+                            View details
+                          </Link>
+                          <Link href={`/messages?peer=${l.user_id}&listing=${l.id}`} className="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm">
+                            Message
+                          </Link>
+                        </div>
                       </div>
                     </div>
-                    <div className="flex items-center space-x-4 text-sm text-gray-600">
-                      <div className="flex items-center space-x-1">
-                        <span className="w-3 h-3 bg-blue-500 rounded border-2 border-white shadow"></span>
-                        <span>Click markers for details</span>
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        <span>🔍</span>
-                        <span>Zoom to explore areas</span>
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        <span>💬</span>
-                        <span>Direct WhatsApp contact</span>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <MapView 
-                    listings={filteredListings}
-                    onListingSelect={(listing) => {
-                      // Handle listing selection if needed
-                    }}
-                  />
-                </div>
-              )}
-            </>
-          )}
+                  )
+                })}
+              </div>
+            )}
+          </section>
         </div>
       </div>
-    </div>
+    </>
   )
 }
 
-export async function getStaticProps({ locale }) {
-  return {
-    props: {
-      ...(await serverSideTranslations(locale, ['common'])),
-    },
-    revalidate: 60,
-  }
+function PostedBy({ userId }) {
+  const [p, setP] = useState(null)
+  useEffect(() => {
+    ;(async () => {
+      if (!userId) return
+      const { data } = await supabase
+        .from('user_profiles')
+        .select('user_id, display_name, profile_picture')
+        .eq('user_id', userId)
+        .maybeSingle()
+      setP(data || null)
+    })()
+  }, [userId])
+  const avatar = p?.profile_picture
+    ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/house-images/${p.profile_picture}`
+    : null
+  return (
+    <Link href={p ? `/profile/${p.user_id}` : '#'} className="flex items-center gap-2 group w-fit">
+      {avatar ? (
+        <img src={avatar} className="w-7 h-7 rounded-full object-cover" alt="Posted by" />
+      ) : (
+        <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-sm">
+          {(p?.display_name?.[0] || '?').toUpperCase()}
+        </div>
+      )}
+      <span className="text-sm text-gray-700 group-hover:underline">{p?.display_name || 'Unknown User'}</span>
+    </Link>
+  )
+}
+
+export async function getServerSideProps({ locale }) {
+  return { props: { ...(await serverSideTranslations(locale ?? 'en', ['common'])) } }
 }
