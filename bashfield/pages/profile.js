@@ -410,7 +410,7 @@ export default function Profile() {
                           </button>
                         </div>
                       </div>
-                    ))
+                    ))}
                   </div>
                 )}
               </div>
