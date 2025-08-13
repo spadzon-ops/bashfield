@@ -21,4 +21,48 @@ export async function ensureConversation({ otherId, listingId = null }) {
       .select('id')
       .or(
         `and(listing_id.eq.${listingId},participant1.eq.${user.id},participant2.eq.${otherId}),` +
-        `and(listing_id.eq.${listingId},participant1.eq.${otherId},participant2.eq.${user.id_
+        `and(listing_id.eq.${listingId},participant1.eq.${otherId},participant2.eq.${user.id})`
+      )
+      .maybeSingle()
+
+    if (existing?.id) return existing.id
+
+    const { data: created, error } = await supabase
+      .from('conversations')
+      .insert({
+        listing_id: listingId,
+        participant1: user.id,
+        participant2: otherId,
+      })
+      .select('id')
+      .single()
+
+    if (error) throw error
+    return created.id
+  }
+
+  // Non-listing (general) conversation as fallback
+  const { data: existingGeneral } = await supabase
+    .from('conversations')
+    .select('id')
+    .or(
+      `and(listing_id.is.null,participant1.eq.${user.id},participant2.eq.${otherId}),` +
+      `and(listing_id.is.null,participant1.eq.${otherId},participant2.eq.${user.id})`
+    )
+    .maybeSingle()
+
+  if (existingGeneral?.id) return existingGeneral.id
+
+  const { data: createdGeneral, error: err2 } = await supabase
+    .from('conversations')
+    .insert({
+      listing_id: null,
+      participant1: user.id,
+      participant2: otherId,
+    })
+    .select('id')
+    .single()
+
+  if (err2) throw err2
+  return createdGeneral.id
+}
