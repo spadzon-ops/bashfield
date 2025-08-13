@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
 
@@ -27,6 +28,7 @@ export default function AdminPage() {
   const [ageFilter, setAgeFilter] = useState('any')            // any | 1m | 3m | 6m | 12m
 
   const [listings, setListings] = useState([])
+  const [profiles, setProfiles] = useState(new Map())
   const [working, setWorking] = useState(false)
 
   useEffect(() => {
@@ -58,16 +60,16 @@ export default function AdminPage() {
     if (age !== 'any') {
       const map = { '1m': 1, '3m': 3, '6m': 6, '12m': 12 }
       const iso = ageThreshold(map[age])
-      // "older than X months" => created_at <= threshold
-      r = r.lte('created_at', iso)
+      r = r.lte('created_at', iso) // older than threshold
     }
 
-    const trimmed = (q || '').trim().toUpperCase()
+    const trimmed = (q || '').trim()
     if (trimmed) {
-      if (/^BF-[A-Z0-9-]{4,}$/.test(trimmed)) {
-        r = r.eq('reference_code', trimmed)
+      const upper = trimmed.toUpperCase()
+      if (/^BF-[A-Z0-9-]{4,}$/.test(upper)) {
+        r = r.eq('reference_code', upper)
       } else {
-        r = r.or(`reference_code.ilike.%${trimmed}%,title.ilike.%${trimmed}%`)
+        r = r.or(`reference_code.ilike.%${upper}%,title.ilike.%${trimmed}%`)
       }
     }
     return r
@@ -75,7 +77,22 @@ export default function AdminPage() {
 
   const loadListings = async (q = query, s = statusFilter, a = activeFilter, g = ageFilter) => {
     const { data } = await buildQuery(q, s, a, g)
-    setListings(data || [])
+    const rows = data || []
+    setListings(rows)
+
+    // fetch poster profiles for avatar/name
+    const userIds = [...new Set(rows.map(r => r.user_id).filter(Boolean))]
+    if (userIds.length) {
+      const { data: profs } = await supabase
+        .from('user_profiles')
+        .select('user_id, display_name, profile_picture')
+        .in('user_id', userIds)
+      const map = new Map()
+      ;(profs || []).forEach(p => map.set(p.user_id, p))
+      setProfiles(map)
+    } else {
+      setProfiles(new Map())
+    }
   }
 
   const onApprove = async (id) => {
@@ -223,6 +240,11 @@ export default function AdminPage() {
               const thumb = l.images?.[0]
                 ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/house-images/${l.images[0]}`
                 : null
+              const poster = profiles.get(l.user_id)
+              const avatar = poster?.profile_picture
+                ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/house-images/${poster.profile_picture}`
+                : null
+
               return (
                 <div key={l.id} className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
                   <div className="relative h-40 bg-gray-100">
@@ -252,17 +274,32 @@ export default function AdminPage() {
                       <h3 className="font-semibold text-gray-900 pr-2">{l.title}</h3>
                       <div className="text-blue-600 text-sm font-mono">#{l.reference_code}</div>
                     </div>
+
+                    {/* Posted by (clickable) */}
+                    <Link href={poster ? `/profile/${poster.user_id}` : '#'} className="flex items-center gap-2 group w-fit">
+                      {avatar ? (
+                        <img src={avatar} className="w-7 h-7 rounded-full object-cover" alt="Posted by" />
+                      ) : (
+                        <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-sm">
+                          {(poster?.display_name?.[0] || '?').toUpperCase()}
+                        </div>
+                      )}
+                      <span className="text-sm text-gray-700 group-hover:underline">
+                        {poster?.display_name || 'Unknown User'}
+                      </span>
+                    </Link>
+
                     <div className="text-sm text-gray-600">
                       <span className="font-medium">Posted:</span> {fmtDate(l.created_at)}
                     </div>
                     <div className="text-sm text-gray-600">City: {l.city}</div>
                     <div className="text-sm text-gray-600">Price: {Number(l.price || 0).toLocaleString()} {l.currency}</div>
 
-                    <div className="pt-3 flex items-center gap-2">
-                      <button onClick={() => router.push(`/listing/${l.id}?admin=true`)}
-                              className="px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-800 text-sm">
+                    <div className="pt-3 flex flex-wrap items-center gap-2">
+                      {/* View details always works for admin via ?admin=1 */}
+                      <Link href={`/listing/${l.id}?admin=1`} className="px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-800 text-sm">
                         View details
-                      </button>
+                      </Link>
                       <button onClick={() => onApprove(l.id)}
                               className="px-3 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm">
                         Approve
@@ -275,9 +312,6 @@ export default function AdminPage() {
                               className="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm">
                         Delete
                       </button>
-                    </div>
-
-                    <div className="pt-1 flex items-center gap-2">
                       {l.is_active ? (
                         <button onClick={() => onToggleActive(l.id, false)}
                                 className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs">
