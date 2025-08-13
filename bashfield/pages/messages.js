@@ -23,6 +23,10 @@ export default function Messages() {
   const convsRef = useRef([])
   const mountedAtRef = useRef(Date.now())
 
+  // NEW: prevent boot loop & track manual selection
+  const bootstrappedRef = useRef(false)
+  const manualSelectRef = useRef(false)
+
   // scroll control
   const messagesContainerRef = useRef(null)
   const autoScrollRef = useRef(true)
@@ -72,7 +76,7 @@ export default function Messages() {
       await fetchConversations(u)
       setLoading(false)
     })()
-  }, [])
+  }, []) // eslint-disable-line
 
   useEffect(() => { convsRef.current = conversations }, [conversations])
 
@@ -169,18 +173,23 @@ export default function Messages() {
 
   // open/select helpers
   const selectConversation = async (conv) => {
+    manualSelectRef.current = true // NEW: mark user-driven navigation
     setActiveConversation(conv)
     await fetchMessages(conv.id)
     await markAsRead(conv.id)
     setConversations((prev) => prev.map((c) => (c.id === conv.id ? { ...c, unread_count: 0 } : c)))
     autoScrollRef.current = true
     requestAnimationFrame(scrollToBottom)
+    // NEW: keep URL in sync so deep-link effect doesn't fight user choice
+    router.replace(`/messages?id=${conv.id}`, undefined, { shallow: true })
   }
 
   const leaveActiveConversation = async () => {
     const prev = activeConversationRef.current
     if (prev) await markAsRead(prev.id)
     setActiveConversation(null)
+    // Optional: clear id from URL when no conversation is selected
+    router.replace(`/messages`, undefined, { shallow: true })
   }
 
   // global flag for Section 1/2 muting
@@ -207,7 +216,7 @@ export default function Messages() {
     return () => router.events.off('routeChangeStart', handleRouteChange)
   }, [router.events])
 
-  // ---------- Open logic (id param, or explicit peer/listing, or best-effort recent) ----------
+  // ---------- Deep-link bootstrap (runs once on load or when arriving with peer/listing) ----------
   useEffect(() => {
     if (!router.isReady || conversations.length === 0 || !userRef.current) return
 
@@ -216,10 +225,30 @@ export default function Messages() {
     const peer = qs.get('peer')
     const listing = qs.get('listing')
 
-    // 1) id wins
+    // If user just manually selected something, don't override
+    if (manualSelectRef.current) {
+      manualSelectRef.current = false
+      return
+    }
+
+    // If we already bootstrapped and there is no new peer/listing in the URL, do nothing
+    if (bootstrappedRef.current && !peer && !listing) {
+      // also skip if the current id already matches selected
+      if (idFromQuery && activeConversationRef.current?.id === idFromQuery) return
+      // don't force-reopen on periodic conversation list updates
+      if (activeConversationRef.current && !idFromQuery) return
+    }
+
+    // 1) id wins – but don't reselect if already on it
     if (idFromQuery) {
       const c = conversations.find((x) => x.id === idFromQuery)
-      if (c) { selectConversation(c); return }
+      if (c) {
+        if (activeConversationRef.current?.id !== idFromQuery) {
+          selectConversation(c)
+        }
+        bootstrappedRef.current = true
+        return
+      }
     }
 
     // 2) If peer/listing provided (from cards/details), ensure and open that exact convo
@@ -234,8 +263,8 @@ export default function Messages() {
           const c = convsRef.current.find((x) => x.id === convId)
           if (c) {
             await selectConversation(c)
-            // clean URL to /messages?id=<id>
             router.replace(`/messages?id=${convId}`, undefined, { shallow: true })
+            bootstrappedRef.current = true
             return
           }
         } catch (e) {
@@ -243,19 +272,25 @@ export default function Messages() {
         }
       }
 
-      // 3) Best‑effort: auto-open newest conversation touched recently (e.g., coming from “Send Message” without params)
-      if (!activeConversationRef.current && conversations.length > 0) {
+      // 3) Best-effort: auto-open newest conversation touched recently (only first time)
+      if (!bootstrappedRef.current && !activeConversationRef.current && conversations.length > 0) {
         const now = Date.now()
         const candidate = conversations.find((c) => {
           const lastAt = c.last_message?.created_at ? new Date(c.last_message.created_at).getTime() : 0
           const updatedAt = c.updated_at ? new Date(c.updated_at).getTime() : 0
-          // opened within last 2 minutes or since we mounted
           return (now - Math.max(lastAt, updatedAt) < 2 * 60 * 1000) || (updatedAt >= mountedAtRef.current)
         })
-        if (candidate) selectConversation(candidate)
+        if (candidate) {
+          await selectConversation(candidate)
+          bootstrappedRef.current = true
+          return
+        }
       }
+
+      // mark bootstrapped even if nothing to open to avoid future overrides
+      bootstrappedRef.current = true
     })()
-  }, [router.isReady, conversations])
+  }, [router.isReady, conversations]) // eslint-disable-line
 
   // ---------- Realtime: open conversation stream ----------
   useEffect(() => {
