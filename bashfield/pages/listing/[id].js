@@ -290,16 +290,22 @@ export default function ListingDetail({ listing: initialListing }) {
                   <span>{listing.rooms} {listing.rooms === 1 ? 'Room' : 'Rooms'}</span>
                 </div>
                 <div className="flex items-center space-x-2">
-                  {listing.user_profiles?.profile_picture ? (
-                    <img
-                      src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/house-images/${listing.user_profiles.profile_picture}`}
-                      alt="Owner"
-                      className="w-5 h-5 rounded-full object-cover"
-                    />
-                  ) : (
-                    <span>👤</span>
-                  )}
-                  <span>By {listing.owner_name || 'Property Owner'}</span>
+                  <span>By</span>
+                  <a 
+                    href={`/profile/${listing.user_id}`}
+                    className="flex items-center space-x-2 hover:text-blue-600 transition-colors cursor-pointer"
+                  >
+                    {listing.user_profiles?.profile_picture ? (
+                      <img
+                        src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/house-images/${listing.user_profiles.profile_picture}`}
+                        alt="Owner"
+                        className="w-5 h-5 rounded-full object-cover"
+                      />
+                    ) : (
+                      <span>👤</span>
+                    )}
+                    <span>{listing.owner_name || 'Property Owner'}</span>
+                  </a>
                 </div>
               </div>
 
