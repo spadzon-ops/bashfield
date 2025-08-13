@@ -376,6 +376,10 @@ export default function ListingDetail({ listing: initialListing }) {
 
               <div className="space-y-4 text-sm">
                 <div className="flex justify-between">
+                  <span className="text-gray-600">Property Code</span>
+                  <span className="font-medium font-mono text-blue-600">#{listing.reference_code}</span>
+                </div>
+                <div className="flex justify-between">
                   <span className="text-gray-600">Rooms</span>
                   <span className="font-medium">{listing.rooms}</span>
                 </div>
@@ -435,8 +439,8 @@ export async function getServerSideProps({ params, locale, query }) {
       }
     }
 
-    // For approved listings, always allow access
-    if (listingData.status === 'approved') {
+    // For approved and active listings, always allow access
+    if (listingData.status === 'approved' && listingData.is_active !== false) {
       const { data: profileData } = await supabase
         .from('user_profiles')
         .select('display_name, profile_picture')
