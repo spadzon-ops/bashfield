@@ -1,356 +1,142 @@
--- ============================================
--- Bashfield consolidated setup — SAFE to re-run
--- ============================================
+import { useEffect, useState, useMemo } from 'react'
+import { useRouter } from 'next/router'
+import { supabase } from '../lib/supabase'
+import ListingCard from '../components/ListingCard'
 
--- Extensions
-create extension if not exists pgcrypto;
+export default function AdminPage() {
+  const router = useRouter()
+  const [user, setUser] = useState(null)
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [loading, setLoading] = useState(true)
 
--- ================= ADMIN =================
-create table if not exists public.admin_emails (
-  email text primary key
-);
-insert into public.admin_emails(email)
-values ('spadzon@gmail.com')
-on conflict (email) do nothing;
+  const [query, setQuery] = useState('')
+  const [listings, setListings] = useState([])
+  const [statusFilter, setStatusFilter] = useState('all')
 
--- ================= PROFILES =================
-create table if not exists public.user_profiles (
-  id uuid default gen_random_uuid() primary key,
-  user_id uuid references auth.users(id) on delete cascade unique,
-  email text not null,
-  display_name text not null,
-  profile_picture text,
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
-);
+  useEffect(() => {
+    ;(async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { router.push('/'); return }
+      setUser(user)
 
-alter table public.user_profiles enable row level security;
+      // Check admin via admin_emails table
+      const { data: adminMatch } = await supabase
+        .from('admin_emails')
+        .select('email')
+        .eq('email', user.email)
+        .maybeSingle()
 
-do $$
-begin
-  begin drop policy if exists "Enable read access for all users" on public.user_profiles; exception when others then null; end;
-  begin drop policy if exists "Enable insert for authenticated users only" on public.user_profiles; exception when others then null; end;
-  begin drop policy if exists "Enable update for users based on user_id" on public.user_profiles; exception when others then null; end;
-  begin drop policy if exists "Enable delete for users based on user_id" on public.user_profiles; exception when others then null; end;
+      setIsAdmin(!!adminMatch)
+      if (!adminMatch) { router.push('/'); return }
 
-  begin drop policy if exists "profiles_read_all" on public.user_profiles; exception when others then null; end;
-  begin drop policy if exists "profiles_insert_self" on public.user_profiles; exception when others then null; end;
-  begin drop policy if exists "profiles_update_self" on public.user_profiles; exception when others then null; end;
-  begin drop policy if exists "profiles_delete_self" on public.user_profiles; exception when others then null; end;
-end $$;
+      await loadListings()
+      setLoading(false)
+    })()
+  }, []) // eslint-disable-line
 
-create policy "profiles_read_all" on public.user_profiles
-  for select using (true);
+  const loadListings = async (search = query, status = statusFilter) => {
+    let q = supabase.from('listings').select('*').order('created_at', { ascending: false })
 
-create policy "profiles_insert_self" on public.user_profiles
-  for insert with check (auth.uid() = user_id);
+    if (status !== 'all') q = q.eq('status', status)
 
-create policy "profiles_update_self" on public.user_profiles
-  for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+    const trimmed = (search || '').trim().toUpperCase()
+    if (trimmed) {
+      // If looks like a code (e.g., BF-XXXXXX), prefer exact match, else try partial on reference_code or title
+      if (/^BF-[A-Z0-9]{4,}$/.test(trimmed)) {
+        q = q.eq('reference_code', trimmed)
+      } else {
+        q = q.or(`reference_code.ilike.%${trimmed}%,title.ilike.%${trimmed}%`)
+      }
+    }
 
-create policy "profiles_delete_self" on public.user_profiles
-  for delete using (auth.uid() = user_id);
+    const { data } = await q
+    setListings(data || [])
+  }
 
--- updated_at helper
-create or replace function public.set_updated_at()
-returns trigger language plpgsql as $$
-begin
-  new.updated_at = now();
-  return new;
-end $$;
+  const onApprove = async (id) => {
+    await supabase.from('listings').update({ status: 'approved' }).eq('id', id)
+    await loadListings()
+  }
+  const onReject = async (id) => {
+    await supabase.from('listings').update({ status: 'rejected' }).eq('id', id)
+    await loadListings()
+  }
+  const onDelete = async (id) => {
+    if (!confirm('Delete this listing?')) return
+    await supabase.from('listings').delete().eq('id', id)
+    await loadListings()
+  }
 
-drop trigger if exists user_profiles_set_updated_at on public.user_profiles;
-create trigger user_profiles_set_updated_at
-before update on public.user_profiles
-for each row execute function public.set_updated_at();
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-gray-600">Loading admin…</div>
+      </div>
+    )
+  }
 
--- auto-create profile on new auth user
-create or replace function public.handle_new_user()
-returns trigger language plpgsql security definer as $$
-begin
-  insert into public.user_profiles(user_id, email, display_name, profile_picture)
-  values (
-    new.id,
-    coalesce(new.email, (new.raw_user_meta_data->>'email')),
-    coalesce(new.raw_user_meta_data->>'full_name', new.raw_user_meta_data->>'name',
-             split_part(coalesce(new.email, 'user@unknown'), '@', 1)),
-    new.raw_user_meta_data->>'avatar_url'
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="bg-white rounded-xl shadow-sm p-4 mb-6">
+          <div className="flex flex-col md:flex-row md:items-end md:space-x-3 space-y-3 md:space-y-0">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 mb-1">Search by Property Code or Title</label>
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && loadListings(e.target.value, statusFilter)}
+                placeholder="e.g. BF-9A3C71"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+              <select
+                value={statusFilter}
+                onChange={(e) => { setStatusFilter(e.target.value); loadListings(query, e.target.value) }}
+                className="border border-gray-300 rounded-lg px-3 py-2"
+              >
+                <option value="all">All</option>
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+              </select>
+            </div>
+            <button
+              onClick={() => loadListings()}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+            >
+              Search
+            </button>
+            <button
+              onClick={() => { setQuery(''); setStatusFilter('all'); loadListings('', 'all') }}
+              className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg"
+            >
+              Clear
+            </button>
+          </div>
+          <p className="text-xs text-gray-500 mt-2">Tip: users can read the <strong>Property Code</strong> on the listing details page and tell it to you by phone or chat.</p>
+        </div>
+
+        {listings.length === 0 ? (
+          <div className="bg-white rounded-xl shadow-sm p-8 text-center text-gray-600">No listings found.</div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {listings.map((listing) => (
+              <ListingCard
+                key={listing.id}
+                listing={listing}
+                showActions
+                isAdmin
+                onApprove={onApprove}
+                onReject={onReject}
+                onDelete={onDelete}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
   )
-  on conflict (user_id) do nothing;
-  return new;
-end $$;
-
-drop trigger if exists on_auth_user_created on auth.users;
-create trigger on_auth_user_created
-after insert on auth.users
-for each row execute procedure public.handle_new_user();
-
--- ================= STORAGE =================
-insert into storage.buckets (id, name, public)
-values ('house-images', 'house-images', true)
-on conflict (id) do nothing;
-
-do $$
-begin
-  begin drop policy if exists "house_images_read_public" on storage.objects; exception when others then null; end;
-  begin drop policy if exists "house_images_insert_owner" on storage.objects; exception when others then null; end;
-  begin drop policy if exists "house_images_update_owner" on storage.objects; exception when others then null; end;
-  begin drop policy if exists "house_images_delete_owner" on storage.objects; exception when others then null; end;
-
-  begin drop policy if exists "Anyone can view images" on storage.objects; exception when others then null; end;
-  begin drop policy if exists "Authenticated users can upload images" on storage.objects; exception when others then null; end;
-  begin drop policy if exists "Users can update their own images" on storage.objects; exception when others then null; end;
-  begin drop policy if exists "Users can delete their own images" on storage.objects; exception when others then null; end;
-end $$;
-
-create policy "Anyone can view images" on storage.objects
-  for select using (bucket_id = 'house-images');
-
-create policy "Authenticated users can upload images" on storage.objects
-  for insert with check (bucket_id = 'house-images' and auth.role() = 'authenticated');
-
-create policy "Users can update their own images" on storage.objects
-  for update using (bucket_id = 'house-images' and auth.role() = 'authenticated');
-
-create policy "Users can delete their own images" on storage.objects
-  for delete using (bucket_id = 'house-images' and auth.role() = 'authenticated');
-
--- ================= LISTINGS =================
-create table if not exists public.listings (
-  id uuid default gen_random_uuid() primary key,
-  user_id uuid references auth.users(id) on delete cascade not null,
-  title text not null,
-  description text not null,
-  price integer not null,
-  currency text default 'USD' check (currency in ('USD','IQD')),
-  city text not null,
-  rooms integer not null,
-  phone text not null,
-  latitude numeric(10,8),
-  longitude numeric(11,8),
-  images text[] default '{}'::text[],
-  status text not null default 'pending' check (status in ('pending','approved','rejected')),
-  created_at timestamptz default now(),
-  updated_at timestamptz default now()
-);
-
--- ✅ Ensure columns exist even if table pre-dates them
-alter table public.listings
-  add column if not exists is_active boolean default true;
-
-alter table public.listings
-  add column if not exists reference_code text;
-
--- Indexes (safe)
-create index if not exists idx_listings_status   on public.listings(status);
-create index if not exists idx_listings_user     on public.listings(user_id);
-create index if not exists idx_listings_city     on public.listings(city);
-create index if not exists idx_listings_created  on public.listings(created_at desc);
-create index if not exists idx_listings_active   on public.listings(is_active);
-
-alter table public.listings enable row level security;
-
--- Generator for property code BF-XXXXXX
-create or replace function public.gen_property_code()
-returns text
-language plpgsql
-as $$
-declare
-  candidate text;
-  tries int := 0;
-begin
-  loop
-    candidate := 'BF-' || upper(substr(encode(gen_random_bytes(6), 'hex'), 1, 6));
-    perform 1 from public.listings where reference_code = candidate;
-    if not found then
-      return candidate;
-    end if;
-    tries := tries + 1;
-    if tries > 20 then
-      candidate := 'BF-' || upper(encode(gen_random_bytes(8), 'hex'));
-      perform 1 from public.listings where reference_code = candidate;
-      if not found then return candidate; end if;
-    end if;
-  end loop;
-end;
-$$;
-
--- Backfill reference codes, set defaults/constraints
-update public.listings
-set reference_code = public.gen_property_code()
-where reference_code is null;
-
-do $$
-begin
-  begin
-    alter table public.listings
-      alter column reference_code set not null;
-  exception when others then null;
-  end;
-  begin
-    alter table public.listings
-      alter column reference_code set default public.gen_property_code();
-  exception when others then null;
-  end;
-  begin
-    alter table public.listings
-      add constraint listings_reference_code_key unique (reference_code);
-  exception when others then null;
-  end;
-end $$;
-
--- Keep updated_at fresh
-drop trigger if exists listings_set_updated_at on public.listings;
-create trigger listings_set_updated_at
-before update on public.listings
-for each row execute function public.set_updated_at();
-
--- Reset listing policies, then recreate with is_active enforced
-do $$
-begin
-  begin drop policy if exists "Users can view approved listings" on public.listings; exception when others then null; end;
-  begin drop policy if exists "Users can insert their own listings" on public.listings; exception when others then null; end;
-  begin drop policy if exists "Users can view their own listings" on public.listings; exception when others then null; end;
-  begin drop policy if exists "Admin can do everything" on public.listings; exception when others then null; end;
-  begin drop policy if exists "Users can update their own listings" on public.listings; exception when others then null; end;
-  begin drop policy if exists "Users can delete their own listings" on public.listings; exception when others then null; end;
-
-  begin drop policy if exists "listings_select_approved" on public.listings; exception when others then null; end;
-  begin drop policy if exists "listings_select_own" on public.listings; exception when others then null; end;
-  begin drop policy if exists "listings_select_admin" on public.listings; exception when others then null; end;
-  begin drop policy if exists "listings_insert_self" on public.listings; exception when others then null; end;
-  begin drop policy if exists "listings_update_self" on public.listings; exception when others then null; end;
-  begin drop policy if exists "listings_delete_self" on public.listings; exception when others then null; end;
-  begin drop policy if exists "listings_admin_all" on public.listings; exception when others then null; end;
-end $$;
-
--- Public can read APPROVED & ACTIVE
-create policy "listings_select_approved" on public.listings
-  for select using (status = 'approved' and coalesce(is_active, true));
-
--- Owners can read their own
-create policy "listings_select_own" on public.listings
-  for select using (auth.uid() = user_id);
-
--- Admin can read all
-create policy "listings_select_admin" on public.listings
-  for select using ((auth.jwt() ->> 'email') in (select email from public.admin_emails));
-
--- Insert/Update/Delete by owner
-create policy "listings_insert_self" on public.listings
-  for insert with check (auth.uid() = user_id);
-
-create policy "listings_update_self" on public.listings
-  for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
-
-create policy "listings_delete_self" on public.listings
-  for delete using (auth.uid() = user_id);
-
--- Admin can do everything
-create policy "listings_admin_all" on public.listings
-  for all using ((auth.jwt() ->> 'email') in (select email from public.admin_emails))
-  with check ((auth.jwt() ->> 'email') in (select email from public.admin_emails));
-
--- ================= CHAT =================
-create table if not exists public.conversations (
-  id uuid default gen_random_uuid() primary key,
-  listing_id uuid references public.listings(id) on delete cascade,
-  participant1 uuid references auth.users(id) on delete cascade,
-  participant2 uuid references auth.users(id) on delete cascade,
-  created_at timestamptz default now(),
-  updated_at timestamptz default now(),
-  unique(listing_id, participant1, participant2)
-);
-
-create table if not exists public.messages (
-  id uuid default gen_random_uuid() primary key,
-  conversation_id uuid references public.conversations(id) on delete cascade,
-  sender_id uuid references auth.users(id) on delete cascade,
-  recipient_id uuid references auth.users(id) on delete cascade,
-  content text not null,
-  read boolean default false,
-  created_at timestamptz default now()
-);
-
-alter table public.conversations enable row level security;
-alter table public.messages enable row level security;
-
--- indexes
-create index if not exists idx_conversations_participants on public.conversations(participant1, participant2);
-create index if not exists idx_conversations_listing on public.conversations(listing_id);
-
-create unique index if not exists uniq_convo_pair
-on public.conversations (
-  listing_id,
-  least(participant1, participant2),
-  greatest(participant1, participant2)
-);
-
-create index if not exists idx_messages_conversation    on public.messages(conversation_id);
-create index if not exists idx_messages_recipient_read  on public.messages(recipient_id, read);
-create index if not exists idx_messages_convo_created   on public.messages(conversation_id, created_at desc);
-
--- conversation policies
-do $$
-begin
-  begin drop policy if exists "conversations_select_own" on public.conversations; exception when others then null; end;
-  begin drop policy if exists "conversations_insert_own" on public.conversations; exception when others then null; end;
-  begin drop policy if exists "conversations_update_participants" on public.conversations; exception when others then null; end;
-end $$;
-
-create policy "conversations_select_own" on public.conversations
-  for select using (auth.uid() = participant1 or auth.uid() = participant2);
-
-create policy "conversations_insert_own" on public.conversations
-  for insert with check (auth.uid() = participant1 or auth.uid() = participant2);
-
-create policy "conversations_update_participants" on public.conversations
-  for update using (auth.uid() = participant1 or auth.uid() = participant2)
-  with check (auth.uid() = participant1 or auth.uid() = participant2);
-
--- message policies
-do $$
-begin
-  begin drop policy if exists "messages_select_own_convos" on public.messages; exception when others then null; end;
-  begin drop policy if exists "messages_insert_sender" on public.messages; exception when others then null; end;
-  begin drop policy if exists "messages_update_recipient" on public.messages; exception when others then null; end;
-end $$;
-
-create policy "messages_select_own_convos" on public.messages
-  for select using (auth.uid() = sender_id or auth.uid() = recipient_id);
-
-create policy "messages_insert_sender" on public.messages
-  for insert with check (auth.uid() = sender_id);
-
-create policy "messages_update_recipient" on public.messages
-  for update using (auth.uid() = recipient_id);
-
--- bump conversation.updated_at on new messages
-create or replace function public.update_conversation_timestamp()
-returns trigger language plpgsql as $$
-begin
-  update public.conversations
-  set updated_at = now()
-  where id = new.conversation_id;
-  return new;
-end $$;
-
-drop trigger if exists update_conversation_timestamp_trigger on public.messages;
-create trigger update_conversation_timestamp_trigger
-after insert on public.messages
-for each row execute function public.update_conversation_timestamp();
-
--- ================= REALTIME =================
-do $pub$
-begin
-  begin
-    alter publication supabase_realtime add table public.messages;
-  exception when duplicate_object then null;
-  end;
-
-  begin
-    alter publication supabase_realtime add table public.conversations;
-  exception when duplicate_object then null;
-  end;
-end
-$pub$;
+}
