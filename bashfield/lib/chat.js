@@ -1,51 +1,24 @@
-// Helper utilities for starting or finding conversations
+// Central helper to guarantee we open/create the right conversation.
+// Usage: ensureConversation({ otherId, listingId })
 import { supabase } from './supabase'
 
 /**
- * Ensure there is a single conversation between me and otherId for the given listingId (or null).
- * Returns the conversation id.
+ * Ensures (and returns) a conversation id. Property-first:
+ * - If listingId is provided -> use (listing_id + two participants).
+ * - Else -> fallback to 1:1 non-listing conversation (listing_id IS NULL).
+ * Returns the conversation id (string).
  */
 export async function ensureConversation({ otherId, listingId = null }) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Not authenticated')
+  if (!otherId) throw new Error('Missing otherId')
+  if (otherId === user.id) throw new Error('Cannot message yourself')
 
-  const meId = user.id
-  const listFilter = listingId
-    ? `listing_id.eq.${listingId}`
-    : 'listing_id.is.null'
-
-  // look both directions
-  const { data: found, error: selErr } = await supabase
-    .from('conversations')
-    .select('id')
-    .or(
-      `and(${listFilter},participant1.eq.${meId},participant2.eq.${otherId}),` +
-      `and(${listFilter},participant1.eq.${otherId},participant2.eq.${meId})`
-    )
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-
-  if (selErr) throw selErr
-  if (found?.id) return found.id
-
-  // create conversation
-  const { data: created, error: insErr } = await supabase
-    .from('conversations')
-    .insert([{ listing_id: listingId || null, participant1: meId, participant2: otherId }])
-    .select('id')
-    .single()
-
-  if (insErr) throw insErr
-  return created.id
-}
-
-/**
- * Ensure conversation and navigate to /messages?id=<conversationId>
- */
-export async function ensureConversationAndGo({ router, otherId, listingId = null }) {
-  const id = await ensureConversation({ otherId, listingId })
-  // Use replace so the peer/listing params don't linger
-  await router.replace(`/messages?id=${id}`)
-  return id
-}
+  // Property-scoped conversation
+  if (listingId) {
+    const { data: existing } = await supabase
+      .from('conversations')
+      .select('id')
+      .or(
+        `and(listing_id.eq.${listingId},participant1.eq.${user.id},participant2.eq.${otherId}),` +
+        `and(listing_id.eq.${listingId},participant1.eq.${otherId},participant2.eq.${user.id_
