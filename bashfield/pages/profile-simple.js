@@ -37,11 +37,11 @@ export default function Profile() {
     }
 
     setUser(user)
-    await initializeProfile(user)
+    await fetchProfile(user)
     await fetchUserListings(user)
   }
 
-  const initializeProfile = async (user) => {
+  const fetchProfile = async (user) => {
     try {
       const { data, error } = await supabase
         .from('user_profiles')
@@ -54,57 +54,39 @@ export default function Profile() {
         setDisplayName(data.display_name)
         setProfilePicture(data.profile_picture)
       } else {
-        await createProfileDirectly(user)
+        // Create new profile
+        const defaultName = user.user_metadata?.full_name || user.user_metadata?.name || user.email.split('@')[0]
+        
+        const { data: newProfile, error: insertError } = await supabase
+          .from('user_profiles')
+          .insert({
+            user_id: user.id,
+            email: user.email,
+            display_name: defaultName
+          })
+          .select()
+          .single()
+
+        if (newProfile && !insertError) {
+          setProfile(newProfile)
+          setDisplayName(newProfile.display_name)
+        }
       }
     } catch (err) {
-      console.error('Profile initialization error:', err)
-      await createProfileDirectly(user)
+      console.error('Profile fetch error:', err)
     }
     setLoading(false)
   }
 
-  const createProfileDirectly = async (user) => {
-    const defaultName = user.user_metadata?.full_name || user.user_metadata?.name || user.email.split('@')[0]
-    
-    const { data, error } = await supabase
-      .from('user_profiles')
-      .upsert({
-        user_id: user.id,
-        email: user.email,
-        display_name: defaultName
-      }, { onConflict: 'user_id' })
-      .select()
-      .single()
-
-    if (data && !error) {
-      setProfile(data)
-      setDisplayName(data.display_name)
-      setProfilePicture(data.profile_picture)
-    }
-  }
-
   const fetchUserListings = async (user) => {
-    const { data: listingsData, error } = await supabase
+    const { data, error } = await supabase
       .from('listings')
       .select('*')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
 
-    if (listingsData) {
-      // Get current profile data
-      const { data: profileData } = await supabase
-        .from('user_profiles')
-        .select('display_name, profile_picture')
-        .eq('user_id', user.id)
-        .single()
-      
-      // Add profile data to listings
-      const listingsWithProfile = listingsData.map(listing => ({
-        ...listing,
-        user_profiles: profileData || null
-      }))
-      
-      setUserListings(listingsWithProfile)
+    if (data) {
+      setUserListings(data)
     }
   }
 
@@ -116,12 +98,11 @@ export default function Profile() {
     try {
       const { data, error } = await supabase
         .from('user_profiles')
-        .upsert({
-          user_id: user.id,
-          email: user.email,
+        .update({
           display_name: displayName.trim(),
           profile_picture: profilePicture
-        }, { onConflict: 'user_id' })
+        })
+        .eq('user_id', user.id)
         .select()
         .single()
 
@@ -130,15 +111,6 @@ export default function Profile() {
       }
       
       setProfile(data)
-      
-      // Trigger a custom event to notify Layout component
-      window.dispatchEvent(new CustomEvent('profileUpdated', { 
-        detail: { profile: data } 
-      }))
-      
-      // Refresh user listings to show updated profile
-      await fetchUserListings(user)
-      
       alert('Profile updated successfully!')
     } catch (error) {
       console.error('Error updating profile:', error)
@@ -155,12 +127,6 @@ export default function Profile() {
     setUploading(true)
     
     try {
-      if (profilePicture) {
-        await supabase.storage
-          .from('house-images')
-          .remove([profilePicture])
-      }
-
       const fileExt = file.name.split('.').pop()
       const fileName = `profiles/${user.id}-${Date.now()}.${fileExt}`
       
@@ -172,29 +138,16 @@ export default function Profile() {
 
       setProfilePicture(fileName)
       
-      const { data, error: updateError } = await supabase
+      // Auto-save the profile picture
+      const { error: updateError } = await supabase
         .from('user_profiles')
-        .upsert({
-          user_id: user.id,
-          email: user.email,
-          display_name: displayName,
+        .update({
           profile_picture: fileName
-        }, { onConflict: 'user_id' })
-        .select()
-        .single()
+        })
+        .eq('user_id', user.id)
 
       if (updateError) throw updateError
 
-      setProfile(data)
-      
-      // Trigger a custom event to notify Layout component
-      window.dispatchEvent(new CustomEvent('profileUpdated', { 
-        detail: { profile: data } 
-      }))
-      
-      // Refresh user listings to show updated profile picture
-      await fetchUserListings(user)
-      
       alert('Profile picture updated successfully!')
     } catch (error) {
       console.error('Error uploading image:', error)
@@ -255,6 +208,7 @@ export default function Profile() {
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Profile Header */}
         <div className="bg-white rounded-xl shadow-sm p-6 sm:p-8 mb-8">
           <div className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-6">
             <div className="relative group">
@@ -268,18 +222,12 @@ export default function Profile() {
                 ) : (
                   <div className="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center group-hover:bg-blue-700 transition-colors">
                     <span className="text-white text-2xl font-bold">
-                      {(profile?.display_name || displayName)?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || '?'}
+                      {displayName?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase() || '?'}
                     </span>
                   </div>
                 )}
                 <div className="absolute inset-0 rounded-full bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all flex items-center justify-center">
                   <span className="text-white text-sm opacity-0 group-hover:opacity-100 transition-opacity">📷 Change</span>
-                </div>
-                {/* Edit Icon */}
-                <div className="absolute bottom-0 right-0 w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center border-2 border-white shadow-lg">
-                  <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"></path>
-                  </svg>
                 </div>
                 <input
                   type="file"
@@ -297,7 +245,7 @@ export default function Profile() {
             </div>
             <div className="text-center sm:text-left">
               <h1 className="text-2xl font-bold text-gray-900 mb-2">
-                {profile?.display_name || displayName || 'User Profile'}
+                {displayName || 'User Profile'}
               </h1>
               <p className="text-gray-600 mb-2">{user?.email}</p>
               <p className="text-sm text-gray-500">
@@ -307,6 +255,7 @@ export default function Profile() {
           </div>
         </div>
 
+        {/* Tabs */}
         <div className="bg-white rounded-xl shadow-sm mb-8">
           <div className="border-b border-gray-200">
             <nav className="flex space-x-8 px-6">
@@ -391,7 +340,6 @@ export default function Profile() {
                         <ListingCard 
                           listing={listing} 
                           showActions={false}
-                          isOwner={true}
                         />
                         <div className="absolute top-2 right-2 flex space-x-1">
                           <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
