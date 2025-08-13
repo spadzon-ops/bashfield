@@ -1,3 +1,5 @@
+// FILE: bashfield/pages/admin.js
+
 import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
@@ -16,26 +18,21 @@ function ageThreshold(months) {
   return d.toISOString()
 }
 
-export default function AdminPage() {
+export default function Admin() {
   const router = useRouter()
-  const [user, setUser] = useState(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
-
-  const [query, setQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState('all')      // all | pending | approved | rejected
-  const [activeFilter, setActiveFilter] = useState('any')      // any | active | inactive
-  const [ageFilter, setAgeFilter] = useState('any')            // any | 1m | 3m | 6m | 12m
-
   const [listings, setListings] = useState([])
-  const [profiles, setProfiles] = useState(new Map())
+  const [query, setQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [activeFilter, setActiveFilter] = useState('all')
+  const [ageFilter, setAgeFilter] = useState('any')
   const [working, setWorking] = useState(false)
 
   useEffect(() => {
     ;(async () => {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/'); return }
-      setUser(user)
 
       const { data: adminMatch } = await supabase
         .from('admin_emails')
@@ -72,37 +69,15 @@ export default function AdminPage() {
         r = r.or(`reference_code.ilike.%${upper}%,title.ilike.%${trimmed}%`)
       }
     }
+
     return r
   }
 
-  const loadListings = async (q = query, s = statusFilter, a = activeFilter, g = ageFilter) => {
-    const { data } = await buildQuery(q, s, a, g)
-    const rows = data || []
-    setListings(rows)
-
-    // fetch poster profiles for avatar/name
-    const userIds = [...new Set(rows.map(r => r.user_id).filter(Boolean))]
-    if (userIds.length) {
-      const { data: profs } = await supabase
-        .from('user_profiles')
-        .select('user_id, display_name, profile_picture')
-        .in('user_id', userIds)
-      const map = new Map()
-      ;(profs || []).forEach(p => map.set(p.user_id, p))
-      setProfiles(map)
-    } else {
-      setProfiles(new Map())
-    }
+  const loadListings = async (q = query, status = statusFilter, active = activeFilter, age = ageFilter) => {
+    const { data } = await buildQuery(q, status, active, age)
+    setListings(data || [])
   }
 
-  const onApprove = async (id) => {
-    await supabase.from('listings').update({ status: 'approved' }).eq('id', id)
-    await loadListings()
-  }
-  const onReject = async (id) => {
-    await supabase.from('listings').update({ status: 'rejected' }).eq('id', id)
-    await loadListings()
-  }
   const onDelete = async (id) => {
     if (!confirm('Delete this listing?')) return
     await supabase.from('listings').delete().eq('id', id)
@@ -132,39 +107,25 @@ export default function AdminPage() {
     setWorking(false)
     await loadListings()
   }
-  const bulkDelete = async () => {
-    if (idsOfFiltered.length === 0) return alert('Nothing to delete.')
-    if (!confirm(`PERMANENTLY delete ${idsOfFiltered.length} listing(s)? This cannot be undone.`)) return
-    setWorking(true)
-    await supabase.from('listings').delete().in('id', idsOfFiltered)
-    setWorking(false)
-    await loadListings()
-  }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-gray-600">Loading admin…</div>
-      </div>
-    )
-  }
+  if (loading) return <div className="min-h-screen flex items-center justify-center text-gray-600">Loading…</div>
+  if (!isAdmin) return null
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-        {/* Search & Filters */}
-        <div className="bg-white rounded-xl shadow-sm p-4">
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Search by Property Code or Title</label>
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && loadListings(e.target.value, statusFilter, activeFilter, ageFilter)}
-                placeholder="e.g. BF-9A3C71"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold">Admin</h1>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm p-4 sm:p-6 mb-6">
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+            <input
+              value={query}
+              onChange={(e) => { setQuery(e.target.value); loadListings(e.target.value) }}
+              placeholder="Search title or BF-XXXXXX…"
+              className="border border-gray-300 rounded-lg px-3 py-2 w-full"
+            />
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
@@ -187,7 +148,7 @@ export default function AdminPage() {
                 onChange={(e) => { setActiveFilter(e.target.value); loadListings(query, statusFilter, e.target.value, ageFilter) }}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2"
               >
-                <option value="any">Any</option>
+                <option value="all">All</option>
                 <option value="active">Active only</option>
                 <option value="inactive">Inactive only</option>
               </select>
@@ -209,127 +170,41 @@ export default function AdminPage() {
             </div>
           </div>
 
-          {/* Bulk actions */}
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            <button onClick={() => loadListings()} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
-              Apply Filters
-            </button>
-            <span className="text-sm text-gray-600 ml-2">Filtered: <b>{listings.length}</b></span>
-            <div className="flex-1" />
-            <button onClick={bulkInactivate} disabled={working || listings.length === 0}
-                    className="bg-amber-500 hover:bg-amber-600 disabled:bg-amber-300 text-white px-3 py-2 rounded-lg">
-              Inactivate All Filtered
-            </button>
-            <button onClick={bulkActivate} disabled={working || listings.length === 0}
-                    className="bg-green-600 hover:bg-green-700 disabled:bg-green-300 text-white px-3 py-2 rounded-lg">
-              Activate All Filtered
-            </button>
-            <button onClick={bulkDelete} disabled={working || listings.length === 0}
-                    className="bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white px-3 py-2 rounded-lg">
-              Delete All Filtered
-            </button>
+          <div className="flex items-center gap-2 mt-4">
+            <button onClick={bulkInactivate} disabled={working} className="px-3 py-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 text-sm">Bulk Inactivate</button>
+            <button onClick={bulkActivate} disabled={working} className="px-3 py-2 rounded-lg bg-green-50 hover:bg-green-100 text-green-700 text-sm">Bulk Activate</button>
           </div>
         </div>
 
-        {/* Results */}
-        {listings.length === 0 ? (
-          <div className="bg-white rounded-xl shadow-sm p-8 text-center text-gray-600">No listings found.</div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {listings.map((l) => {
-              const thumb = l.images?.[0]
-                ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/house-images/${l.images[0]}`
-                : null
-              const poster = profiles.get(l.user_id)
-              const avatar = poster?.profile_picture
-                ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/house-images/${poster.profile_picture}`
-                : null
-
-              return (
-                <div key={l.id} className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-100">
-                  <div className="relative h-40 bg-gray-100">
-                    {thumb ? (
-                      <img src={thumb} alt={l.title} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-5xl text-gray-300">🏠</div>
-                    )}
-                    <div className="absolute top-2 left-2">
-                      <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                        l.status === 'approved' ? 'bg-green-100 text-green-800'
-                          : l.status === 'pending' ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {l.status}
-                      </span>
-                    </div>
-                    <div className="absolute top-2 right-2">
-                      <span className={`px-2 py-1 rounded text-xs font-semibold ${l.is_active ? 'bg-blue-100 text-blue-800' : 'bg-gray-200 text-gray-700'}`}>
-                        {l.is_active ? 'active' : 'inactive'}
-                      </span>
-                    </div>
+        <div className="bg-white rounded-xl shadow-sm">
+          <div className="divide-y">
+            {listings.map((l) => (
+              <div key={l.id} className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="font-mono text-xs px-2 py-1 rounded bg-gray-100 text-gray-700">{l.reference_code}</span>
+                    <span className="text-sm text-gray-500">{fmtDate(l.created_at)}</span>
                   </div>
-
-                  <div className="p-4 space-y-2">
-                    <div className="flex items-start justify-between">
-                      <h3 className="font-semibold text-gray-900 pr-2">{l.title}</h3>
-                      <div className="text-blue-600 text-sm font-mono">#{l.reference_code}</div>
-                    </div>
-
-                    {/* Posted by (clickable) */}
-                    <Link href={poster ? `/profile/${poster.user_id}` : '#'} className="flex items-center gap-2 group w-fit">
-                      {avatar ? (
-                        <img src={avatar} className="w-7 h-7 rounded-full object-cover" alt="Posted by" />
-                      ) : (
-                        <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-sm">
-                          {(poster?.display_name?.[0] || '?').toUpperCase()}
-                        </div>
-                      )}
-                      <span className="text-sm text-gray-700 group-hover:underline">
-                        {poster?.display_name || 'Unknown User'}
-                      </span>
-                    </Link>
-
-                    <div className="text-sm text-gray-600">
-                      <span className="font-medium">Posted:</span> {fmtDate(l.created_at)}
-                    </div>
-                    <div className="text-sm text-gray-600">City: {l.city}</div>
-                    <div className="text-sm text-gray-600">Price: {Number(l.price || 0).toLocaleString()} {l.currency}</div>
-
-                    <div className="pt-3 flex flex-wrap items-center gap-2">
-                      {/* View details always works for admin via ?admin=1 */}
-                      <Link href={`/listing/${l.id}?admin=1`} className="px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-800 text-sm">
-                        View details
-                      </Link>
-                      <button onClick={() => onApprove(l.id)}
-                              className="px-3 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm">
-                        Approve
-                      </button>
-                      <button onClick={() => onReject(l.id)}
-                              className="px-3 py-2 rounded-lg bg-yellow-500 hover:bg-yellow-600 text-white text-sm">
-                        Reject
-                      </button>
-                      <button onClick={() => onDelete(l.id)}
-                              className="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm">
-                        Delete
-                      </button>
-                      {l.is_active ? (
-                        <button onClick={() => onToggleActive(l.id, false)}
-                                className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs">
-                          Inactivate
-                        </button>
-                      ) : (
-                        <button onClick={() => onToggleActive(l.id, true)}
-                                className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs">
-                          Activate
-                        </button>
-                      )}
-                    </div>
+                  <div className="font-medium text-gray-900 truncate">{l.title}</div>
+                  <div className="text-sm text-gray-600">{l.city} • {l.rooms} rooms • {l.currency} {l.price?.toLocaleString()}</div>
+                  <div className="mt-1">
+                    <span className={`inline-block text-xs px-2 py-1 rounded-full mr-1 ${l.status === 'approved' ? 'bg-green-100 text-green-700' : l.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-700'}`}>{l.status}</span>
+                    <span className={`inline-block text-xs px-2 py-1 rounded-full ${l.is_active ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-700'}`}>{l.is_active ? 'active' : 'inactive'}</span>
                   </div>
                 </div>
-              )
-            })}
+                <div className="flex items-center gap-2">
+                  <Link href={`/listing/${l.id}?admin=true`} className="px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-800 text-sm">View Details</Link>
+                  {l.is_active ? (
+                    <button onClick={() => onToggleActive(l.id, false)} className="px-3 py-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 text-sm">Inactivate</button>
+                   ) : (
+                    <button onClick={() => onToggleActive(l.id, true)} className="px-3 py-2 rounded-lg bg-green-50 hover:bg-green-100 text-green-700 text-sm">Activate</button>
+                 )}
+                  <button onClick={() => onDelete(l.id)} className="px-3 py-2 rounded-lg bg-gray-50 hover:bg-gray-100 text-gray-700 text-sm">Delete</button>
+                </div>
+              </div>
+            ))}
           </div>
-        )}
+        </div>
       </div>
     </div>
   )
