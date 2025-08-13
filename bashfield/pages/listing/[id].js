@@ -2,11 +2,9 @@ import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations'
-import { useTranslation } from 'next-i18next'
 import { supabase } from '../../lib/supabase'
 
 export default function ListingDetail({ listing: initialListing }) {
-  const { t } = useTranslation('common')
   const router = useRouter()
   const [listing, setListing] = useState(initialListing)
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
@@ -44,20 +42,17 @@ export default function ListingDetail({ listing: initialListing }) {
         return
       }
 
-      // Get profile data
       const { data: profileData } = await supabase
         .from('user_profiles')
         .select('user_id, display_name, profile_picture')
         .eq('user_id', listingData.user_id)
         .single()
 
-      const fullListing = {
+      setListing({
         ...listingData,
         user_profiles: profileData || null,
         owner_name: profileData?.display_name || listingData.user_email?.split('@')[0] || 'Property Owner'
-      }
-
-      setListing(fullListing)
+      })
     } catch (error) {
       console.error('Error fetching listing:', error)
       setListing(null)
@@ -75,7 +70,6 @@ export default function ListingDetail({ listing: initialListing }) {
       </div>
     )
   }
-
   if (!listing) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -114,44 +108,21 @@ export default function ListingDetail({ listing: initialListing }) {
     if (distance < -50 && listing.images?.length > 1) prevImage()
   }
 
-  // IMPORTANT: property-scoped conversation lookup (fix for “wrong thread”)
   const startConversation = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { alert('Please sign in to send messages'); return }
     if (user.id === listing.user_id) { alert('You cannot message yourself'); return }
-
-    try {
-      const { data: existingConv } = await supabase
-        .from('conversations')
-        .select('id')
-        .or(
-          `and(listing_id.eq.${listing.id},participant1.eq.${user.id},participant2.eq.${listing.user_id}),` +
-          `and(listing_id.eq.${listing.id},participant1.eq.${listing.user_id},participant2.eq.${user.id})`
-        )
-        .maybeSingle()
-
-      if (existingConv?.id) {
-        router.push(`/messages?conversation=${existingConv.id}`)
-        return
-      }
-
-      const { data, error } = await supabase
-        .from('conversations')
-        .insert({
-          listing_id: listing.id,
-          participant1: user.id,
-          participant2: listing.user_id
-        })
-        .select('id')
-        .single()
-
-      if (error) throw error
-      router.push(`/messages?conversation=${data.id}`)
-    } catch (err) {
-      console.error('Error starting conversation:', err)
-      alert('Error starting conversation. Please try again.')
-    }
+    // route with peer+listing so Messages page runs ensureConversation()
+    router.push(`/messages?peer=${listing.user_id}&listing=${listing.id}`)
   }
+
+  const openWhatsApp = () => {
+    const message = `Hi! I'm interested in your property: ${listing.title}`
+    const whatsappUrl = `https://wa.me/${(listing.phone || '').replace(/[^0-9]/g, '')}?text=${encodeURIComponent(message)}`
+    window.open(whatsappUrl, '_blank')
+  }
+
+  const displayCode = listing.reference_code || (listing.id || '').replace(/-/g, '').slice(0, 8).toUpperCase()
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -175,25 +146,17 @@ export default function ListingDetail({ listing: initialListing }) {
               >
                 {firstImageUrl ? (
                   <>
-                    <img
-                      src={firstImageUrl}
-                      alt={listing.title}
-                      className="w-full h-full object-cover"
-                    />
+                    <img src={firstImageUrl} alt={listing.title} className="w-full h-full object-cover" />
                     {listing.images?.length > 1 && (
                       <>
                         <button
                           onClick={prevImage}
                           className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/40 text-white rounded-full w-9 h-9 flex items-center justify-center"
-                        >
-                          ←
-                        </button>
+                        >←</button>
                         <button
                           onClick={nextImage}
                           className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/40 text-white rounded-full w-9 h-9 flex items-center justify-center"
-                        >
-                          →
-                        </button>
+                        >→</button>
                       </>
                     )}
                   </>
@@ -225,7 +188,7 @@ export default function ListingDetail({ listing: initialListing }) {
             </div>
 
             <div className="bg-white rounded-xl shadow-sm p-6 mt-6">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-2">
                 <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">
                   {listing.title}
                 </h1>
@@ -240,7 +203,13 @@ export default function ListingDetail({ listing: initialListing }) {
                 )}
               </div>
 
-              {/* Owner block (CLICKABLE) */}
+              {/* Property Code (visible to everyone) */}
+              <div className="mb-4 text-sm text-gray-600">
+                <span className="font-medium">Property Code:</span>{' '}
+                <code className="font-mono px-1.5 py-0.5 rounded bg-gray-100 text-gray-800">{displayCode}</code>
+              </div>
+
+              {/* Owner (clickable) */}
               <div className="flex items-center space-x-3 mb-6">
                 <Link href={`/profile/${listing.user_id}`} className="flex items-center space-x-3 group">
                   {ownerAvatar ? (
@@ -266,11 +235,13 @@ export default function ListingDetail({ listing: initialListing }) {
                 <p className="text-gray-700 leading-relaxed whitespace-pre-line">{listing.description}</p>
               </div>
 
-              {listing.address && (
+              {/* LOCATION (map) */}
+              {(listing.address || (listing.latitude && listing.longitude)) && (
                 <div className="mt-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-3">Location</h3>
-                  <p className="text-gray-700 mb-4">{listing.address}</p>
-
+                  {listing.address && (
+                    <p className="text-gray-700 mb-4">{listing.address}</p>
+                  )}
                   {(listing.latitude && listing.longitude) && (
                     <div className="mt-4">
                       <div className="flex items-center justify-between mb-3">
@@ -306,22 +277,23 @@ export default function ListingDetail({ listing: initialListing }) {
           <div className="lg:col-span-1">
             <div className="bg-white rounded-xl shadow-sm p-4 sticky top-4">
               <div className="text-2xl font-bold text-blue-600 mb-1">
-                {listing.price.toLocaleString()} {listing.currency}
+                {Number(listing.price || 0).toLocaleString()} {listing.currency}
               </div>
               <div className="text-sm text-gray-500 mb-4">per month</div>
 
-              <div className="grid grid-cols-2 gap-2 mb-4">
+              {/* Actions */}
+              <div className="grid grid-cols-1 gap-2 mb-4">
                 <button
-                  onClick={() => router.push(`/listing/${listing.id}`)}
-                  className="w-full bg-gray-100 hover:bg-gray-200 text-gray-800 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
-                >
-                  👁️ View Details
-                </button>
-                <button
-                  onClick={() => startConversation()}
+                  onClick={startConversation}
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center space-x-2"
                 >
                   <span>✉️</span><span>Send Message</span>
+                </button>
+                <button
+                  onClick={openWhatsApp}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center space-x-2"
+                >
+                  <span>🟢</span><span>WhatsApp</span>
                 </button>
               </div>
 
@@ -361,39 +333,24 @@ export async function getServerSideProps({ params, locale, query }) {
 
     if (!listingData) return { notFound: true }
 
-    if (listingData.status === 'approved') {
-      const { data: profileData } = await supabase
-        .from('user_profiles')
-        .select('user_id, display_name, profile_picture')
-        .eq('user_id', listingData.user_id)
-        .single()
-
-      const listing = {
-        ...listingData,
-        user_profiles: profileData || null,
-        owner_name: profileData?.display_name || listingData.user_email?.split('@')[0] || 'Property Owner'
-      }
-
-      return { props: { listing, ...(await serverSideTranslations(locale, ['common'])) } }
+    // allow admin to view any status via ?admin=true
+    if (listingData.status !== 'approved' && admin !== 'true') {
+      return { notFound: true }
     }
 
-    if (admin === 'true') {
-      const { data: profileData } = await supabase
-        .from('user_profiles')
-        .select('user_id, display_name, profile_picture')
-        .eq('user_id', listingData.user_id)
-        .single()
+    const { data: profileData } = await supabase
+      .from('user_profiles')
+      .select('user_id, display_name, profile_picture')
+      .eq('user_id', listingData.user_id)
+      .single()
 
-      const listing = {
-        ...listingData,
-        user_profiles: profileData || null,
-        owner_name: profileData?.display_name || listingData.user_email?.split('@')[0] || 'Property Owner'
-      }
-
-      return { props: { listing, ...(await serverSideTranslations(locale, ['common'])) } }
+    const listing = {
+      ...listingData,
+      user_profiles: profileData || null,
+      owner_name: profileData?.display_name || listingData.user_email?.split('@')[0] || 'Property Owner'
     }
 
-    return { notFound: true }
+    return { props: { listing, ...(await serverSideTranslations(locale, ['common'])) } }
   } catch (error) {
     console.error(error)
     return { notFound: true }
