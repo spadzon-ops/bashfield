@@ -117,12 +117,18 @@ export default function ProfilePage() {
                         Price: {Number(l.price || 0).toLocaleString()} {l.currency}
                       </div>
                       <div className="pt-2">
-                        <Link
-                          href={`/listing/${l.id}`}
-                          className="px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-800 text-sm"
-                        >
-                          View details
-                        </Link>
+                        {l.status === 'approved' && l.is_active !== false ? (
+                          <Link
+                            href={`/listing/${l.id}`}
+                            className="px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-800 text-sm"
+                          >
+                            View details
+                          </Link>
+                        ) : (
+                          <span className="px-3 py-2 rounded-lg bg-gray-300 text-gray-500 text-sm cursor-not-allowed">
+                            Not available
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
