@@ -112,7 +112,7 @@ export default function ListingDetail({ listing: initialListing }) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { alert('Please sign in to send messages'); return }
     if (user.id === listing.user_id) { alert('You cannot message yourself'); return }
-    // route with peer+listing so your Messages page runs ensureConversation()
+    // route with peer+listing so Messages page runs ensureConversation()
     router.push(`/messages?peer=${listing.user_id}&listing=${listing.id}`)
   }
 
@@ -226,6 +226,43 @@ export default function ListingDetail({ listing: initialListing }) {
                 <h3 className="text-lg font-semibold text-gray-900 mb-3">Description</h3>
                 <p className="text-gray-700 leading-relaxed whitespace-pre-line">{listing.description}</p>
               </div>
+
+              {/* LOCATION (map restored exactly like before) */}
+              {(listing.address || (listing.latitude && listing.longitude)) && (
+                <div className="mt-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Location</h3>
+                  {listing.address && (
+                    <p className="text-gray-700 mb-4">{listing.address}</p>
+                  )}
+
+                  {(listing.latitude && listing.longitude) && (
+                    <div className="mt-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-md font-semibold text-gray-900">Property Location</h4>
+                        <button
+                          onClick={() => {
+                            const mapUrl = `https://www.openstreetmap.org/?mlat=${listing.latitude}&mlon=${listing.longitude}&zoom=15`
+                            window.open(mapUrl, '_blank')
+                          }}
+                          className="inline-flex items-center space-x-2 text-blue-700 px-3 py-1 rounded-lg transition-colors text-sm font-medium"
+                        >
+                          <span>🗺️</span><span>Open in Maps</span>
+                        </button>
+                      </div>
+                      <div className="w-full h-64 rounded-lg overflow-hidden border border-gray-200">
+                        <iframe
+                          src={`https://www.openstreetmap.org/export/embed.html?bbox=${parseFloat(listing.longitude)-0.01},${parseFloat(listing.latitude)-0.01},${parseFloat(listing.longitude)+0.01},${parseFloat(listing.latitude)+0.01}&layer=mapnik&marker=${parseFloat(listing.latitude)},${parseFloat(listing.longitude)}`}
+                          width="100%"
+                          height="100%"
+                          style={{ border: 0 }}
+                          title="Property Location"
+                          loading="lazy"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
@@ -237,7 +274,7 @@ export default function ListingDetail({ listing: initialListing }) {
               </div>
               <div className="text-sm text-gray-500 mb-4">per month</div>
 
-              {/* FIX: Remove View Details loop; add WhatsApp + Send Message */}
+              {/* No View Details loop; Send Message + WhatsApp */}
               <div className="grid grid-cols-1 gap-2 mb-4">
                 <button
                   onClick={startConversation}
