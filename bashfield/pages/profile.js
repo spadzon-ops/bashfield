@@ -328,7 +328,7 @@ export default function Profile() {
                     : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
-                🏠 My Listings ({userListings.length})
+                🏠 My Listings ({userListings.filter(listing => listing.status === 'approved' && listing.is_active !== false).length})
               </button>
             </nav>
           </div>
