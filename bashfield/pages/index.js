@@ -29,11 +29,12 @@ export default function Home() {
 
   const fetchListings = async () => {
     try {
-      // First get all approved listings
+      // First get all approved and active listings
       const { data: listingsData, error: listingsError } = await supabase
         .from('listings')
         .select('*')
         .eq('status', 'approved')
+        .eq('is_active', true)
         .order('created_at', { ascending: false })
 
       if (listingsError) {

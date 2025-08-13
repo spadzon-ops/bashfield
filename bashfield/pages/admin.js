@@ -296,8 +296,8 @@ export default function AdminPage() {
                     <div className="text-sm text-gray-600">Price: {Number(l.price || 0).toLocaleString()} {l.currency}</div>
 
                     <div className="pt-3 flex flex-wrap items-center gap-2">
-                      {/* View details always works for admin via ?admin=1 */}
-                      <Link href={`/listing/${l.id}?admin=1`} className="px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-800 text-sm">
+                      {/* View details always works for admin via ?admin=true */}
+                      <Link href={`/listing/${l.id}?admin=true`} className="px-3 py-2 rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-800 text-sm">
                         View details
                       </Link>
                       <button onClick={() => onApprove(l.id)}
