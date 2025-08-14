@@ -357,16 +357,16 @@ export default function Home() {
                 </button>
                 <button
                   onClick={() => setViewMode('map')}
-                  className={`px-8 py-4 rounded-xl font-bold transition-all duration-300 flex items-center space-x-2 border-2 shadow-lg ${
+                  className={`px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center space-x-2 ${
                     viewMode === 'map'
-                      ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-xl transform scale-110 border-blue-500 animate-pulse'
-                      : 'text-blue-600 hover:text-blue-700 hover:bg-blue-50 border-blue-200 hover:border-blue-400 bg-white'
+                      ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg transform scale-105'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                   }`}
                 >
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M12 1.586l-4 4v12.828l4-4V1.586zM3.707 3.293A1 1 0 002 4v10a1 1 0 00.293.707L6 18.414V5.586L3.707 3.293zM17.707 5.293L14 1.586v12.828l2.293 2.293A1 1 0 0018 16V6a1 1 0 00-.293-.707z" clipRule="evenodd" />
                   </svg>
-                  <span>🗺️ Map View</span>
+                  <span>Map</span>
                 </button>
               </div>
               
