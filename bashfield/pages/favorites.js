@@ -50,41 +50,50 @@ export default function Favorites() {
 
   const fetchFavorites = async (user) => {
     try {
-      const { data: favoritesData, error } = await supabase
+      // First get favorite listing IDs
+      const { data: favoriteIds, error: favError } = await supabase
         .from('favorites')
-        .select(`
-          id,
-          created_at,
-          listing_id,
-          listings!inner (
-            *,
-            user_profiles (
-              user_id,
-              display_name,
-              profile_picture
-            )
-          )
-        `)
+        .select('listing_id')
         .eq('user_id', user.id)
-        .eq('listings.status', 'approved')
-        .eq('listings.is_active', true)
         .order('created_at', { ascending: false })
 
-      if (error) {
-        console.error('Error fetching favorites:', error)
+      if (favError) {
+        console.error('Error fetching favorite IDs:', favError)
         return
       }
 
-      if (favoritesData) {
-        const validFavorites = favoritesData
-          .filter(fav => fav.listings)
-          .map(fav => ({
-            ...fav.listings,
-            user_profiles: fav.listings.user_profiles
-          }))
-        
-        setFavorites(validFavorites)
+      console.log('Favorite IDs found:', favoriteIds)
+      
+      if (!favoriteIds || favoriteIds.length === 0) {
+        console.log('No favorites found for user')
+        setFavorites([])
+        return
       }
+
+      const listingIds = favoriteIds.map(fav => fav.listing_id)
+
+      // Then get the actual listings
+      const { data: listingsData, error: listingsError } = await supabase
+        .from('listings')
+        .select(`
+          *,
+          user_profiles (
+            user_id,
+            display_name,
+            profile_picture
+          )
+        `)
+        .in('id', listingIds)
+        .eq('status', 'approved')
+        .eq('is_active', true)
+
+      if (listingsError) {
+        console.error('Error fetching listings:', listingsError)
+        return
+      }
+
+      console.log('Final favorites data:', listingsData)
+      setFavorites(listingsData || [])
     } catch (error) {
       console.error('Error in fetchFavorites:', error)
       setFavorites([])
