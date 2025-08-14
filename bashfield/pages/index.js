@@ -165,7 +165,7 @@ export default function Home() {
             {/* Filters */}
             <div className="max-w-4xl mx-auto mb-8">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <div>
+                <div>
                     <label className="block text-sm font-medium text-white mb-2">🏙️ City</label>
                     <select
                       value={filters.city}
@@ -177,9 +177,9 @@ export default function Home() {
                         <option key={city} value={city}>{city.charAt(0).toUpperCase() + city.slice(1)}</option>
                       ))}
                     </select>
-                  </div>
-                  
-                  <div>
+                </div>
+                
+                <div>
                     <label className="block text-sm font-medium text-white mb-2">🛏️ Rooms</label>
                     <select
                       value={filters.rooms}
@@ -193,9 +193,9 @@ export default function Home() {
                       <option value="4">4+ Rooms</option>
                       <option value="5">5+ Rooms</option>
                     </select>
-                  </div>
-                  
-                  <div>
+                </div>
+                
+                <div>
                     <label className="block text-sm font-medium text-white mb-2">💵 Price Range</label>
                     <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/20">
                       <div className="flex items-center space-x-3 mb-2">
@@ -229,7 +229,6 @@ export default function Home() {
                         ${filters.minPrice.toLocaleString()} - ${filters.maxPrice.toLocaleString()}
                       </div>
                     </div>
-                  </div>
                 </div>
               </div>
             </div>
