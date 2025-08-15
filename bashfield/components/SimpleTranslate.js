@@ -15,18 +15,16 @@ export default function SimpleTranslate() {
     }
   }, [])
 
-  const translateBatch = async (texts, targetLang) => {
-    if (targetLang === 'en') return texts
+  const translateText = async (text, targetLang) => {
+    if (targetLang === 'en') return text
     
     try {
-      const langCode = targetLang === 'ku' ? 'ckb' : targetLang
-      const combinedText = texts.join(' ||| ')
-      const response = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(combinedText)}&langpair=en|${langCode}`)
+      const langCode = targetLang === 'ku' ? 'ku' : targetLang
+      const response = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=${langCode}&dt=t&q=${encodeURIComponent(text)}`)
       const data = await response.json()
-      const translatedText = data.responseData?.translatedText || combinedText
-      return translatedText.split(' ||| ')
+      return data[0]?.[0]?.[0] || text
     } catch {
-      return texts
+      return text
     }
   }
 
@@ -62,20 +60,18 @@ export default function SimpleTranslate() {
       }
     })
     
-    // Translate all at once
-    const batchSize = 50
-    for (let i = 0; i < textsToTranslate.length; i += batchSize) {
-      const batch = textsToTranslate.slice(i, i + batchSize)
-      const elementBatch = elementsToTranslate.slice(i, i + batchSize)
-      
-      const translatedBatch = await translateBatch(batch, targetLang)
-      
-      elementBatch.forEach((element, index) => {
-        if (element && element.parentNode && translatedBatch[index]) {
-          element.textContent = translatedBatch[index]
+    // Translate instantly
+    const promises = elementsToTranslate.map(async (element, index) => {
+      const originalText = textsToTranslate[index]
+      if (originalText && originalText.length > 0) {
+        const translated = await translateText(originalText, targetLang)
+        if (element && element.parentNode) {
+          element.textContent = translated
         }
-      })
-    }
+      }
+    })
+    
+    await Promise.all(promises)
     
     setOriginalContent(originalContent)
     setIsTranslating(false)
