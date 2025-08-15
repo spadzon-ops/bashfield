@@ -32,6 +32,7 @@ export default function Home() {
   const [sortBy, setSortBy] = useState('default')
   const [showFilters, setShowFilters] = useState(false)
   const [page, setPage] = useState(1)
+  const [totalFilteredCount, setTotalFilteredCount] = useState(0)
   const ITEMS_PER_PAGE = 12
   const observerRef = useRef()
   const scrollPositionRef = useRef(0)
@@ -98,7 +99,8 @@ export default function Home() {
 
   useEffect(() => {
     applyFilters()
-  }, [filters, listings, sortBy])
+    getFilteredCount()
+  }, [filters, listings, sortBy, mode])
 
   useEffect(() => {
     updateDisplayedListings()
@@ -165,6 +167,52 @@ export default function Home() {
     }
     setLoading(false)
   }
+
+  const getFilteredCount = useCallback(async () => {
+    try {
+      let query = supabase
+        .from('listings')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'approved')
+        .eq('is_active', true)
+        .eq('listing_mode', mode)
+
+      if (filters.city) {
+        query = query.eq('city', filters.city)
+      }
+
+      if (filters.propertyType) {
+        query = query.eq('property_type', filters.propertyType)
+      }
+
+      if (filters.rooms) {
+        query = query.gte('rooms', parseInt(filters.rooms))
+      }
+
+      if (filters.minSize) {
+        query = query.gte('size_sqm', parseInt(filters.minSize))
+      }
+
+      if (filters.minPrice) {
+        query = query.gte('price', parseInt(filters.minPrice))
+      }
+
+      if (filters.maxPrice) {
+        query = query.lte('price', parseInt(filters.maxPrice))
+      }
+
+      if (filters.searchQuery) {
+        const searchTerm = `%${filters.searchQuery.toLowerCase()}%`
+        query = query.or(`title.ilike.${searchTerm},description.ilike.${searchTerm},city.ilike.${searchTerm}`)
+      }
+
+      const { count } = await query
+      setTotalFilteredCount(count || 0)
+    } catch (error) {
+      console.error('Error getting filtered count:', error)
+      setTotalFilteredCount(0)
+    }
+  }, [filters, mode])
 
   const applyFilters = useCallback(() => {
     let filtered = listings
@@ -616,7 +664,7 @@ export default function Home() {
             <>
               <div className="mb-6 text-center">
                 <p className="text-gray-600">
-                  Showing <span className="font-semibold">{displayedListings.length}</span> of <span className="font-semibold">{filteredListings.length}</span> rentals
+                  Showing <span className="font-semibold">{displayedListings.length}</span> of <span className="font-semibold">{totalFilteredCount}</span> {mode === 'rent' ? 'rentals' : 'properties'}
                   {viewMode === 'list' && <span className="ml-2">in list view</span>}
                 </p>
               </div>
