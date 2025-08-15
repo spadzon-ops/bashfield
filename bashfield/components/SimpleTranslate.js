@@ -19,7 +19,7 @@ export default function SimpleTranslate() {
     if (targetLang === 'en') return text
     
     try {
-      const langCode = targetLang === 'ku' ? 'ku' : targetLang
+      const langCode = targetLang === 'ku' ? 'ckb' : targetLang
       const response = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=${langCode}&dt=t&q=${encodeURIComponent(text)}`)
       const data = await response.json()
       return data[0]?.[0]?.[0] || text
@@ -45,28 +45,57 @@ export default function SimpleTranslate() {
       return
     }
     
-    const textElements = document.querySelectorAll('p, h1, h2, h3, h4, h5, h6, span, div, button, label, option')
+    const textElements = document.querySelectorAll('p, h1, h2, h3, h4, h5, h6, span, div, button, label, option, a, li, td, th, input[placeholder], textarea[placeholder]')
     const elementsToTranslate = []
     const textsToTranslate = []
     
     textElements.forEach(element => {
       if (element.classList.contains('notranslate')) return
-      if (element.children.length === 0 && element.textContent.trim() && element.textContent.length < 200) {
+      
+      // Handle text content
+      if (element.children.length === 0 && element.textContent.trim() && element.textContent.length < 500) {
         if (!originalContent.has(element)) {
           originalContent.set(element, element.textContent)
         }
         elementsToTranslate.push(element)
         textsToTranslate.push(element.textContent.trim())
       }
+      
+      // Handle placeholder attributes
+      if (element.placeholder && element.placeholder.trim()) {
+        if (!originalContent.has(element.placeholder)) {
+          originalContent.set(element.placeholder, element.placeholder)
+        }
+        elementsToTranslate.push({ element, type: 'placeholder' })
+        textsToTranslate.push(element.placeholder.trim())
+      }
+      
+      // Handle title attributes
+      if (element.title && element.title.trim()) {
+        if (!originalContent.has(element.title)) {
+          originalContent.set(element.title, element.title)
+        }
+        elementsToTranslate.push({ element, type: 'title' })
+        textsToTranslate.push(element.title.trim())
+      }
     })
     
     // Translate instantly
-    const promises = elementsToTranslate.map(async (element, index) => {
+    const promises = elementsToTranslate.map(async (item, index) => {
       const originalText = textsToTranslate[index]
       if (originalText && originalText.length > 0) {
         const translated = await translateText(originalText, targetLang)
-        if (element && element.parentNode) {
-          element.textContent = translated
+        
+        if (typeof item === 'object' && item.type) {
+          // Handle attributes
+          if (item.type === 'placeholder') {
+            item.element.placeholder = translated
+          } else if (item.type === 'title') {
+            item.element.title = translated
+          }
+        } else if (item && item.parentNode) {
+          // Handle text content
+          item.textContent = translated
         }
       }
     })
