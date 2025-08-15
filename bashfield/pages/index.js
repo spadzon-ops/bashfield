@@ -208,6 +208,8 @@ export default function Home() {
       })
 
       setListings(listingsWithProfiles || [])
+      // Get initial count after loading listings
+      setTimeout(() => getFilteredCount(), 100)
     } catch (error) {
       if (error.name !== 'AbortError') {
         console.error('Error in fetchListings:', error)
@@ -218,6 +220,8 @@ export default function Home() {
   }
 
   const getFilteredCount = useCallback(async () => {
+    if (switchingMode) return
+    
     try {
       let query = supabase
         .from('listings')
@@ -259,9 +263,9 @@ export default function Home() {
       setTotalFilteredCount(count || 0)
     } catch (error) {
       console.error('Error getting filtered count:', error)
-      setTotalFilteredCount(filteredListings.length)
+      setTotalFilteredCount(0)
     }
-  }, [filters, mode, filteredListings.length])
+  }, [filters, mode, switchingMode])
 
   const applyFilters = useCallback(() => {
     let filtered = listings
@@ -687,7 +691,14 @@ export default function Home() {
                 <p className="text-gray-600">Loading properties...</p>
               </div>
             </div>
-          ) : !switchingMode && filteredListings.length === 0 ? (
+          ) : switchingMode ? (
+            <div className="flex justify-center py-20">
+              <div className="text-center">
+                <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                <p className="text-gray-600">Switching modes...</p>
+              </div>
+            </div>
+          ) : filteredListings.length === 0 ? (
             <div className="text-center py-20">
               <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
                 <span className="text-4xl">🏠</span>
@@ -713,7 +724,7 @@ export default function Home() {
             <>
               <div className="mb-6 text-center">
                 <p className="text-gray-600">
-                  Showing <span className="font-semibold">{displayedListings.length}</span> of <span className="font-semibold">{totalFilteredCount}</span> {mode === 'rent' ? 'rentals' : 'properties'}
+                  Showing <span className="font-semibold">{displayedListings.length}</span> of <span className="font-semibold">{totalFilteredCount > 0 ? totalFilteredCount : filteredListings.length}</span> {mode === 'rent' ? 'rentals' : 'properties'}
                   {viewMode === 'list' && <span className="ml-2">in list view</span>}
                 </p>
               </div>
@@ -788,7 +799,7 @@ export default function Home() {
                       </svg>
                       <h3 className="text-2xl font-bold">Rental Map</h3>
                     </div>
-                    <p className="text-blue-100">Explore {filteredListings.length} rentals by location</p>
+                    <p className="text-blue-100">Explore {totalFilteredCount > 0 ? totalFilteredCount : filteredListings.length} {mode === 'rent' ? 'rentals' : 'properties'} by location</p>
                   </div>
                   <div className="h-[500px]">
                     <MapView 
