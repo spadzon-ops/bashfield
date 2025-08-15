@@ -239,11 +239,4 @@ export default function SimpleTranslate() {
       )}
     </div>
   )
-}m flex items-center space-x-1">
-          <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin"></div>
-          <span>Translating...</span>
-        </div>
-      )}
-    </div>
-  )
 }
