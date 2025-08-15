@@ -1,691 +1,427 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { serverSideTranslations } from 'next-i18next/serverSideTranslations'
-import { useTranslation } from 'next-i18next'
-import { useRouter } from 'next/router'
-import { supabase, CITIES, PROPERTY_TYPES } from '../lib/supabase'
-import ListingCard from '../components/ListingCard'
-import MapView from '../components/MapView'
-import ModeSwitcher from '../components/ModeSwitcher'
-import InlineModeSwitcher from '../components/InlineModeSwitcher'
-import { useMode } from '../contexts/ModeContext'
+-- Bashfield consolidated setup with Translation System and Verification — SAFE to re-run
+create extension if not exists pgcrypto;
 
-export default function Home() {
-  const { t } = useTranslation('common')
-  const router = useRouter()
-  const { mode, config } = useMode()
-  const [prevMode, setPrevMode] = useState(mode)
-  const [listings, setListings] = useState([])
-  const [displayedListings, setDisplayedListings] = useState([])
-  const [filteredListings, setFilteredListings] = useState([])
-  const [filters, setFilters] = useState({
-    city: '',
-    propertyType: '',
-    minPrice: '',
-    maxPrice: '',
-    rooms: '',
-    minSize: '',
-    searchQuery: ''
-  })
-  const [loading, setLoading] = useState(true)
-  const [loadingMore, setLoadingMore] = useState(false)
-  const [viewMode, setViewMode] = useState('grid')
-  const [sortBy, setSortBy] = useState('default')
-  const [showFilters, setShowFilters] = useState(false)
-  const [page, setPage] = useState(1)
-  const ITEMS_PER_PAGE = 12
-  const observerRef = useRef()
-  const scrollPositionRef = useRef(0)
+-- ================= ADMIN =================
+create table if not exists public.admin_emails(email text primary key);
+insert into public.admin_emails(email) values ('spadzon@gmail.com')
+on conflict (email) do nothing;
 
-  useEffect(() => {
-    fetchListings()
-    // Reset filters when mode changes
-    if (prevMode !== mode) {
-      setFilters({
-        city: '',
-        propertyType: '',
-        minPrice: '',
-        maxPrice: '',
-        rooms: '',
-        minSize: '',
-        searchQuery: ''
-      })
-      setPage(1)
-      setPrevMode(mode)
-    }
-  }, [mode, prevMode])
+-- ================= PROFILES =================
+create table if not exists public.user_profiles (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users(id) on delete cascade unique,
+  email text not null,
+  display_name text not null,
+  profile_picture text,
+  is_verified boolean default false,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
 
-  // Prevent initial scroll to top flash
-  useEffect(() => {
-    const savedPosition = sessionStorage.getItem('homeScrollPosition')
-    if (savedPosition) {
-      document.documentElement.style.scrollBehavior = 'auto'
-      window.scrollTo(0, parseInt(savedPosition))
-      setTimeout(() => {
-        document.documentElement.style.scrollBehavior = ''
-      }, 100)
-    }
-  }, [])
+-- Add verification column if it doesn't exist
+alter table public.user_profiles add column if not exists is_verified boolean default false;
 
-  // Restore scroll position when returning from property details
-  useEffect(() => {
-    if (!loading && filteredListings.length > 0) {
-      const savedItemCount = sessionStorage.getItem('homeItemCount')
-      const savedPosition = sessionStorage.getItem('homeScrollPosition')
-      
-      if (savedItemCount && savedPosition) {
-        const itemCount = parseInt(savedItemCount)
-        const neededPage = Math.ceil(itemCount / ITEMS_PER_PAGE)
-        setPage(neededPage)
-      }
-    }
-  }, [loading, filteredListings])
+alter table public.user_profiles enable row level security;
 
-  // Scroll to position after items are loaded
-  useEffect(() => {
-    const savedPosition = sessionStorage.getItem('homeScrollPosition')
-    const savedItemCount = sessionStorage.getItem('homeItemCount')
-    
-    if (savedPosition && savedItemCount && displayedListings.length >= parseInt(savedItemCount)) {
-      requestAnimationFrame(() => {
-        window.scrollTo({ top: parseInt(savedPosition), behavior: 'instant' })
-        sessionStorage.removeItem('homeScrollPosition')
-        sessionStorage.removeItem('homeItemCount')
-      })
-    }
-  }, [displayedListings.length])
+-- Drop any old/new policy names (idempotent)
+drop policy if exists "Enable read access for all users" on public.user_profiles;
+drop policy if exists "Enable insert for authenticated users only" on public.user_profiles;
+drop policy if exists "Enable update for users based on user_id" on public.user_profiles;
+drop policy if exists "Enable delete for users based on user_id" on public.user_profiles;
 
+drop policy if exists "profiles_read_all" on public.user_profiles;
+drop policy if exists "profiles_insert_self" on public.user_profiles;
+drop policy if exists "profiles_update_self" on public.user_profiles;
+drop policy if exists "profiles_delete_self" on public.user_profiles;
+drop policy if exists "profiles_admin_update" on public.user_profiles;
 
+create policy "profiles_read_all" on public.user_profiles
+  for select using (true);
 
-  useEffect(() => {
-    applyFilters()
-  }, [filters, listings, sortBy])
+create policy "profiles_insert_self" on public.user_profiles
+  for insert with check (auth.uid() = user_id);
 
-  useEffect(() => {
-    updateDisplayedListings()
-  }, [filteredListings, page])
+create policy "profiles_update_self" on public.user_profiles
+  for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
-  // Infinite scroll observer
-  useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && !loadingMore && displayedListings.length < filteredListings.length) {
-          loadMore()
-        }
-      },
-      { threshold: 0.1 }
-    )
+create policy "profiles_delete_self" on public.user_profiles
+  for delete using (auth.uid() = user_id);
 
-    if (observerRef.current) {
-      observer.observe(observerRef.current)
-    }
+create policy "profiles_admin_update" on public.user_profiles
+  for update using ((auth.jwt() ->> 'email') in (select email from public.admin_emails))
+  with check ((auth.jwt() ->> 'email') in (select email from public.admin_emails));
 
-    return () => observer.disconnect()
-  }, [loadingMore, displayedListings.length, filteredListings.length])
+create or replace function public.set_updated_at()
+returns trigger language plpgsql as $$
+begin
+  new.updated_at = now();
+  return new;
+end $$;
 
-  const fetchListings = async () => {
-    try {
-      // First get all approved and active listings
-      const { data: listingsData, error: listingsError } = await supabase
-        .from('listings')
-        .select('*')
-        .eq('status', 'approved')
-        .eq('is_active', true)
-        .eq('listing_mode', mode)
-        .order('created_at', { ascending: false })
+drop trigger if exists user_profiles_set_updated_at on public.user_profiles;
+create trigger user_profiles_set_updated_at
+before update on public.user_profiles
+for each row execute function public.set_updated_at();
 
-      if (listingsError) {
-        console.error('Error fetching listings:', listingsError)
-        setListings([])
-        setLoading(false)
-        return
-      }
-
-      // Then get all user profiles
-      const { data: profilesData, error: profilesError } = await supabase
-        .from('user_profiles')
-        .select('user_id, display_name, profile_picture, is_verified')
-
-      if (profilesError) {
-        console.error('Error fetching profiles:', profilesError)
-      }
-
-      // Merge the data
-      const listingsWithProfiles = listingsData.map(listing => {
-        const profile = profilesData?.find(p => p.user_id === listing.user_id)
-        return {
-          ...listing,
-          user_profiles: profile || null
-        }
-      })
-
-      setListings(listingsWithProfiles || [])
-    } catch (error) {
-      console.error('Error in fetchListings:', error)
-      setListings([])
-    }
-    setLoading(false)
-  }
-
-  const applyFilters = useCallback(() => {
-    let filtered = listings
-
-    // Search query filter
-    if (filters.searchQuery) {
-      const query = filters.searchQuery.toLowerCase()
-      filtered = filtered.filter(listing => 
-        listing.title.toLowerCase().includes(query) ||
-        listing.description.toLowerCase().includes(query) ||
-        listing.city.toLowerCase().includes(query)
-      )
-    }
-
-    if (filters.city) {
-      filtered = filtered.filter(listing => listing.city === filters.city)
-    }
-
-    if (filters.propertyType) {
-      filtered = filtered.filter(listing => listing.property_type === filters.propertyType)
-    }
-
-    if (filters.rooms) {
-      filtered = filtered.filter(listing => listing.rooms >= parseInt(filters.rooms))
-    }
-
-    if (filters.minSize) {
-      filtered = filtered.filter(listing => listing.size_sqm && listing.size_sqm >= parseInt(filters.minSize))
-    }
-
-    // Price filtering
-    if (filters.minPrice || filters.maxPrice) {
-      filtered = filtered.filter(listing => {
-        const price = listing.price
-        const minPrice = parseInt(filters.minPrice) || 0
-        const maxPrice = parseInt(filters.maxPrice) || 999999
-        return price >= minPrice && price <= maxPrice
-      })
-    }
-
-    // Apply sorting
-    filtered = [...filtered].sort((a, b) => {
-      switch (sortBy) {
-        case 'default':
-        case 'newest':
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        case 'price-low':
-          return (a.price || 0) - (b.price || 0)
-        case 'price-high':
-          return (b.price || 0) - (a.price || 0)
-        default:
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      }
-    })
-
-    setFilteredListings(filtered)
-    setPage(1) // Reset pagination when filters change
-  }, [listings, filters, sortBy])
-
-  const updateDisplayedListings = useCallback(() => {
-    const endIndex = page * ITEMS_PER_PAGE
-    setDisplayedListings(filteredListings.slice(0, endIndex))
-  }, [filteredListings, page])
-
-  const loadMore = useCallback(() => {
-    if (loadingMore || displayedListings.length >= filteredListings.length) return
-    
-    setLoadingMore(true)
-    setTimeout(() => {
-      setPage(prev => prev + 1)
-      setLoadingMore(false)
-    }, 500) // Small delay for better UX
-  }, [loadingMore, displayedListings.length, filteredListings.length])
-
-  const clearFilters = useCallback(() => {
-    setFilters({
-      city: '',
-      propertyType: '',
-      minPrice: '',
-      maxPrice: '',
-      rooms: '',
-      minSize: '',
-      searchQuery: ''
-    })
-    setPage(1)
-  }, [])
-
-  // Memoize expensive calculations
-  const hasActiveFilters = useMemo(() => {
-    return filters.city || filters.propertyType || filters.rooms || filters.minPrice || filters.maxPrice || filters.minSize
-  }, [filters])
-
-  const statsData = useMemo(() => {
-    return {
-      totalListings: listings.length,
-      totalCities: CITIES.length
-    }
-  }, [listings.length])
-
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Ultra Modern Hero Section */}
-      <div className="relative bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-800 overflow-hidden">
-        {/* Animated Background Elements */}
-        <div className="absolute inset-0">
-          <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob"></div>
-          <div className="absolute top-1/3 right-1/4 w-96 h-96 bg-gradient-to-r from-yellow-400 to-pink-400 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-2000"></div>
-          <div className="absolute bottom-1/4 left-1/3 w-96 h-96 bg-gradient-to-r from-pink-400 to-red-400 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000"></div>
-        </div>
-        
-        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-16">
-          <div className="text-center">
-            <div className="mb-8">
-              <span className="inline-flex items-center px-4 py-2 rounded-full text-sm font-medium bg-white/10 text-white backdrop-blur-sm border border-white/20">
-                🏠 #1 Property Platform
-              </span>
-            </div>
-            <div className="mb-8">
-              <ModeSwitcher onModeChange={() => {
-                setFilters({
-                  city: '',
-                  propertyType: '',
-                  minPrice: '',
-                  maxPrice: '',
-                  rooms: '',
-                  minSize: '',
-                  searchQuery: ''
-                })
-                setPage(1)
-              }} />
-            </div>
-            
-            <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold text-white mb-8 leading-tight">
-              {config.heroTitle.split(' ').slice(0, -2).join(' ')}
-              <span className="block bg-gradient-to-r from-blue-400 via-cyan-400 to-teal-400 bg-clip-text text-transparent">
-                {config.heroTitle.split(' ').slice(-2).join(' ')}
-              </span>
-            </h1>
-            <p className="text-xl sm:text-2xl text-gray-200 mb-12 max-w-4xl mx-auto leading-relaxed">
-              {config.heroSubtitle}
-              <span className="block mt-2 text-blue-300 font-semibold">{mode === 'rent' ? 'Rent homes • List properties • Connect instantly' : 'Buy homes • Sell properties • Connect instantly'}</span>
-            </p>
-            
-
-
-            {/* Enhanced Search Box */}
-            <div className="max-w-5xl mx-auto mb-12">
-              <div className="bg-white/95 backdrop-blur-lg rounded-3xl shadow-2xl border border-white/20 p-8">
-                <div className="grid grid-cols-1 md:grid-cols-6 gap-4 mb-6">
-                  <select
-                    value={filters.propertyType}
-                    onChange={(e) => setFilters(prev => ({ ...prev, propertyType: e.target.value }))}
-                    className="w-full px-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-gray-900 font-medium"
-                  >
-                    <option value="">All Types</option>
-                    {PROPERTY_TYPES.map(type => (
-                      <option key={type.value} value={type.value}>{type.icon} {type.label}</option>
-                    ))}
-                  </select>
-                  
-                  <select
-                    value={filters.city}
-                    onChange={(e) => setFilters(prev => ({ ...prev, city: e.target.value }))}
-                    className="w-full px-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-gray-900 font-medium"
-                  >
-                    <option value="">All Cities</option>
-                    {CITIES.map(city => (
-                      <option key={city} value={city}>{city.charAt(0).toUpperCase() + city.slice(1)}</option>
-                    ))}
-                  </select>
-                  
-                  <select
-                    value={filters.rooms}
-                    onChange={(e) => setFilters(prev => ({ ...prev, rooms: e.target.value }))}
-                    className="w-full px-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-gray-900 font-medium"
-                  >
-                    <option value="">Any Rooms</option>
-                    <option value="1">1+ Room</option>
-                    <option value="2">2+ Rooms</option>
-                    <option value="3">3+ Rooms</option>
-                    <option value="4">4+ Rooms</option>
-                    <option value="5">5+ Rooms</option>
-                  </select>
-                  
-                  <input
-                    type="number"
-                    placeholder="Min Size (m²)"
-                    value={filters.minSize || ''}
-                    onChange={(e) => {
-                      const value = e.target.value
-                      setFilters(prev => ({ ...prev, minSize: value }))
-                    }}
-                    className="w-full px-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-gray-900 font-medium"
-                  />
-                  
-                  <input
-                    type="number"
-                    placeholder="Min Price"
-                    value={filters.minPrice || ''}
-                    onChange={(e) => {
-                      const value = e.target.value
-                      setFilters(prev => ({ ...prev, minPrice: value }))
-                    }}
-                    className="w-full px-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-gray-900 font-medium"
-                  />
-                  
-                  <input
-                    type="number"
-                    placeholder="Max Price"
-                    value={filters.maxPrice || ''}
-                    onChange={(e) => {
-                      const value = e.target.value
-                      setFilters(prev => ({ ...prev, maxPrice: value }))
-                    }}
-                    className="w-full px-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-gray-900 font-medium"
-                  />
-                </div>
-                
-                <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <button 
-                    onClick={() => document.getElementById('listings').scrollIntoView({ behavior: 'smooth' })}
-                    className="group bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold py-4 px-8 rounded-2xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 flex items-center justify-center space-x-3"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                    <span>{config.searchLabel}</span>
-                  </button>
-                  <button 
-                    onClick={() => window.location.href = '/post'}
-                    className="group bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-bold py-4 px-8 rounded-2xl transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105 flex items-center justify-center space-x-3"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    <span>Post Your Property</span>
-                    <span className="text-xs bg-white/20 px-2 py-1 rounded-full">FREE</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Compact Stats Section */}
-      <div className="bg-white py-4">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-xl p-4 text-center border border-blue-200/50">
-              <div className="text-2xl font-bold text-blue-600">{statsData.totalListings}+</div>
-              <div className="text-sm text-gray-700">{mode === 'rent' ? 'Rentals' : 'For Sale'}</div>
-            </div>
-            <div className="bg-gradient-to-br from-green-50 to-emerald-100 rounded-xl p-4 text-center border border-green-200/50">
-              <div className="text-2xl font-bold text-green-600">{statsData.totalCities}</div>
-              <div className="text-sm text-gray-700">Cities</div>
-            </div>
-            <div className="bg-gradient-to-br from-purple-50 to-violet-100 rounded-xl p-4 text-center border border-purple-200/50">
-              <div className="text-2xl font-bold text-purple-600">★★★★★</div>
-              <div className="text-sm text-gray-700">Quality</div>
-            </div>
-            <div className="bg-gradient-to-br from-orange-50 to-red-100 rounded-xl p-4 text-center border border-orange-200/50">
-              <div className="text-2xl font-bold text-orange-600">24/7</div>
-              <div className="text-sm text-gray-700">Support</div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Enhanced Listings Section */}
-      <div id="listings" className="bg-gradient-to-b from-gray-50 to-white py-6 sm:py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-8">
-            <div className="mb-4">
-              <InlineModeSwitcher onModeChange={() => {
-                setFilters({
-                  city: '',
-                  propertyType: '',
-                  minPrice: '',
-                  maxPrice: '',
-                  rooms: '',
-                  minSize: '',
-                  searchQuery: ''
-                })
-                setPage(1)
-              }} />
-            </div>
-            
-            {/* Enhanced Controls */}
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
-              {/* View Toggle */}
-              <div className="inline-flex bg-white rounded-2xl shadow-lg p-2 border border-gray-200">
-                <button
-                  onClick={() => setViewMode('grid')}
-                  className={`px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center space-x-2 ${
-                    viewMode === 'grid'
-                      ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg transform scale-105'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
-                >
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM11 13a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                  </svg>
-                  <span>Grid</span>
-                </button>
-                <button
-                  onClick={() => setViewMode('list')}
-                  className={`px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center space-x-2 ${
-                    viewMode === 'list'
-                      ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg transform scale-105'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
-                >
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
-                  </svg>
-                  <span>List</span>
-                </button>
-                <button
-                  onClick={() => setViewMode('map')}
-                  className={`px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center space-x-2 ${
-                    viewMode === 'map'
-                      ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg transform scale-105'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
-                >
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M12 1.586l-4 4v12.828l4-4V1.586zM3.707 3.293A1 1 0 002 4v10a1 1 0 00.293.707L6 18.414V5.586L3.707 3.293zM17.707 5.293L14 1.586v12.828l2.293 2.293A1 1 0 0018 16V6a1 1 0 00-.293-.707z" clipRule="evenodd" />
-                  </svg>
-                  <span>Map</span>
-                </button>
-              </div>
-              
-              {/* Sort Dropdown */}
-              <div className="flex items-center space-x-4">
-                <label className="text-sm font-medium text-gray-700">Sort by:</label>
-                <select
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                  className="px-4 py-2 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-white"
-                >
-                  <option value="default">Default</option>
-                  <option value="newest">Newest First</option>
-                  <option value="price-low">Price: Low to High</option>
-                  <option value="price-high">Price: High to Low</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          {/* Active Filters */}
-          {hasActiveFilters && (
-            <div className="mb-6 flex flex-wrap items-center gap-2 justify-center">
-              <span className="text-sm text-gray-600">Active filters:</span>
-              {filters.propertyType && (
-                <span className="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-sm">
-                  {PROPERTY_TYPES.find(t => t.value === filters.propertyType)?.icon} {PROPERTY_TYPES.find(t => t.value === filters.propertyType)?.label}
-                </span>
-              )}
-              {filters.city && (
-                <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
-                  📍 {filters.city.charAt(0).toUpperCase() + filters.city.slice(1)}
-                </span>
-              )}
-              {filters.rooms && (
-                <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm">
-                  🛏️ {filters.rooms}+ rooms
-                </span>
-              )}
-              {filters.minSize && (
-                <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm">
-                  📏 {filters.minSize}+ m²
-                </span>
-              )}
-              {(filters.minPrice || filters.maxPrice) && (
-                <span className="bg-purple-100 text-purple-800 px-3 py-1 rounded-full text-sm">
-                  💰 ${(filters.minPrice || 0).toLocaleString()} - ${(filters.maxPrice || '∞').toLocaleString()}
-                </span>
-              )}
-              <button
-                onClick={clearFilters}
-                className="text-red-600 hover:text-red-800 text-sm underline ml-2"
-              >
-                Clear all
-              </button>
-            </div>
-          )}
-
-          {loading ? (
-            <div className="flex justify-center py-20">
-              <div className="text-center">
-                <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                <p className="text-gray-600">Loading properties...</p>
-              </div>
-            </div>
-          ) : filteredListings.length === 0 ? (
-            <div className="text-center py-20">
-              <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
-                <span className="text-4xl">🏠</span>
-              </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-4">No rentals found</h3>
-              <p className="text-gray-600 mb-6">Try adjusting your filters or be the first to list your property for rent!</p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <button 
-                  onClick={clearFilters}
-                  className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-lg transition-colors"
-                >
-                  Clear Filters
-                </button>
-                <button 
-                  onClick={() => window.location.href = '/post'}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors"
-                >
-                  List for Rent
-                </button>
-              </div>
-            </div>
-          ) : (
-            <>
-              <div className="mb-6 text-center">
-                <p className="text-gray-600">
-                  Showing <span className="font-semibold">{displayedListings.length}</span> of <span className="font-semibold">{filteredListings.length}</span> rentals
-                  {viewMode === 'list' && <span className="ml-2">in list view</span>}
-                </p>
-              </div>
-              
-              {/* Grid View */}
-              {viewMode === 'grid' && (
-                <>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 sm:gap-8">
-                    {displayedListings.map(listing => (
-                      <ListingCard key={listing.id} listing={listing} />
-                    ))}
-                  </div>
-                  
-                  {/* Loading more indicator */}
-                  {displayedListings.length < filteredListings.length && (
-                    <div ref={observerRef} className="flex justify-center py-8">
-                      {loadingMore ? (
-                        <div className="text-center">
-                          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                          <p className="text-gray-600">Loading more...</p>
-                        </div>
-                      ) : (
-                        <button 
-                          onClick={loadMore}
-                          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors"
-                        >
-                          Load More
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </>
-              )}
-              
-              {/* List View */}
-              {viewMode === 'list' && (
-                <>
-                  <div className="space-y-6">
-                    {displayedListings.map(listing => (
-                      <ListingCard key={listing.id} listing={listing} viewMode="list" />
-                    ))}
-                  </div>
-                  
-                  {/* Loading more indicator */}
-                  {displayedListings.length < filteredListings.length && (
-                    <div ref={observerRef} className="flex justify-center py-8">
-                      {loadingMore ? (
-                        <div className="text-center">
-                          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
-                          <p className="text-gray-600">Loading more...</p>
-                        </div>
-                      ) : (
-                        <button 
-                          onClick={loadMore}
-                          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors"
-                        >
-                          Load More
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </>
-              )}
-              
-              {/* Map View */}
-              {viewMode === 'map' && (
-                <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
-                  <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 text-center">
-                    <div className="flex items-center justify-center space-x-3 mb-2">
-                      <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
-                        <path fillRule="evenodd" d="M12 1.586l-4 4v12.828l4-4V1.586zM3.707 3.293A1 1 0 002 4v10a1 1 0 00.293.707L6 18.414V5.586L3.707 3.293zM17.707 5.293L14 1.586v12.828l2.293 2.293A1 1 0 0018 16V6a1 1 0 00-.293-.707z" clipRule="evenodd" />
-                      </svg>
-                      <h3 className="text-2xl font-bold">Rental Map</h3>
-                    </div>
-                    <p className="text-blue-100">Explore {filteredListings.length} rentals by location</p>
-                  </div>
-                  <div className="h-[500px]">
-                    <MapView 
-                      listings={filteredListings}
-                      onListingSelect={(listing) => {
-                        // Handle listing selection if needed
-                      }}
-                    />
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      </div>
-    </div>
+-- Auto-create profile on new auth user
+create or replace function public.handle_new_user()
+returns trigger language plpgsql security definer as $$
+begin
+  insert into public.user_profiles(user_id, email, display_name, profile_picture)
+  values (
+    new.id,
+    coalesce(new.email, (new.raw_user_meta_data->>'email')),
+    coalesce(new.raw_user_meta_data->>'full_name', new.raw_user_meta_data->>'name',
+             split_part(coalesce(new.email, 'user@unknown'), '@', 1)),
+    new.raw_user_meta_data->>'avatar_url'
   )
-}
+  on conflict (user_id) do nothing;
+  return new;
+end $$;
 
-export async function getStaticProps({ locale }) {
-  return {
-    props: {
-      ...(await serverSideTranslations(locale, ['common'])),
-    },
-    revalidate: 60,
-  }
-}
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+after insert on auth.users for each row execute procedure public.handle_new_user();
+
+-- ================= STORAGE =================
+insert into storage.buckets (id, name, public)
+values ('house-images', 'house-images', true)
+on conflict (id) do nothing;
+
+-- Reset storage policies
+drop policy if exists "house_images_read_public" on storage.objects;
+drop policy if exists "house_images_insert_owner" on storage.objects;
+drop policy if exists "house_images_update_owner" on storage.objects;
+drop policy if exists "house_images_delete_owner" on storage.objects;
+
+drop policy if exists "Anyone can view images" on storage.objects;
+drop policy if exists "Authenticated users can upload images" on storage.objects;
+drop policy if exists "Users can update their own images" on storage.objects;
+drop policy if exists "Users can delete their own images" on storage.objects;
+
+create policy "Anyone can view images" on storage.objects
+  for select using (bucket_id = 'house-images');
+
+create policy "Authenticated users can upload images" on storage.objects
+  for insert with check (bucket_id = 'house-images' and auth.role() = 'authenticated');
+
+create policy "Users can update their own images" on storage.objects
+  for update using (bucket_id = 'house-images' and auth.role() = 'authenticated');
+
+create policy "Users can delete their own images" on storage.objects
+  for delete using (bucket_id = 'house-images' and auth.role() = 'authenticated');
+
+-- ================= LISTINGS =================
+create table if not exists public.listings (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users(id) on delete cascade not null,
+  title text not null,
+  description text not null,
+  price integer not null,
+  currency text default 'USD' check (currency in ('USD')),
+  city text not null,
+  rooms integer not null,
+  phone text not null,
+  latitude numeric(10,8),
+  longitude numeric(11,8),
+  images text[] default '{}'::text[],
+  status text not null default 'pending' check (status in ('pending','approved','rejected')),
+  is_active boolean default true,
+  reference_code text,
+  size_sqm integer,
+  detected_language text default 'en',
+  property_type text default 'apartment' check (property_type in ('apartment', 'house', 'villa', 'studio', 'office', 'shop', 'warehouse', 'land')),
+  listing_mode text default 'rent' check (listing_mode in ('rent', 'sale')),
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+-- Add columns if they don't exist
+alter table public.listings add column if not exists is_active boolean default true;
+alter table public.listings add column if not exists reference_code text;
+alter table public.listings add column if not exists size_sqm integer;
+alter table public.listings add column if not exists detected_language text default 'en';
+alter table public.listings add column if not exists property_type text default 'apartment' check (property_type in ('apartment', 'house', 'villa', 'studio', 'office', 'shop', 'warehouse', 'land'));
+alter table public.listings add column if not exists listing_mode text default 'rent' check (listing_mode in ('rent', 'sale'));
+
+-- Update existing listings to have default property type and listing mode
+update public.listings set property_type = 'apartment' where property_type is null;
+update public.listings set listing_mode = 'rent' where listing_mode is null;
+
+-- Make property_type and listing_mode not null
+alter table public.listings alter column property_type set not null;
+alter table public.listings alter column listing_mode set not null;
+
+create index if not exists idx_listings_status  on public.listings(status);
+create index if not exists idx_listings_user    on public.listings(user_id);
+create index if not exists idx_listings_city    on public.listings(city);
+create index if not exists idx_listings_created on public.listings(created_at desc);
+create index if not exists idx_listings_active  on public.listings(is_active);
+create index if not exists idx_listings_language on public.listings(detected_language);
+create index if not exists idx_listings_property_type on public.listings(property_type);
+create index if not exists idx_listings_mode on public.listings(listing_mode);
+
+-- Property code generator function
+create or replace function public.gen_property_code()
+returns text
+language plpgsql
+as $$
+declare
+  candidate text;
+  tries int := 0;
+begin
+  loop
+    candidate := 'BF-' || upper(substr(encode(gen_random_bytes(6), 'hex'), 1, 6));
+    perform 1 from public.listings where reference_code = candidate;
+    if not found then
+      return candidate;
+    end if;
+    tries := tries + 1;
+    if tries > 20 then
+      candidate := 'BF-' || upper(encode(gen_random_bytes(8), 'hex'));
+      perform 1 from public.listings where reference_code = candidate;
+      if not found then return candidate; end if;
+    end if;
+  end loop;
+end;
+$$;
+
+-- Set default for reference_code and make it not null
+update public.listings set reference_code = public.gen_property_code() where reference_code is null;
+alter table public.listings alter column reference_code set default public.gen_property_code();
+alter table public.listings alter column reference_code set not null;
+
+alter table public.listings enable row level security;
+
+drop policy if exists "Users can view approved listings" on public.listings;
+drop policy if exists "Users can insert their own listings" on public.listings;
+drop policy if exists "Users can view their own listings" on public.listings;
+drop policy if exists "Admin can do everything" on public.listings;
+drop policy if exists "Users can update their own listings" on public.listings;
+drop policy if exists "Users can delete their own listings" on public.listings;
+
+drop policy if exists "listings_select_approved" on public.listings;
+drop policy if exists "listings_select_own" on public.listings;
+drop policy if exists "listings_select_admin" on public.listings;
+drop policy if exists "listings_insert_self" on public.listings;
+drop policy if exists "listings_update_self" on public.listings;
+drop policy if exists "listings_delete_self" on public.listings;
+drop policy if exists "listings_admin_all" on public.listings;
+
+create policy "listings_select_approved" on public.listings
+  for select using (status = 'approved' and is_active = true);
+
+create policy "listings_select_own" on public.listings
+  for select using (auth.uid() = user_id);
+
+create policy "listings_select_admin" on public.listings
+  for select using ((auth.jwt() ->> 'email') in (select email from public.admin_emails));
+
+create policy "listings_insert_self" on public.listings
+  for insert with check (auth.uid() = user_id);
+
+create policy "listings_update_self" on public.listings
+  for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create policy "listings_delete_self" on public.listings
+  for delete using (auth.uid() = user_id);
+
+create policy "listings_admin_all" on public.listings
+  for all using ((auth.jwt() ->> 'email') in (select email from public.admin_emails))
+  with check ((auth.jwt() ->> 'email') in (select email from public.admin_emails));
+
+drop trigger if exists listings_set_updated_at on public.listings;
+create trigger listings_set_updated_at
+before update on public.listings
+for each row execute function public.set_updated_at();
+
+-- ================= FAVORITES =================
+create table if not exists public.favorites (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users(id) on delete cascade not null,
+  listing_id uuid references public.listings(id) on delete cascade not null,
+  created_at timestamptz default now(),
+  unique(user_id, listing_id)
+);
+
+alter table public.favorites enable row level security;
+
+drop policy if exists "favorites_select_own" on public.favorites;
+drop policy if exists "favorites_insert_own" on public.favorites;
+drop policy if exists "favorites_delete_own" on public.favorites;
+
+create policy "favorites_select_own" on public.favorites
+  for select using (auth.uid() = user_id);
+
+create policy "favorites_insert_own" on public.favorites
+  for insert with check (auth.uid() = user_id);
+
+create policy "favorites_delete_own" on public.favorites
+  for delete using (auth.uid() = user_id);
+
+create index if not exists idx_favorites_user on public.favorites(user_id);
+create index if not exists idx_favorites_listing on public.favorites(listing_id);
+
+-- ================= CHAT =================
+create table if not exists public.conversations (
+  id uuid default gen_random_uuid() primary key,
+  listing_id uuid references public.listings(id) on delete cascade,
+  participant1 uuid references auth.users(id) on delete cascade,
+  participant2 uuid references auth.users(id) on delete cascade,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  unique(listing_id, participant1, participant2)
+);
+
+create table if not exists public.messages (
+  id uuid default gen_random_uuid() primary key,
+  conversation_id uuid references public.conversations(id) on delete cascade,
+  sender_id uuid references auth.users(id) on delete cascade,
+  recipient_id uuid references auth.users(id) on delete cascade,
+  content text not null,
+  read boolean default false,
+  detected_language text default 'en',
+  created_at timestamptz default now()
+);
+
+-- Add language column to messages if it doesn't exist
+alter table public.messages add column if not exists detected_language text default 'en';
+
+alter table public.conversations enable row level security;
+alter table public.messages enable row level security;
+
+create unique index if not exists uniq_convo_pair
+on public.conversations (
+  listing_id,
+  least(participant1, participant2),
+  greatest(participant1, participant2)
+);
+
+-- Policies
+drop policy if exists "conversations_select_own" on public.conversations;
+drop policy if exists "conversations_insert_own" on public.conversations;
+drop policy if exists "conversations_update_participants" on public.conversations;
+drop policy if exists "conversations_delete_own" on public.conversations;
+
+drop policy if exists "messages_select_own_convos" on public.messages;
+drop policy if exists "messages_insert_sender" on public.messages;
+drop policy if exists "messages_update_recipient" on public.messages;
+
+create policy "conversations_select_own" on public.conversations
+  for select using (auth.uid() = participant1 or auth.uid() = participant2);
+
+create policy "conversations_insert_own" on public.conversations
+  for insert with check (auth.uid() = participant1 or auth.uid() = participant2);
+
+create policy "conversations_update_participants" on public.conversations
+  for update using (auth.uid() = participant1 or auth.uid() = participant2)
+  with check (auth.uid() = participant1 or auth.uid() = participant2);
+
+create policy "conversations_delete_own" on public.conversations
+  for delete using (auth.uid() = participant1 or auth.uid() = participant2);
+
+create index if not exists idx_messages_conversation   on public.messages(conversation_id);
+create index if not exists idx_messages_recipient_read on public.messages(recipient_id, read);
+create index if not exists idx_messages_convo_created  on public.messages(conversation_id, created_at desc);
+create index if not exists idx_messages_language on public.messages(detected_language);
+
+create policy "messages_select_own_convos" on public.messages
+  for select using (auth.uid() = sender_id or auth.uid() = recipient_id);
+
+create policy "messages_insert_sender" on public.messages
+  for insert with check (auth.uid() = sender_id);
+
+create policy "messages_update_recipient" on public.messages
+  for update using (auth.uid() = recipient_id);
+
+create or replace function public.update_conversation_timestamp()
+returns trigger language plpgsql as $$
+begin
+  update public.conversations set updated_at = now() where id = new.conversation_id;
+  return new;
+end $$;
+
+drop trigger if exists update_conversation_timestamp_trigger on public.messages;
+create trigger update_conversation_timestamp_trigger
+after insert on public.messages
+for each row execute function public.update_conversation_timestamp();
+
+-- ================= TRANSLATION SYSTEM =================
+
+-- Function to detect and store language for listings
+create or replace function detect_and_store_language()
+returns trigger language plpgsql as $$
+begin
+  -- Simple language detection based on character patterns
+  if new.title is not null or new.description is not null then
+    -- Arabic detection
+    if (new.title ~ '[\u0600-\u06FF]' or new.description ~ '[\u0600-\u06FF]') then
+      new.detected_language = 'ar';
+    -- Kurdish detection (basic - looks for Kurdish-specific characters)
+    elsif (new.title ~ '[ئەڕێۆوەیەکگ]' or new.description ~ '[ئەڕێۆوەیەکگ]') then
+      new.detected_language = 'ku';
+    -- Default to English
+    else
+      new.detected_language = 'en';
+    end if;
+  end if;
+  
+  return new;
+end;
+$$;
+
+-- Function to detect message language
+create or replace function detect_message_language()
+returns trigger language plpgsql as $$
+begin
+  -- Simple language detection for messages
+  if new.content is not null then
+    -- Arabic detection
+    if new.content ~ '[\u0600-\u06FF]' then
+      new.detected_language = 'ar';
+    -- Kurdish detection
+    elsif new.content ~ '[ئەڕێۆوەیەکگ]' then
+      new.detected_language = 'ku';
+    -- Default to English
+    else
+      new.detected_language = 'en';
+    end if;
+  end if;
+  
+  return new;
+end;
+$$;
+
+-- Create triggers for automatic language detection
+drop trigger if exists listings_detect_language on public.listings;
+create trigger listings_detect_language
+  before insert or update on public.listings
+  for each row execute function detect_and_store_language();
+
+drop trigger if exists messages_detect_language on public.messages;
+create trigger messages_detect_language
+  before insert or update on public.messages
+  for each row execute function detect_message_language();
+
+-- ================= REALTIME =================
+do $pub$
+begin
+  begin
+    alter publication supabase_realtime add table public.messages;
+  exception
+    when duplicate_object then null;
+  end;
+
+  begin
+    alter publication supabase_realtime add table public.conversations;
+  exception
+    when duplicate_object then null;
+  end;
+
+  begin
+    alter publication supabase_realtime add table public.favorites;
+  exception
+    when duplicate_object then null;
+  end;
+end
+$pub$;
