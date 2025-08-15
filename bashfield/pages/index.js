@@ -28,8 +28,7 @@ export default function Home() {
   })
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
-  const [switchingMode, setSwitchingMode] = useState(false)
-  const [hasInitialData, setHasInitialData] = useState(false)
+  const [allCounts, setAllCounts] = useState({ rent: 0, sale: 0 })
   const [viewMode, setViewMode] = useState('grid')
   const [sortBy, setSortBy] = useState('default')
   const [showFilters, setShowFilters] = useState(false)
@@ -42,45 +41,26 @@ export default function Home() {
   const debounceTimeoutRef = useRef(null)
 
   useEffect(() => {
-    // Cancel any pending requests
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort()
-    }
-    if (debounceTimeoutRef.current) {
-      clearTimeout(debounceTimeoutRef.current)
-    }
-    
-    // Set switching mode state
     if (prevMode !== mode) {
-      setSwitchingMode(true)
-      setHasInitialData(false)
-    }
-    
-    // Debounce the mode change
-    debounceTimeoutRef.current = setTimeout(() => {
+      setLoading(true)
+      setFilters({
+        city: '',
+        propertyType: '',
+        minPrice: '',
+        maxPrice: '',
+        rooms: '',
+        minSize: '',
+        searchQuery: ''
+      })
+      setPage(1)
+      setPrevMode(mode)
       fetchListings()
-      // Reset filters when mode changes
-      if (prevMode !== mode) {
-        setFilters({
-          city: '',
-          propertyType: '',
-          minPrice: '',
-          maxPrice: '',
-          rooms: '',
-          minSize: '',
-          searchQuery: ''
-        })
-        setPage(1)
-        setPrevMode(mode)
-      }
-    }, 300)
-    
-    return () => {
-      if (debounceTimeoutRef.current) {
-        clearTimeout(debounceTimeoutRef.current)
-      }
     }
   }, [mode, prevMode])
+
+  useEffect(() => {
+    fetchAllCounts()
+  }, [])
 
   // Prevent initial scroll to top flash
   useEffect(() => {
@@ -125,11 +105,9 @@ export default function Home() {
 
 
   useEffect(() => {
-    if (!switchingMode) {
-      applyFilters()
-      getFilteredCount()
-    }
-  }, [filters, listings, sortBy, mode, switchingMode])
+    applyFilters()
+    getFilteredCount()
+  }, [filters, listings, sortBy, mode])
 
   useEffect(() => {
     updateDisplayedListings()
@@ -153,33 +131,23 @@ export default function Home() {
     return () => observer.disconnect()
   }, [loadingMore, displayedListings.length, filteredListings.length])
 
+  const fetchAllCounts = async () => {
+    try {
+      const [rentCount, saleCount] = await Promise.all([
+        supabase.from('listings').select('id', { count: 'exact', head: true }).eq('status', 'approved').eq('is_active', true).eq('listing_mode', 'rent'),
+        supabase.from('listings').select('id', { count: 'exact', head: true }).eq('status', 'approved').eq('is_active', true).eq('listing_mode', 'sale')
+      ])
+      setAllCounts({ rent: rentCount.count || 0, sale: saleCount.count || 0 })
+    } catch (error) {
+      console.error('Error fetching counts:', error)
+    }
+  }
+
   const fetchListings = async () => {
     try {
-      // Cancel previous request
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort()
-      }
-      
-      // Create new abort controller
-      abortControllerRef.current = new AbortController()
-      const signal = abortControllerRef.current.signal
-      
       setLoading(true)
+      setTotalFilteredCount(allCounts[mode] || 0)
       
-      // Get count first for immediate display
-      const { count } = await supabase
-        .from('listings')
-        .select('id', { count: 'exact', head: true })
-        .eq('status', 'approved')
-        .eq('is_active', true)
-        .eq('listing_mode', mode)
-        .abortSignal(signal)
-      
-      if (!signal.aborted) {
-        setTotalFilteredCount(count || 0)
-      }
-      
-      // First get all approved and active listings
       const { data: listingsData, error: listingsError } = await supabase
         .from('listings')
         .select('*')
@@ -187,57 +155,40 @@ export default function Home() {
         .eq('is_active', true)
         .eq('listing_mode', mode)
         .order('created_at', { ascending: false })
-        .abortSignal(signal)
 
       if (listingsError) {
-        if (listingsError.name !== 'AbortError') {
-          console.error('Error fetching listings:', listingsError)
-          setListings([])
-        }
+        console.error('Error fetching listings:', listingsError)
+        setListings([])
         setLoading(false)
-        setSwitchingMode(false)
         return
       }
 
-      // Check if request was aborted
-      if (signal.aborted) return
-
-      // Then get all user profiles
-      const { data: profilesData, error: profilesError } = await supabase
+      const { data: profilesData } = await supabase
         .from('user_profiles')
         .select('user_id, display_name, profile_picture, is_verified')
-        .abortSignal(signal)
 
-      if (profilesError && profilesError.name !== 'AbortError') {
-        console.error('Error fetching profiles:', profilesError)
-      }
-
-      // Check if request was aborted
-      if (signal.aborted) return
-
-      // Merge the data
       const listingsWithProfiles = listingsData.map(listing => {
         const profile = profilesData?.find(p => p.user_id === listing.user_id)
-        return {
-          ...listing,
-          user_profiles: profile || null
-        }
+        return { ...listing, user_profiles: profile || null }
       })
 
       setListings(listingsWithProfiles || [])
-      setHasInitialData(true)
     } catch (error) {
-      if (error.name !== 'AbortError') {
-        console.error('Error in fetchListings:', error)
-        setListings([])
-      }
+      console.error('Error in fetchListings:', error)
+      setListings([])
     }
     setLoading(false)
-    setSwitchingMode(false)
   }
 
   const getFilteredCount = useCallback(async () => {
-    if (switchingMode) return
+    if (loading) return
+    
+    const hasFilters = filters.city || filters.propertyType || filters.rooms || filters.minSize || filters.minPrice || filters.maxPrice || filters.searchQuery
+    
+    if (!hasFilters) {
+      setTotalFilteredCount(allCounts[mode] || 0)
+      return
+    }
     
     try {
       let query = supabase
@@ -247,30 +198,12 @@ export default function Home() {
         .eq('is_active', true)
         .eq('listing_mode', mode)
 
-      if (filters.city) {
-        query = query.eq('city', filters.city)
-      }
-
-      if (filters.propertyType) {
-        query = query.eq('property_type', filters.propertyType)
-      }
-
-      if (filters.rooms) {
-        query = query.gte('rooms', parseInt(filters.rooms))
-      }
-
-      if (filters.minSize) {
-        query = query.gte('size_sqm', parseInt(filters.minSize))
-      }
-
-      if (filters.minPrice) {
-        query = query.gte('price', parseInt(filters.minPrice))
-      }
-
-      if (filters.maxPrice) {
-        query = query.lte('price', parseInt(filters.maxPrice))
-      }
-
+      if (filters.city) query = query.eq('city', filters.city)
+      if (filters.propertyType) query = query.eq('property_type', filters.propertyType)
+      if (filters.rooms) query = query.gte('rooms', parseInt(filters.rooms))
+      if (filters.minSize) query = query.gte('size_sqm', parseInt(filters.minSize))
+      if (filters.minPrice) query = query.gte('price', parseInt(filters.minPrice))
+      if (filters.maxPrice) query = query.lte('price', parseInt(filters.maxPrice))
       if (filters.searchQuery) {
         const searchTerm = `%${filters.searchQuery.toLowerCase()}%`
         query = query.or(`title.ilike.${searchTerm},description.ilike.${searchTerm},city.ilike.${searchTerm}`)
@@ -282,7 +215,7 @@ export default function Home() {
       console.error('Error getting filtered count:', error)
       setTotalFilteredCount(0)
     }
-  }, [filters, mode, switchingMode])
+  }, [filters, mode, loading, allCounts])
 
   const applyFilters = useCallback(() => {
     let filtered = listings
@@ -715,7 +648,7 @@ export default function Home() {
                 <p className="text-gray-600">Switching modes...</p>
               </div>
             </div>
-          ) : (!loading && !switchingMode && hasInitialData && filteredListings.length === 0) ? (
+          ) : (!loading && filteredListings.length === 0) ? (
             <div className="text-center py-20">
               <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
                 <span className="text-4xl">🏠</span>
