@@ -3,6 +3,7 @@ import { useRouter } from 'next/router'
 import { useTranslation } from 'next-i18next'
 import { supabase } from '../lib/supabase'
 import LanguageToggle from './LanguageToggle'
+import SimpleTranslate from './SimpleTranslate'
 
 export default function Layout({ children }) {
   const { t, i18n } = useTranslation('common')
