@@ -69,6 +69,7 @@ export default function Home() {
           searchQuery: ''
         })
         setPage(1)
+        setTotalFilteredCount(0)
         setPrevMode(mode)
         setSwitchingMode(false)
       }
@@ -220,7 +221,7 @@ export default function Home() {
   }
 
   const getFilteredCount = useCallback(async () => {
-    if (switchingMode) return
+    if (switchingMode || loading) return
     
     try {
       let query = supabase
@@ -265,7 +266,7 @@ export default function Home() {
       console.error('Error getting filtered count:', error)
       setTotalFilteredCount(0)
     }
-  }, [filters, mode, switchingMode])
+  }, [filters, mode, switchingMode, loading])
 
   const applyFilters = useCallback(() => {
     let filtered = listings
@@ -698,7 +699,7 @@ export default function Home() {
                 <p className="text-gray-600">Switching modes...</p>
               </div>
             </div>
-          ) : !switchingMode && filteredListings.length === 0 ? (
+          ) : (!switchingMode && !loading && filteredListings.length === 0) ? (
             <div className="text-center py-20">
               <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
                 <span className="text-4xl">🏠</span>
@@ -724,7 +725,7 @@ export default function Home() {
             <>
               <div className="mb-6 text-center">
                 <p className="text-gray-600">
-                  Showing <span className="font-semibold">{displayedListings.length}</span> of <span className="font-semibold">{totalFilteredCount}</span> {mode === 'rent' ? 'rentals' : 'properties'}
+                  Showing <span className="font-semibold">{displayedListings.length}</span> of <span className="font-semibold">{totalFilteredCount || filteredListings.length}</span> {mode === 'rent' ? 'rentals' : 'properties'}
                   {viewMode === 'list' && <span className="ml-2">in list view</span>}
                 </p>
               </div>
