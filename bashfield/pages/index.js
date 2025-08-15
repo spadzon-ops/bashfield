@@ -56,16 +56,23 @@ export default function Home() {
         const itemCount = parseInt(savedItemCount)
         const neededPage = Math.ceil(itemCount / ITEMS_PER_PAGE)
         setPage(neededPage)
-        
-        // Use requestAnimationFrame for instant positioning
-        requestAnimationFrame(() => {
-          window.scrollTo({ top: parseInt(savedPosition), behavior: 'instant' })
-          sessionStorage.removeItem('homeScrollPosition')
-          sessionStorage.removeItem('homeItemCount')
-        })
       }
     }
   }, [loading, filteredListings])
+
+  // Scroll to position after items are loaded
+  useEffect(() => {
+    const savedPosition = sessionStorage.getItem('homeScrollPosition')
+    const savedItemCount = sessionStorage.getItem('homeItemCount')
+    
+    if (savedPosition && savedItemCount && displayedListings.length >= parseInt(savedItemCount)) {
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: parseInt(savedPosition), behavior: 'instant' })
+        sessionStorage.removeItem('homeScrollPosition')
+        sessionStorage.removeItem('homeItemCount')
+      })
+    }
+  }, [displayedListings.length])
 
 
 
