@@ -36,22 +36,41 @@ export default function Home() {
   const ITEMS_PER_PAGE = 12
   const observerRef = useRef()
   const scrollPositionRef = useRef(0)
+  const abortControllerRef = useRef(null)
+  const debounceTimeoutRef = useRef(null)
 
   useEffect(() => {
-    fetchListings()
-    // Reset filters when mode changes
-    if (prevMode !== mode) {
-      setFilters({
-        city: '',
-        propertyType: '',
-        minPrice: '',
-        maxPrice: '',
-        rooms: '',
-        minSize: '',
-        searchQuery: ''
-      })
-      setPage(1)
-      setPrevMode(mode)
+    // Cancel any pending requests
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort()
+    }
+    if (debounceTimeoutRef.current) {
+      clearTimeout(debounceTimeoutRef.current)
+    }
+    
+    // Debounce the mode change
+    debounceTimeoutRef.current = setTimeout(() => {
+      fetchListings()
+      // Reset filters when mode changes
+      if (prevMode !== mode) {
+        setFilters({
+          city: '',
+          propertyType: '',
+          minPrice: '',
+          maxPrice: '',
+          rooms: '',
+          minSize: '',
+          searchQuery: ''
+        })
+        setPage(1)
+        setPrevMode(mode)
+      }
+    }, 300)
+    
+    return () => {
+      if (debounceTimeoutRef.current) {
+        clearTimeout(debounceTimeoutRef.current)
+      }
     }
   }, [mode, prevMode])
 
@@ -126,6 +145,17 @@ export default function Home() {
 
   const fetchListings = async () => {
     try {
+      // Cancel previous request
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+      
+      // Create new abort controller
+      abortControllerRef.current = new AbortController()
+      const signal = abortControllerRef.current.signal
+      
+      setLoading(true)
+      
       // First get all approved and active listings
       const { data: listingsData, error: listingsError } = await supabase
         .from('listings')
@@ -134,22 +164,32 @@ export default function Home() {
         .eq('is_active', true)
         .eq('listing_mode', mode)
         .order('created_at', { ascending: false })
+        .abortSignal(signal)
 
       if (listingsError) {
-        console.error('Error fetching listings:', listingsError)
-        setListings([])
+        if (listingsError.name !== 'AbortError') {
+          console.error('Error fetching listings:', listingsError)
+          setListings([])
+        }
         setLoading(false)
         return
       }
+
+      // Check if request was aborted
+      if (signal.aborted) return
 
       // Then get all user profiles
       const { data: profilesData, error: profilesError } = await supabase
         .from('user_profiles')
         .select('user_id, display_name, profile_picture, is_verified')
+        .abortSignal(signal)
 
-      if (profilesError) {
+      if (profilesError && profilesError.name !== 'AbortError') {
         console.error('Error fetching profiles:', profilesError)
       }
+
+      // Check if request was aborted
+      if (signal.aborted) return
 
       // Merge the data
       const listingsWithProfiles = listingsData.map(listing => {
@@ -162,8 +202,10 @@ export default function Home() {
 
       setListings(listingsWithProfiles || [])
     } catch (error) {
-      console.error('Error in fetchListings:', error)
-      setListings([])
+      if (error.name !== 'AbortError') {
+        console.error('Error in fetchListings:', error)
+        setListings([])
+      }
     }
     setLoading(false)
   }
@@ -210,9 +252,9 @@ export default function Home() {
       setTotalFilteredCount(count || 0)
     } catch (error) {
       console.error('Error getting filtered count:', error)
-      setTotalFilteredCount(0)
+      setTotalFilteredCount(filteredListings.length)
     }
-  }, [filters, mode])
+  }, [filters, mode, filteredListings.length])
 
   const applyFilters = useCallback(() => {
     let filtered = listings
@@ -664,7 +706,7 @@ export default function Home() {
             <>
               <div className="mb-6 text-center">
                 <p className="text-gray-600">
-                  Showing <span className="font-semibold">{displayedListings.length}</span> of <span className="font-semibold">{totalFilteredCount}</span> {mode === 'rent' ? 'rentals' : 'properties'}
+                  Showing <span className="font-semibold">{displayedListings.length}</span> of <span className="font-semibold">{totalFilteredCount || filteredListings.length}</span> {mode === 'rent' ? 'rentals' : 'properties'}
                   {viewMode === 'list' && <span className="ml-2">in list view</span>}
                 </p>
               </div>
