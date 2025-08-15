@@ -3,12 +3,10 @@ import { useRouter } from 'next/router'
 import { useTranslation } from 'next-i18next'
 import { supabase } from '../lib/supabase'
 import LanguageToggle from './LanguageToggle'
-import SimpleTranslate from './SimpleTranslate'
-import { useTranslation as useCustomTranslation } from '../contexts/TranslationContext'
 
 export default function Layout({ children }) {
   const { t, i18n } = useTranslation('common')
-  const { isTranslating } = useCustomTranslation()
+
   const router = useRouter()
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
@@ -584,12 +582,7 @@ export default function Layout({ children }) {
       </nav>
       
       <main className="relative">
-        {isTranslating && (
-          <div className="fixed top-20 right-4 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg z-50 flex items-center space-x-2">
-            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-            <span className="text-sm font-medium">Translating...</span>
-          </div>
-        )}
+
         {children}
         {/* Floating Action Buttons */}
         {user && router.pathname === '/' && (
