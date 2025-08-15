@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Generate Favicons</title>
+</head>
+<body>
+    <canvas id="canvas16" width="16" height="16" style="border: 1px solid #ccc; margin: 10px;"></canvas>
+    <canvas id="canvas32" width="32" height="32" style="border: 1px solid #ccc; margin: 10px;"></canvas>
+    <canvas id="canvas180" width="180" height="180" style="border: 1px solid #ccc; margin: 10px;"></canvas>
+    
+    <div>
+        <button onclick="downloadFavicons()">Download Favicons</button>
+    </div>
+
+    <script>
+        function drawFavicon(canvas, size) {
+            const ctx = canvas.getContext('2d');
+            const radius = size * 0.25;
+            
+            // Create gradient background
+            const gradient = ctx.createLinearGradient(0, 0, size, size);
+            gradient.addColorStop(0, '#3B82F6');
+            gradient.addColorStop(1, '#1D4ED8');
+            
+            // Draw rounded rectangle background
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            ctx.roundRect(0, 0, size, size, radius);
+            ctx.fill();
+            
+            // Draw letter B
+            ctx.fillStyle = 'white';
+            ctx.font = `bold ${size * 0.6}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.save();
+            ctx.translate(size/2, size/2);
+            ctx.rotate(-12 * Math.PI / 180);
+            ctx.fillText('B', 0, 0);
+            ctx.restore();
+            
+            // Add accent dots
+            ctx.fillStyle = '#FCD34D';
+            ctx.beginPath();
+            ctx.arc(size * 0.75, size * 0.25, size * 0.06, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            ctx.fillStyle = '#67E8F9';
+            ctx.beginPath();
+            ctx.arc(size * 0.25, size * 0.75, size * 0.04, 0, 2 * Math.PI);
+            ctx.fill();
+        }
+        
+        // Draw favicons
+        drawFavicon(document.getElementById('canvas16'), 16);
+        drawFavicon(document.getElementById('canvas32'), 32);
+        drawFavicon(document.getElementById('canvas180'), 180);
+        
+        function downloadFavicons() {
+            // Download 16x16
+            const canvas16 = document.getElementById('canvas16');
+            const link16 = document.createElement('a');
+            link16.download = 'favicon-16x16.png';
+            link16.href = canvas16.toDataURL();
+            link16.click();
+            
+            // Download 32x32
+            const canvas32 = document.getElementById('canvas32');
+            const link32 = document.createElement('a');
+            link32.download = 'favicon-32x32.png';
+            link32.href = canvas32.toDataURL();
+            link32.click();
+            
+            // Download 180x180 (Apple touch icon)
+            const canvas180 = document.getElementById('canvas180');
+            const link180 = document.createElement('a');
+            link180.download = 'apple-touch-icon.png';
+            link180.href = canvas180.toDataURL();
+            link180.click();
+        }
+    </script>
+</body>
+</html>
