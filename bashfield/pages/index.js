@@ -34,7 +34,7 @@ export default function Home() {
     fetchListings()
   }, [])
 
-  // Restore state after listings load
+  // Restore scroll position when returning from property details
   useEffect(() => {
     if (!loading && filteredListings.length > 0) {
       const savedItemCount = sessionStorage.getItem('homeItemCount')
@@ -45,12 +45,28 @@ export default function Home() {
         const neededPage = Math.ceil(itemCount / ITEMS_PER_PAGE)
         setPage(neededPage)
         
-        window.scrollTo(0, parseInt(savedPosition))
-        sessionStorage.removeItem('homeScrollPosition')
-        sessionStorage.removeItem('homeItemCount')
+        // Use requestAnimationFrame to ensure DOM is ready
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            window.scrollTo({ top: parseInt(savedPosition), behavior: 'instant' })
+            sessionStorage.removeItem('homeScrollPosition')
+            sessionStorage.removeItem('homeItemCount')
+          }, 100)
+        })
       }
     }
   }, [loading, filteredListings])
+
+  // Save scroll position before page unload
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      sessionStorage.setItem('homeScrollPosition', window.scrollY.toString())
+      sessionStorage.setItem('homeItemCount', document.querySelectorAll('[data-listing-card]').length.toString())
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [])
 
   useEffect(() => {
     applyFilters()
