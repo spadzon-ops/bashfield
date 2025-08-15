@@ -32,14 +32,20 @@ export default function Home() {
 
   useEffect(() => {
     fetchListings()
-    
-    // Restore scroll position immediately
-    const savedPosition = sessionStorage.getItem('homeScrollPosition')
-    if (savedPosition) {
-      window.scrollTo(0, parseInt(savedPosition))
-      sessionStorage.removeItem('homeScrollPosition')
-    }
   }, [])
+
+  // Restore scroll after listings load
+  useEffect(() => {
+    if (!loading && listings.length > 0) {
+      const savedPosition = sessionStorage.getItem('homeScrollPosition')
+      if (savedPosition) {
+        setTimeout(() => {
+          window.scrollTo(0, parseInt(savedPosition))
+          sessionStorage.removeItem('homeScrollPosition')
+        }, 100)
+      }
+    }
+  }, [loading, listings])
 
   useEffect(() => {
     applyFilters()
