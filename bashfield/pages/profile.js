@@ -592,12 +592,12 @@ export default function Profile() {
                         )}
                       </div>
                     )}
+                    {!hasMoreListings && userListings.filter(listing => listing.status === 'approved' && listing.is_active !== false).length > 10 && (
+                      <div className="text-center mt-8 text-gray-500">
+                        You've reached the end of your listings
+                      </div>
+                    )}
                   </div>
-                  {!hasMoreListings && userListings.filter(listing => listing.status === 'approved' && listing.is_active !== false).length > 10 && (
-                    <div className="text-center mt-8 text-gray-500">
-                      You've reached the end of your listings
-                    </div>
-                  )}
                 )}
               </div>
             )}
