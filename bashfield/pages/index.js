@@ -29,6 +29,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [switchingMode, setSwitchingMode] = useState(false)
+  const [hasInitialData, setHasInitialData] = useState(false)
   const [viewMode, setViewMode] = useState('grid')
   const [sortBy, setSortBy] = useState('default')
   const [showFilters, setShowFilters] = useState(false)
@@ -52,6 +53,7 @@ export default function Home() {
     // Set switching mode state
     if (prevMode !== mode) {
       setSwitchingMode(true)
+      setHasInitialData(false)
     }
     
     // Debounce the mode change
@@ -69,9 +71,7 @@ export default function Home() {
           searchQuery: ''
         })
         setPage(1)
-        setTotalFilteredCount(0)
         setPrevMode(mode)
-        setSwitchingMode(false)
       }
     }, 300)
     
@@ -125,9 +125,11 @@ export default function Home() {
 
 
   useEffect(() => {
-    applyFilters()
-    getFilteredCount()
-  }, [filters, listings, sortBy, mode])
+    if (!switchingMode) {
+      applyFilters()
+      getFilteredCount()
+    }
+  }, [filters, listings, sortBy, mode, switchingMode])
 
   useEffect(() => {
     updateDisplayedListings()
@@ -164,6 +166,19 @@ export default function Home() {
       
       setLoading(true)
       
+      // Get count first for immediate display
+      const { count } = await supabase
+        .from('listings')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'approved')
+        .eq('is_active', true)
+        .eq('listing_mode', mode)
+        .abortSignal(signal)
+      
+      if (!signal.aborted) {
+        setTotalFilteredCount(count || 0)
+      }
+      
       // First get all approved and active listings
       const { data: listingsData, error: listingsError } = await supabase
         .from('listings')
@@ -180,6 +195,7 @@ export default function Home() {
           setListings([])
         }
         setLoading(false)
+        setSwitchingMode(false)
         return
       }
 
@@ -209,8 +225,7 @@ export default function Home() {
       })
 
       setListings(listingsWithProfiles || [])
-      // Get initial count after loading listings
-      setTimeout(() => getFilteredCount(), 100)
+      setHasInitialData(true)
     } catch (error) {
       if (error.name !== 'AbortError') {
         console.error('Error in fetchListings:', error)
@@ -218,10 +233,11 @@ export default function Home() {
       }
     }
     setLoading(false)
+    setSwitchingMode(false)
   }
 
   const getFilteredCount = useCallback(async () => {
-    if (switchingMode || loading) return
+    if (switchingMode) return
     
     try {
       let query = supabase
@@ -266,7 +282,7 @@ export default function Home() {
       console.error('Error getting filtered count:', error)
       setTotalFilteredCount(0)
     }
-  }, [filters, mode, switchingMode, loading])
+  }, [filters, mode, switchingMode])
 
   const applyFilters = useCallback(() => {
     let filtered = listings
@@ -699,7 +715,7 @@ export default function Home() {
                 <p className="text-gray-600">Switching modes...</p>
               </div>
             </div>
-          ) : (!switchingMode && !loading && filteredListings.length === 0) ? (
+          ) : (!loading && !switchingMode && hasInitialData && filteredListings.length === 0) ? (
             <div className="text-center py-20">
               <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
                 <span className="text-4xl">🏠</span>
@@ -725,7 +741,7 @@ export default function Home() {
             <>
               <div className="mb-6 text-center">
                 <p className="text-gray-600">
-                  Showing <span className="font-semibold">{displayedListings.length}</span> of <span className="font-semibold">{totalFilteredCount || filteredListings.length}</span> {mode === 'rent' ? 'rentals' : 'properties'}
+                  Showing <span className="font-semibold">{displayedListings.length}</span> of <span className="font-semibold">{totalFilteredCount}</span> {mode === 'rent' ? 'rentals' : 'properties'}
                   {viewMode === 'list' && <span className="ml-2">in list view</span>}
                 </p>
               </div>
