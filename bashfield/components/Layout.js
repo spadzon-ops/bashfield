@@ -425,7 +425,12 @@ export default function Layout({ children }) {
                 </div>
               </div>
               <button
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                onClick={(e) => {
+                  setMobileMenuOpen(!mobileMenuOpen)
+                  if (mobileMenuOpen) {
+                    e.target.blur()
+                  }
+                }}
                 className="text-gray-700 hover:text-blue-600 p-3 relative bg-gray-50 hover:bg-blue-50 rounded-xl transition-all duration-300 shadow-sm"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
