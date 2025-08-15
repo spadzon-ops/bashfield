@@ -43,31 +43,7 @@ export default function SimpleTranslate() {
     }
   }
 
-  const translate = async (targetLang) => {
-    if (targetLang === currentLang) return
-    
-    setIsTranslating(true)
-    setCurrentLang(targetLang)
-    localStorage.setItem('translate-lang', targetLang)
-    
-    if (targetLang === 'en') {
-      originalContent.forEach((original, element) => {
-        if (element && element.parentNode) {
-          element.textContent = original
-        }
-      })
-      setIsTranslating(false)
-      return
-    }
-    
-    const { elementsToTranslate, textsToTranslate } = getAllTranslatableElements()
-    
-    // Translate instantly
-    await translateElements(elementsToTranslate, textsToTranslate, targetLang)
-    
-    setOriginalContent(originalContent)
-    setIsTranslating(false)
-  }
+
   
   const getAllTranslatableElements = () => {
     const textElements = document.querySelectorAll('*')
@@ -257,6 +233,13 @@ export default function SimpleTranslate() {
       </div>
       {isTranslating && (
         <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-blue-600 text-white px-3 py-1 rounded-lg text-xs font-medium flex items-center space-x-1">
+          <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin"></div>
+          <span>Translating...</span>
+        </div>
+      )}
+    </div>
+  )
+}m flex items-center space-x-1">
           <div className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin"></div>
           <span>Translating...</span>
         </div>
