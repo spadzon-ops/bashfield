@@ -28,6 +28,7 @@ export default function Home() {
   })
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
+  const [switchingMode, setSwitchingMode] = useState(false)
   const [viewMode, setViewMode] = useState('grid')
   const [sortBy, setSortBy] = useState('default')
   const [showFilters, setShowFilters] = useState(false)
@@ -48,6 +49,11 @@ export default function Home() {
       clearTimeout(debounceTimeoutRef.current)
     }
     
+    // Set switching mode state
+    if (prevMode !== mode) {
+      setSwitchingMode(true)
+    }
+    
     // Debounce the mode change
     debounceTimeoutRef.current = setTimeout(() => {
       fetchListings()
@@ -64,6 +70,7 @@ export default function Home() {
         })
         setPage(1)
         setPrevMode(mode)
+        setSwitchingMode(false)
       }
     }, 300)
     
@@ -680,13 +687,13 @@ export default function Home() {
                 <p className="text-gray-600">Loading properties...</p>
               </div>
             </div>
-          ) : filteredListings.length === 0 ? (
+          ) : !switchingMode && filteredListings.length === 0 ? (
             <div className="text-center py-20">
               <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
                 <span className="text-4xl">🏠</span>
               </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-4">No rentals found</h3>
-              <p className="text-gray-600 mb-6">Try adjusting your filters or be the first to list your property for rent!</p>
+              <h3 className="text-2xl font-bold text-gray-900 mb-4">No {mode === 'rent' ? 'rentals' : 'properties'} found</h3>
+              <p className="text-gray-600 mb-6">Try adjusting your filters or be the first to list your property {mode === 'rent' ? 'for rent' : 'for sale'}!</p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <button 
                   onClick={clearFilters}
@@ -698,7 +705,7 @@ export default function Home() {
                   onClick={() => window.location.href = '/post'}
                   className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors"
                 >
-                  List for Rent
+                  {mode === 'rent' ? 'List for Rent' : 'List for Sale'}
                 </button>
               </div>
             </div>
@@ -706,7 +713,7 @@ export default function Home() {
             <>
               <div className="mb-6 text-center">
                 <p className="text-gray-600">
-                  Showing <span className="font-semibold">{displayedListings.length}</span> of <span className="font-semibold">{totalFilteredCount || filteredListings.length}</span> {mode === 'rent' ? 'rentals' : 'properties'}
+                  Showing <span className="font-semibold">{displayedListings.length}</span> of <span className="font-semibold">{totalFilteredCount}</span> {mode === 'rent' ? 'rentals' : 'properties'}
                   {viewMode === 'list' && <span className="ml-2">in list view</span>}
                 </p>
               </div>
