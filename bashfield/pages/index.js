@@ -36,35 +36,24 @@ export default function Home() {
 
   // Restore scroll position when returning from property details
   useEffect(() => {
-    const savedPosition = sessionStorage.getItem('homeScrollPosition')
-    const savedItemCount = sessionStorage.getItem('homeItemCount')
-    
-    if (savedPosition && savedItemCount) {
-      // Immediately set scroll position to prevent flash
-      window.scrollTo(0, parseInt(savedPosition))
+    if (!loading && filteredListings.length > 0) {
+      const savedItemCount = sessionStorage.getItem('homeItemCount')
+      const savedPosition = sessionStorage.getItem('homeScrollPosition')
       
-      if (!loading && filteredListings.length > 0) {
+      if (savedItemCount && savedPosition) {
         const itemCount = parseInt(savedItemCount)
         const neededPage = Math.ceil(itemCount / ITEMS_PER_PAGE)
         setPage(neededPage)
         
-        // Ensure position is maintained after content loads
+        // Immediate scroll without animation to prevent flash
         setTimeout(() => {
           window.scrollTo(0, parseInt(savedPosition))
           sessionStorage.removeItem('homeScrollPosition')
           sessionStorage.removeItem('homeItemCount')
-        }, 50)
+        }, 10)
       }
     }
   }, [loading, filteredListings])
-
-  // Set initial scroll position immediately on mount
-  useEffect(() => {
-    const savedPosition = sessionStorage.getItem('homeScrollPosition')
-    if (savedPosition) {
-      window.scrollTo(0, parseInt(savedPosition))
-    }
-  }, [])
 
 
 
