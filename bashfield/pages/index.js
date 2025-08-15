@@ -45,11 +45,9 @@ export default function Home() {
         const neededPage = Math.ceil(itemCount / ITEMS_PER_PAGE)
         setPage(neededPage)
         
-        setTimeout(() => {
-          window.scrollTo(0, parseInt(savedPosition))
-          sessionStorage.removeItem('homeScrollPosition')
-          sessionStorage.removeItem('homeItemCount')
-        }, 100)
+        window.scrollTo(0, parseInt(savedPosition))
+        sessionStorage.removeItem('homeScrollPosition')
+        sessionStorage.removeItem('homeItemCount')
       }
     }
   }, [loading, filteredListings])
