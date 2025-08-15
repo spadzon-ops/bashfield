@@ -15,15 +15,18 @@ export default function SimpleTranslate() {
     }
   }, [])
 
-  const translateText = async (text, targetLang) => {
-    if (targetLang === 'en') return text
+  const translateBatch = async (texts, targetLang) => {
+    if (targetLang === 'en') return texts
     
     try {
-      const response = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=en|${targetLang === 'ku' ? 'ku' : targetLang}`)
+      const langCode = targetLang === 'ku' ? 'ckb' : targetLang
+      const combinedText = texts.join(' ||| ')
+      const response = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(combinedText)}&langpair=en|${langCode}`)
       const data = await response.json()
-      return data.responseData?.translatedText || text
+      const translatedText = data.responseData?.translatedText || combinedText
+      return translatedText.split(' ||| ')
     } catch {
-      return text
+      return texts
     }
   }
 
@@ -35,7 +38,6 @@ export default function SimpleTranslate() {
     localStorage.setItem('translate-lang', targetLang)
     
     if (targetLang === 'en') {
-      // Restore original content
       originalContent.forEach((original, element) => {
         if (element && element.parentNode) {
           element.textContent = original
@@ -45,37 +47,34 @@ export default function SimpleTranslate() {
       return
     }
     
-    // Get all text elements
     const textElements = document.querySelectorAll('p, h1, h2, h3, h4, h5, h6, span, div, button, label, option')
     const elementsToTranslate = []
+    const textsToTranslate = []
     
     textElements.forEach(element => {
       if (element.classList.contains('notranslate')) return
-      if (element.children.length === 0 && element.textContent.trim()) {
+      if (element.children.length === 0 && element.textContent.trim() && element.textContent.length < 200) {
         if (!originalContent.has(element)) {
           originalContent.set(element, element.textContent)
         }
         elementsToTranslate.push(element)
+        textsToTranslate.push(element.textContent.trim())
       }
     })
     
-    // Translate in batches
-    const batchSize = 10
-    for (let i = 0; i < elementsToTranslate.length; i += batchSize) {
-      const batch = elementsToTranslate.slice(i, i + batchSize)
+    // Translate all at once
+    const batchSize = 50
+    for (let i = 0; i < textsToTranslate.length; i += batchSize) {
+      const batch = textsToTranslate.slice(i, i + batchSize)
+      const elementBatch = elementsToTranslate.slice(i, i + batchSize)
       
-      await Promise.all(batch.map(async (element) => {
-        const originalText = originalContent.get(element)
-        if (originalText && originalText.length > 0 && originalText.length < 500) {
-          const translated = await translateText(originalText, targetLang)
-          if (element && element.parentNode) {
-            element.textContent = translated
-          }
+      const translatedBatch = await translateBatch(batch, targetLang)
+      
+      elementBatch.forEach((element, index) => {
+        if (element && element.parentNode && translatedBatch[index]) {
+          element.textContent = translatedBatch[index]
         }
-      }))
-      
-      // Small delay between batches
-      await new Promise(resolve => setTimeout(resolve, 100))
+      })
     }
     
     setOriginalContent(originalContent)
