@@ -28,21 +28,18 @@ export default function Home() {
   })
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
-  const [allCounts, setAllCounts] = useState({ rent: 0, sale: 0 })
   const [viewMode, setViewMode] = useState('grid')
   const [sortBy, setSortBy] = useState('default')
   const [showFilters, setShowFilters] = useState(false)
   const [page, setPage] = useState(1)
-  const [totalFilteredCount, setTotalFilteredCount] = useState(0)
   const ITEMS_PER_PAGE = 12
   const observerRef = useRef()
   const scrollPositionRef = useRef(0)
-  const abortControllerRef = useRef(null)
-  const debounceTimeoutRef = useRef(null)
 
   useEffect(() => {
+    fetchListings()
+    // Reset filters when mode changes
     if (prevMode !== mode) {
-      setLoading(true)
       setFilters({
         city: '',
         propertyType: '',
@@ -54,13 +51,8 @@ export default function Home() {
       })
       setPage(1)
       setPrevMode(mode)
-      fetchListings()
     }
   }, [mode, prevMode])
-
-  useEffect(() => {
-    fetchAllCounts()
-  }, [])
 
   // Prevent initial scroll to top flash
   useEffect(() => {
@@ -106,8 +98,7 @@ export default function Home() {
 
   useEffect(() => {
     applyFilters()
-    getFilteredCount()
-  }, [filters, listings, sortBy, mode])
+  }, [filters, listings, sortBy])
 
   useEffect(() => {
     updateDisplayedListings()
@@ -131,23 +122,9 @@ export default function Home() {
     return () => observer.disconnect()
   }, [loadingMore, displayedListings.length, filteredListings.length])
 
-  const fetchAllCounts = async () => {
-    try {
-      const [rentCount, saleCount] = await Promise.all([
-        supabase.from('listings').select('id', { count: 'exact', head: true }).eq('status', 'approved').eq('is_active', true).eq('listing_mode', 'rent'),
-        supabase.from('listings').select('id', { count: 'exact', head: true }).eq('status', 'approved').eq('is_active', true).eq('listing_mode', 'sale')
-      ])
-      setAllCounts({ rent: rentCount.count || 0, sale: saleCount.count || 0 })
-    } catch (error) {
-      console.error('Error fetching counts:', error)
-    }
-  }
-
   const fetchListings = async () => {
     try {
-      setLoading(true)
-      setTotalFilteredCount(allCounts[mode] || 0)
-      
+      // First get all approved and active listings
       const { data: listingsData, error: listingsError } = await supabase
         .from('listings')
         .select('*')
@@ -163,13 +140,22 @@ export default function Home() {
         return
       }
 
-      const { data: profilesData } = await supabase
+      // Then get all user profiles
+      const { data: profilesData, error: profilesError } = await supabase
         .from('user_profiles')
         .select('user_id, display_name, profile_picture, is_verified')
 
+      if (profilesError) {
+        console.error('Error fetching profiles:', profilesError)
+      }
+
+      // Merge the data
       const listingsWithProfiles = listingsData.map(listing => {
         const profile = profilesData?.find(p => p.user_id === listing.user_id)
-        return { ...listing, user_profiles: profile || null }
+        return {
+          ...listing,
+          user_profiles: profile || null
+        }
       })
 
       setListings(listingsWithProfiles || [])
@@ -179,43 +165,6 @@ export default function Home() {
     }
     setLoading(false)
   }
-
-  const getFilteredCount = useCallback(async () => {
-    if (loading) return
-    
-    const hasFilters = filters.city || filters.propertyType || filters.rooms || filters.minSize || filters.minPrice || filters.maxPrice || filters.searchQuery
-    
-    if (!hasFilters) {
-      setTotalFilteredCount(allCounts[mode] || 0)
-      return
-    }
-    
-    try {
-      let query = supabase
-        .from('listings')
-        .select('id', { count: 'exact', head: true })
-        .eq('status', 'approved')
-        .eq('is_active', true)
-        .eq('listing_mode', mode)
-
-      if (filters.city) query = query.eq('city', filters.city)
-      if (filters.propertyType) query = query.eq('property_type', filters.propertyType)
-      if (filters.rooms) query = query.gte('rooms', parseInt(filters.rooms))
-      if (filters.minSize) query = query.gte('size_sqm', parseInt(filters.minSize))
-      if (filters.minPrice) query = query.gte('price', parseInt(filters.minPrice))
-      if (filters.maxPrice) query = query.lte('price', parseInt(filters.maxPrice))
-      if (filters.searchQuery) {
-        const searchTerm = `%${filters.searchQuery.toLowerCase()}%`
-        query = query.or(`title.ilike.${searchTerm},description.ilike.${searchTerm},city.ilike.${searchTerm}`)
-      }
-
-      const { count } = await query
-      setTotalFilteredCount(count || 0)
-    } catch (error) {
-      console.error('Error getting filtered count:', error)
-      setTotalFilteredCount(0)
-    }
-  }, [filters, mode, loading, allCounts])
 
   const applyFilters = useCallback(() => {
     let filtered = listings
@@ -506,8 +455,8 @@ export default function Home() {
             
             {/* Enhanced Controls */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
-              {/* View Toggle - Hidden on mobile since grid/list look the same */}
-              <div className="hidden sm:inline-flex bg-white rounded-2xl shadow-lg p-2 border border-gray-200">
+              {/* View Toggle */}
+              <div className="inline-flex bg-white rounded-2xl shadow-lg p-2 border border-gray-200">
                 <button
                   onClick={() => setViewMode('grid')}
                   className={`px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center space-x-2 ${
@@ -531,36 +480,6 @@ export default function Home() {
                 >
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
-                  </svg>
-                  <span>List</span>
-                </button>
-                <button
-                  onClick={() => setViewMode('map')}
-                  className={`px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center space-x-2 ${
-                    viewMode === 'map'
-                      ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg transform scale-105'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
-                >
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M12 1.586l-4 4v12.828l4-4V1.586zM3.707 3.293A1 1 0 002 4v10a1 1 0 00.293.707L6 18.414V5.586L3.707 3.293zM17.707 5.293L14 1.586v12.828l2.293 2.293A1 1 0 0018 16V6a1 1 0 00-.293-.707z" clipRule="evenodd" />
-                  </svg>
-                  <span>Map</span>
-                </button>
-              </div>
-              
-              {/* Mobile Map Toggle - Only show map toggle on mobile */}
-              <div className="sm:hidden inline-flex bg-white rounded-2xl shadow-lg p-2 border border-gray-200">
-                <button
-                  onClick={() => setViewMode('grid')}
-                  className={`px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center space-x-2 ${
-                    viewMode !== 'map'
-                      ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg transform scale-105'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
-                >
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM11 13a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
                   </svg>
                   <span>List</span>
                 </button>
@@ -641,20 +560,13 @@ export default function Home() {
                 <p className="text-gray-600">Loading properties...</p>
               </div>
             </div>
-          ) : switchingMode ? (
-            <div className="flex justify-center py-20">
-              <div className="text-center">
-                <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                <p className="text-gray-600">Switching modes...</p>
-              </div>
-            </div>
-          ) : (!loading && filteredListings.length === 0) ? (
+          ) : filteredListings.length === 0 ? (
             <div className="text-center py-20">
               <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
                 <span className="text-4xl">🏠</span>
               </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-4">No {mode === 'rent' ? 'rentals' : 'properties'} found</h3>
-              <p className="text-gray-600 mb-6">Try adjusting your filters or be the first to list your property {mode === 'rent' ? 'for rent' : 'for sale'}!</p>
+              <h3 className="text-2xl font-bold text-gray-900 mb-4">No rentals found</h3>
+              <p className="text-gray-600 mb-6">Try adjusting your filters or be the first to list your property for rent!</p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <button 
                   onClick={clearFilters}
@@ -666,7 +578,7 @@ export default function Home() {
                   onClick={() => window.location.href = '/post'}
                   className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors"
                 >
-                  {mode === 'rent' ? 'List for Rent' : 'List for Sale'}
+                  List for Rent
                 </button>
               </div>
             </div>
@@ -674,7 +586,7 @@ export default function Home() {
             <>
               <div className="mb-6 text-center">
                 <p className="text-gray-600">
-                  Showing <span className="font-semibold">{displayedListings.length}</span> of <span className="font-semibold">{totalFilteredCount}</span> {mode === 'rent' ? 'rentals' : 'properties'}
+                  Showing <span className="font-semibold">{displayedListings.length}</span> of <span className="font-semibold">{filteredListings.length}</span> rentals
                   {viewMode === 'list' && <span className="ml-2">in list view</span>}
                 </p>
               </div>
@@ -749,7 +661,7 @@ export default function Home() {
                       </svg>
                       <h3 className="text-2xl font-bold">Rental Map</h3>
                     </div>
-                    <p className="text-blue-100">Explore {totalFilteredCount > 0 ? totalFilteredCount : filteredListings.length} {mode === 'rent' ? 'rentals' : 'properties'} by location</p>
+                    <p className="text-blue-100">Explore {filteredListings.length} rentals by location</p>
                   </div>
                   <div className="h-[500px]">
                     <MapView 
