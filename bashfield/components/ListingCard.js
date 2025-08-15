@@ -64,7 +64,7 @@ export default function ListingCard({
   }
 
   const openListing = () => {
-    // Save current scroll position and item count
+    // Save current scroll position and item count for restoration
     sessionStorage.setItem('homeScrollPosition', window.scrollY.toString())
     sessionStorage.setItem('homeItemCount', document.querySelectorAll('[data-listing-card]').length.toString())
     
@@ -73,6 +73,13 @@ export default function ListingCard({
       ? `/listing/${listing.id}?admin=true`
       : `/listing/${listing.id}`
     router.push(url)
+  }
+
+  const handleCardClick = () => {
+    // Save scroll position before navigation
+    sessionStorage.setItem('homeScrollPosition', window.scrollY.toString())
+    sessionStorage.setItem('homeItemCount', document.querySelectorAll('[data-listing-card]').length.toString())
+    openListing()
   }
 
   const openWhatsApp = (e) => {
@@ -325,11 +332,7 @@ export default function ListingCard({
   
   return (
     <div data-listing-card className="bg-white rounded-3xl shadow-lg overflow-hidden group hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-3 hover:scale-105 border border-gray-100/50 backdrop-blur-sm flex flex-col h-full">
-      <div className={`flex flex-col h-full ${!showActions ? 'cursor-pointer' : ''}`} onClick={!showActions ? () => {
-        sessionStorage.setItem('homeScrollPosition', window.scrollY.toString())
-        sessionStorage.setItem('homeItemCount', document.querySelectorAll('[data-listing-card]').length.toString())
-        openListing()
-      } : undefined}>
+      <div className={`flex flex-col h-full ${!showActions ? 'cursor-pointer' : ''}`} onClick={!showActions ? handleCardClick : undefined}>
         {/* Enhanced Image Carousel */}
         <div
           className="relative h-48 sm:h-52 bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden"
