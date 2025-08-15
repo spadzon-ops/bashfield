@@ -9,10 +9,25 @@ export default function SimpleTranslate() {
     const saved = localStorage.getItem('translate-lang') || 'en'
     setCurrentLang(saved)
     
-    // Store original content
+    // Auto-translate new content when it loads
+    const observer = new MutationObserver(() => {
+      if (saved !== 'en') {
+        setTimeout(() => translateNewContent(saved), 100)
+      }
+    })
+    
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      characterData: true
+    })
+    
+    // Initial translation
     if (saved !== 'en') {
       setTimeout(() => translate(saved), 1000)
     }
+    
+    return () => observer.disconnect()
   }, [])
 
   const translateText = async (text, targetLang) => {
@@ -45,63 +60,157 @@ export default function SimpleTranslate() {
       return
     }
     
-    const textElements = document.querySelectorAll('p, h1, h2, h3, h4, h5, h6, span, div, button, label, option, a, li, td, th, input[placeholder], textarea[placeholder]')
+    const { elementsToTranslate, textsToTranslate } = getAllTranslatableElements()
+    
+    // Translate instantly
+    await translateElements(elementsToTranslate, textsToTranslate, targetLang)
+    
+    setOriginalContent(originalContent)
+    setIsTranslating(false)
+  }
+  
+  const getAllTranslatableElements = () => {
+    const textElements = document.querySelectorAll('*')
     const elementsToTranslate = []
     const textsToTranslate = []
     
     textElements.forEach(element => {
       if (element.classList.contains('notranslate')) return
+      if (element.tagName === 'SCRIPT' || element.tagName === 'STYLE') return
       
       // Handle text content
-      if (element.children.length === 0 && element.textContent.trim() && element.textContent.length < 500) {
-        if (!originalContent.has(element)) {
-          originalContent.set(element, element.textContent)
+      if (element.childNodes.length === 1 && element.childNodes[0].nodeType === 3) {
+        const text = element.textContent.trim()
+        if (text && text.length > 0 && text.length < 1000) {
+          if (!originalContent.has(element)) {
+            originalContent.set(element, text)
+          }
+          elementsToTranslate.push(element)
+          textsToTranslate.push(text)
         }
-        elementsToTranslate.push(element)
-        textsToTranslate.push(element.textContent.trim())
       }
       
-      // Handle placeholder attributes
-      if (element.placeholder && element.placeholder.trim()) {
-        if (!originalContent.has(element.placeholder)) {
-          originalContent.set(element.placeholder, element.placeholder)
+      // Handle all attributes that might contain text
+      const attributes = ['placeholder', 'title', 'alt', 'aria-label', 'data-tooltip']
+      attributes.forEach(attr => {
+        if (element.hasAttribute(attr)) {
+          const value = element.getAttribute(attr)
+          if (value && value.trim()) {
+            if (!originalContent.has(`${element}-${attr}`)) {
+              originalContent.set(`${element}-${attr}`, value)
+            }
+            elementsToTranslate.push({ element, type: attr })
+            textsToTranslate.push(value.trim())
+          }
         }
-        elementsToTranslate.push({ element, type: 'placeholder' })
-        textsToTranslate.push(element.placeholder.trim())
-      }
-      
-      // Handle title attributes
-      if (element.title && element.title.trim()) {
-        if (!originalContent.has(element.title)) {
-          originalContent.set(element.title, element.title)
-        }
-        elementsToTranslate.push({ element, type: 'title' })
-        textsToTranslate.push(element.title.trim())
-      }
+      })
     })
     
-    // Translate instantly
-    const promises = elementsToTranslate.map(async (item, index) => {
+    return { elementsToTranslate, textsToTranslate }
+  }
+  
+  const translateElements = async (elementsToTranslate, textsToTranslate, targetLang) => {
+    // Batch translate for speed
+    const batchSize = 20
+    const translations = new Map()
+    
+    // Get all translations first
+    for (let i = 0; i < textsToTranslate.length; i += batchSize) {
+      const batch = textsToTranslate.slice(i, i + batchSize)
+      const promises = batch.map(text => translateText(text, targetLang))
+      const results = await Promise.all(promises)
+      
+      batch.forEach((text, index) => {
+        translations.set(text, results[index])
+      })
+    }
+    
+    // Apply all translations at once
+    elementsToTranslate.forEach((item, index) => {
       const originalText = textsToTranslate[index]
-      if (originalText && originalText.length > 0) {
-        const translated = await translateText(originalText, targetLang)
-        
+      const translated = translations.get(originalText)
+      
+      if (translated && originalText !== translated) {
         if (typeof item === 'object' && item.type) {
-          // Handle attributes
-          if (item.type === 'placeholder') {
-            item.element.placeholder = translated
-          } else if (item.type === 'title') {
-            item.element.title = translated
-          }
+          item.element.setAttribute(item.type, translated)
         } else if (item && item.parentNode) {
-          // Handle text content
           item.textContent = translated
         }
       }
     })
+  }
+  
+  const translateNewContent = async (targetLang) => {
+    if (targetLang === 'en') return
     
-    await Promise.all(promises)
+    const { elementsToTranslate, textsToTranslate } = getAllTranslatableElements()
+    const newElements = elementsToTranslate.filter(item => {
+      if (typeof item === 'object' && item.type) {
+        return !originalContent.has(`${item.element}-${item.type}`)
+      }
+      return !originalContent.has(item)
+    })
     
+    if (newElements.length > 0) {
+      const newTexts = newElements.map((item, index) => {
+        const fullIndex = elementsToTranslate.indexOf(item)
+        return textsToTranslate[fullIndex]
+      })
+      
+      // Hide new content during translation
+      newElements.forEach(item => {
+        const element = typeof item === 'object' ? item.element : item
+        if (element) element.style.opacity = '0'
+      })
+      
+      await translateElements(newElements, newTexts, targetLang)
+      
+      // Show translated content
+      newElements.forEach(item => {
+        const element = typeof item === 'object' ? item.element : item
+        if (element) element.style.opacity = '1'
+      })
+    }
+  }
+  
+  const translate = async (targetLang) => {
+    if (targetLang === currentLang) return
+    
+    setIsTranslating(true)
+    setCurrentLang(targetLang)
+    localStorage.setItem('translate-lang', targetLang)
+    
+    // Hide content during translation
+    document.body.style.opacity = '0.3'
+    document.body.style.pointerEvents = 'none'
+    
+    if (targetLang === 'en') {
+      originalContent.forEach((original, key) => {
+        if (typeof key === 'string' && key.includes('-')) {
+          const [element, attr] = key.split('-')
+          if (element && element.setAttribute) {
+            element.setAttribute(attr, original)
+          }
+        } else if (key && key.parentNode) {
+          key.textContent = original
+        }
+      })
+      
+      // Show content
+      document.body.style.opacity = '1'
+      document.body.style.pointerEvents = 'auto'
+      setIsTranslating(false)
+      return
+    }
+    
+    const { elementsToTranslate, textsToTranslate } = getAllTranslatableElements()
+    
+    // Translate all at once
+    await translateElements(elementsToTranslate, textsToTranslate, targetLang)
+    
+    // Show content
+    document.body.style.opacity = '1'
+    document.body.style.pointerEvents = 'auto'
     setOriginalContent(originalContent)
     setIsTranslating(false)
   }
