@@ -34,6 +34,18 @@ export default function Home() {
     fetchListings()
   }, [])
 
+  // Prevent initial scroll to top flash
+  useEffect(() => {
+    const savedPosition = sessionStorage.getItem('homeScrollPosition')
+    if (savedPosition) {
+      document.documentElement.style.scrollBehavior = 'auto'
+      window.scrollTo(0, parseInt(savedPosition))
+      setTimeout(() => {
+        document.documentElement.style.scrollBehavior = ''
+      }, 100)
+    }
+  }, [])
+
   // Restore scroll position when returning from property details
   useEffect(() => {
     if (!loading && filteredListings.length > 0) {
@@ -45,12 +57,12 @@ export default function Home() {
         const neededPage = Math.ceil(itemCount / ITEMS_PER_PAGE)
         setPage(neededPage)
         
-        // Immediate scroll without animation to prevent flash
-        setTimeout(() => {
-          window.scrollTo(0, parseInt(savedPosition))
+        // Use requestAnimationFrame for instant positioning
+        requestAnimationFrame(() => {
+          window.scrollTo({ top: parseInt(savedPosition), behavior: 'instant' })
           sessionStorage.removeItem('homeScrollPosition')
           sessionStorage.removeItem('homeItemCount')
-        }, 10)
+        })
       }
     }
   }, [loading, filteredListings])
