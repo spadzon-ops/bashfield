@@ -390,7 +390,24 @@ export default function Layout({ children }) {
 
             {/* Enhanced Mobile Menu Button */}
             <div className="lg:hidden flex items-center space-x-2">
-              <LanguageToggle isMobile={true} />
+              <div className="relative">
+                <div className="flex items-center space-x-2 bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200 px-3 py-2 rounded-xl">
+                  <img 
+                    src={`/flags/${i18n.language === 'en' ? 'us' : i18n.language === 'ku' ? 'kurdistan' : 'iraq'}.svg`}
+                    alt="Flag"
+                    className="w-4 h-3 object-cover rounded-sm"
+                  />
+                  <select 
+                    value={i18n.language} 
+                    onChange={(e) => changeLanguage(e.target.value)}
+                    className="bg-transparent border-none text-gray-700 text-xs font-semibold focus:outline-none appearance-none"
+                  >
+                    <option value="en">EN</option>
+                    <option value="ku">KU</option>
+                    <option value="ar">AR</option>
+                  </select>
+                </div>
+              </div>
               <button
                 onClick={(e) => {
                   setMobileMenuOpen(!mobileMenuOpen)
