@@ -1,27 +1,26 @@
-// bashfield/components/LanguageToggle.js
-import { useTranslation } from '../contexts/TranslationContext'
+import React from 'react';
+import { useTranslation } from '../contexts/TranslationContext';
 
-export default function LanguageToggle() {
-  const { lang, setLang, t } = useTranslation()
+export default function LanguageToggle({ className }) {
+  const { i18n } = useTranslation();
 
-  const Btn = ({ code, label }) => (
-    <button
-      type="button"
-      onClick={() => code !== lang && setLang(code)}
-      className={`px-2 py-1 rounded-md text-sm border transition
-        ${lang===code ? 'bg-gray-900 text-white' : 'bg-white text-gray-800'}`}
-      aria-label={t('Switch') + ' ' + label}
-      title={t('Switch') + ' ' + label}
-    >
-      {code.toUpperCase()}
-    </button>
-  )
+  const onChange = (e) => {
+    const next = e.target.value;
+    if (next && next !== i18n.language) {
+      i18n.changeLanguage(next);
+    }
+  };
 
   return (
-    <div className="flex items-center gap-1">
-      <Btn code="en" label="English" />
-      <Btn code="ku" label="Kurdî" />
-      <Btn code="ar" label="العربية" />
-    </div>
-  )
+    <select
+      aria-label="Language"
+      value={i18n.language}
+      onChange={onChange}
+      className={className}
+    >
+      <option value="en">English</option>
+      <option value="ar">العربية</option>
+      <option value="ku">کوردی</option>
+    </select>
+  );
 }
