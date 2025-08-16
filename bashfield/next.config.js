@@ -1,18 +1,14 @@
-/** @type {import('next').NextConfig} */
-const path = require('path');
+// next.config.js
+const path = require("path");
 
+/** @type {import('next').NextConfig} */
 const nextConfig = {
-  i18n: {
-    locales: ['en', 'ar', 'ku'],
-    defaultLocale: 'en',
-  },
   reactStrictMode: true,
   webpack: (config) => {
-    // Route all next-i18next imports to our shims
-    config.resolve.alias['next-i18next'] = path.resolve(__dirname, 'lib/i18n-shim.js');
-    config.resolve.alias['next-i18next/serverSideTranslations'] = path.resolve(
+    // Alias the missing module to our local shim
+    config.resolve.alias["next-i18next/serverSideTranslations"] = path.resolve(
       __dirname,
-      'lib/serverSideTranslations-shim.js'
+      "lib/i18n-server.js"
     );
     return config;
   },
