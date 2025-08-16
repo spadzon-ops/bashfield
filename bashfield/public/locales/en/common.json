@@ -1,58 +1,42 @@
 {
-  "title": "Bashfield - House Rentals in Iraq",
+  "language": {
+    "english": "English",
+    "arabic": "Arabic",
+    "kurdish": "Kurdish"
+  },
+  "site": {
+    "title": "Bashfield",
+    "tagline": "Find your next home"
+  },
   "nav": {
     "home": "Home",
-    "post": "Post Your House",
-    "admin": "Admin",
-    "login": "Login",
-    "logout": "Logout"
+    "post": "Post",
+    "favorites": "Favorites",
+    "messages": "Messages",
+    "admin": "Admin"
   },
-  "home": {
-    "title": "Find Your Perfect Home in Iraq",
-    "subtitle": "Discover amazing rental properties in Erbil and across Iraq",
-    "filter": "Filter by City",
-    "allCities": "All Cities",
-    "noListings": "No listings found"
+  "auth": {
+    "login": "Log in",
+    "logout": "Log out",
+    "signup": "Sign up"
+  },
+  "common": {
+    "hello": "Hello",
+    "save": "Save",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "delete": "Delete",
+    "loading": "Loading..."
   },
   "listing": {
-    "price": "IQD/month",
-    "rooms": "rooms",
-    "postedBy": "Posted by"
-  },
-  "post": {
-    "title": "Post Your House",
-    "form": {
-      "title": "Property Title",
-      "description": "Description",
-      "price": "Monthly Rent (IQD)",
-      "city": "City",
-      "rooms": "Number of Rooms",
-      "images": "Upload Images",
-      "submit": "Submit Listing",
-      "submitting": "Submitting..."
-    },
-    "success": "Listing submitted! It will be visible after admin approval.",
-    "loginRequired": "Please login to post a listing"
-  },
-  "admin": {
-    "title": "Admin Dashboard",
-    "pending": "Pending Listings",
-    "approved": "Approved Listings",
-    "rejected": "Rejected Listings",
-    "approve": "Approve",
-    "reject": "Reject",
-    "delete": "Delete",
-    "noAccess": "Access denied. Admin only."
-  },
-  "cities": {
-    "erbil": "Erbil",
-    "baghdad": "Baghdad",
-    "basra": "Basra",
-    "mosul": "Mosul",
-    "sulaymaniyah": "Sulaymaniyah",
-    "najaf": "Najaf",
-    "karbala": "Karbala",
-    "kirkuk": "Kirkuk",
-    "duhok": "Duhok"
+    "title": "Title",
+    "description": "Description",
+    "price": "Price",
+    "city": "City",
+    "rooms": "Rooms",
+    "contact": "Contact",
+    "reference": "Reference Code",
+    "propertyType": "Property Type",
+    "mode": "Listing Mode"
   }
 }
