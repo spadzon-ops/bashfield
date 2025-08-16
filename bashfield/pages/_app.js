@@ -23,7 +23,6 @@ function MyApp({ Component, pageProps }) {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
       <SessionContextProvider supabaseClient={supabaseClient} initialSession={pageProps.initialSession}>
-        {/* initialLang is only used on first paint; _document sets html[lang/dir] SSR-side */}
         <TranslationProvider initialLang="en">
           <ModeProvider>
             <LayoutComponent>
