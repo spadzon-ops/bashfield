@@ -1,11 +1,12 @@
-import { useRouter } from 'next/router';
+import '@/styles/globals.css';
 import { TranslationProvider } from '../contexts/TranslationContext';
 
-export default function App({ Component, pageProps }) {
-  const { locale } = useRouter();
+function MyApp({ Component, pageProps }) {
   return (
-    <TranslationProvider lang={locale || 'en'}>
+    <TranslationProvider>
       <Component {...pageProps} />
     </TranslationProvider>
   );
 }
+
+export default MyApp;
