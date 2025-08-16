@@ -2,12 +2,12 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations'
-import { useTranslation } from 'next-i18next'
+import useSimpleTranslation from '../hooks/useSimpleTranslation'
 import { supabase } from '../lib/supabase'
 import { ensureConversation } from '../lib/chat'
 
 export default function Messages() {
-  const { t } = useTranslation('common')
+  const { t } = useSimpleTranslation()
   const router = useRouter()
 
   const [user, setUser] = useState(null)
@@ -436,7 +436,7 @@ export default function Messages() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading messages...</p>
+          <p className="text-gray-600">{t('Loading messages...')}</p>
         </div>
       </div>
     )
@@ -458,7 +458,7 @@ export default function Messages() {
                   </div>
                   <div>
                     <h2 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent">Messages</h2>
-                    <p className="text-sm text-gray-600">Your conversations</p>
+                    <p className="text-sm text-gray-600">{t('Your conversations')}</p>
                   </div>
                 </div>
               </div>
@@ -470,8 +470,8 @@ export default function Messages() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                       </svg>
                     </div>
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">No conversations yet</h3>
-                    <p className="text-gray-600">Start browsing properties to connect with owners</p>
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('No conversations yet')}</h3>
+                    <p className="text-gray-600">{t('Start browsing properties to connect with owners')}</p>
                   </div>
                 ) : (
                   conversations.map((conversation) => (
@@ -511,7 +511,7 @@ export default function Messages() {
                           <p className={`text-sm truncate mb-1 ${
                             activeConversation?.id === conversation.id ? 'text-white/90' : 'text-blue-600'
                           }`}>
-                            {conversation.listing?.title ? `🏠 ${conversation.listing.title}` : '💬 Direct Message'}
+                            {conversation.listing?.title ? `🏠 ${conversation.listing.title}` : `💬 ${t('Direct Message')}`}
                           </p>
                           {conversation.last_message && (
                             <p className={`text-sm truncate ${
@@ -554,7 +554,7 @@ export default function Messages() {
                             {activeConversation.other_participant?.display_name || 'Unknown User'}
                           </h3>
                           <p className="text-sm text-blue-600 font-medium">
-                            {activeConversation.listing?.title ? `🏠 ${activeConversation.listing.title}` : '💬 Direct Message'}
+                            {activeConversation.listing?.title ? `🏠 ${activeConversation.listing.title}` : `💬 ${t('Direct Message')}`}
                           </p>
                         </div>
                       </Link>
@@ -582,7 +582,7 @@ export default function Messages() {
                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1-1H8a1 1 0 00-1 1v3M4 7h16" />
                                 </svg>
-                                <span>Delete Conversation</span>
+                                <span>{t('Delete Conversation')}</span>
                               </button>
                               {activeConversation.listing?.id ? (
                                 <button
@@ -595,7 +595,7 @@ export default function Messages() {
                                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
                                   </svg>
-                                  <span>View Property</span>
+                                  <span>{t('View Property')}</span>
                                 </button>
                               ) : (
                                 <button
@@ -608,7 +608,7 @@ export default function Messages() {
                                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                                   </svg>
-                                  <span>View Profile</span>
+                                  <span>{t('View Profile')}</span>
                                 </button>
                               )}
                             </div>
@@ -676,7 +676,7 @@ export default function Messages() {
                               sendMessage()
                             }
                           }}
-                          placeholder="Type your message…"
+                          placeholder={t('Type your message…')}
                           className="w-full px-4 py-3 pr-12 border-2 border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 resize-none overflow-hidden min-h-[52px] max-h-32 transition-all duration-300 bg-gray-50 focus:bg-white"
                           disabled={sending}
                           rows={1}
@@ -724,10 +724,10 @@ export default function Messages() {
                       </svg>
                     </div>
                     <h3 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent mb-4">
-                      Select a conversation
+                      {t('Select a conversation')}
                     </h3>
                     <p className="text-gray-600 leading-relaxed">
-                      Choose a conversation from the list to start messaging with property owners and potential tenants
+                      {t('Choose a conversation from the list to start messaging with property owners and potential tenants')}
                     </p>
                   </div>
                 </div>

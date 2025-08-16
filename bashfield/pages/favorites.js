@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations'
-import { useTranslation } from 'next-i18next'
+import useSimpleTranslation from '../hooks/useSimpleTranslation'
 import { supabase } from '../lib/supabase'
 import ListingCard from '../components/ListingCard'
 import LoadingScreen from '../components/LoadingScreen'
 
 export default function Favorites() {
-  const { t } = useTranslation('common')
+  const { t } = useSimpleTranslation()
   const router = useRouter()
   const [user, setUser] = useState(null)
   const [favorites, setFavorites] = useState([])
@@ -112,7 +112,7 @@ export default function Favorites() {
   }
 
   if (loading) {
-    return <LoadingScreen message="Loading your favorites..." />
+    return <LoadingScreen message={t('Loading your favorites...')} />
   }
 
   if (!user) {
@@ -122,13 +122,13 @@ export default function Favorites() {
           <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <span className="text-2xl">🔐</span>
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Login Required</h2>
-          <p className="text-gray-600 mb-6">Please sign in to view your favorites</p>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">{t('Login Required')}</h2>
+          <p className="text-gray-600 mb-6">{t('Please sign in to view your favorites')}</p>
           <button 
             onClick={() => router.push('/')}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
           >
-            Go to Homepage
+            {t('Go to Homepage')}
           </button>
         </div>
       </div>
@@ -140,10 +140,10 @@ export default function Favorites() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
           <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-4">
-            Your Favorites
+            {t('Your Favorites')}
           </h1>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Properties you've saved for later viewing
+            {t("Properties you've saved for later viewing")}
           </p>
         </div>
 
@@ -152,22 +152,22 @@ export default function Favorites() {
             <div className="w-24 h-24 bg-gradient-to-r from-red-100 to-pink-100 rounded-full flex items-center justify-center mx-auto mb-8">
               <span className="text-5xl">💔</span>
             </div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-4">No favorites yet</h3>
+            <h3 className="text-2xl font-bold text-gray-900 mb-4">{t('No favorites yet')}</h3>
             <p className="text-gray-600 mb-8 max-w-md mx-auto">
-              Start exploring properties and save your favorites by clicking the heart icon on any listing.
+              {t('Start exploring properties and save your favorites by clicking the heart icon on any listing.')}
             </p>
             <button
               onClick={() => router.push('/')}
               className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-8 py-4 rounded-xl font-bold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
             >
-              Browse Properties
+              {t('Browse Properties')}
             </button>
           </div>
         ) : (
           <>
             <div className="mb-8 text-center">
               <p className="text-gray-600">
-                You have <span className="font-semibold text-blue-600">{favorites.length}</span> favorite {favorites.length === 1 ? 'property' : 'properties'}
+                {t('You have')} <span className="font-semibold text-blue-600">{favorites.length}</span> {t('favorite')} {favorites.length === 1 ? t('property') : t('properties')}
               </p>
             </div>
             

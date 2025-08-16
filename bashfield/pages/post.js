@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { serverSideTranslations } from 'next-i18next/serverSideTranslations'
-import { useTranslation } from 'next-i18next'
+import useSimpleTranslation from '../hooks/useSimpleTranslation'
 import { supabase, CITIES, PROPERTY_TYPES } from '../lib/supabase'
 import MapPicker from '../components/MapPicker'
 import AuthGuard from '../components/AuthGuard'
@@ -8,7 +8,7 @@ import PostModeSwitcher from '../components/PostModeSwitcher'
 import { useMode } from '../contexts/ModeContext'
 
 export default function Post() {
-  const { t } = useTranslation('common')
+  const { t } = useSimpleTranslation()
   const { mode, config } = useMode()
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -177,7 +177,7 @@ export default function Post() {
               <PostModeSwitcher />
             </div>
             
-            <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent mb-3">Add Your Property</h1>
+            <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent mb-3">{t('Add Your Property')}</h1>
             <p className="text-gray-600 text-lg">Reach thousands of potential {mode === 'rent' ? 'tenants' : 'buyers'} across Iraq</p>
           </div>
           
@@ -196,9 +196,9 @@ export default function Post() {
                   <div className={`hidden sm:block ml-2 text-sm font-medium ${
                     step <= currentStep ? 'text-blue-600' : 'text-gray-500'
                   }`}>
-                    {step === 1 && 'Details'}
-                    {step === 2 && 'Images'}
-                    {step === 3 && 'Review'}
+                    {step === 1 && t('Property Details')}
+                    {step === 2 && t('Property Images')}
+                    {step === 3 && t('Review & Submit')}
                   </div>
                   {step < 3 && (
                     <div className={`flex-1 h-1 mx-4 ${
@@ -222,13 +222,13 @@ export default function Post() {
                 <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg flex items-center justify-center">
                   <span className="text-white text-sm">ℹ️</span>
                 </div>
-                <h2 className="text-2xl font-bold text-gray-900">Property Details</h2>
+                <h2 className="text-2xl font-bold text-gray-900">{t('Property Details')}</h2>
               </div>
               
               <div className="space-y-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Property Title *
+                    {t('Property Title')} *
                   </label>
                   <input
                     type="text"
@@ -242,7 +242,7 @@ export default function Post() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Description *
+                    {t('Description')} *
                   </label>
                   <textarea
                     required
@@ -257,7 +257,7 @@ export default function Post() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {mode === 'rent' ? 'Monthly Rent' : 'Sale Price'} *
+                      {mode === 'rent' ? t('Monthly Rent') : t('Sale Price')} *
                     </label>
                     <div className="flex">
                       <select
@@ -282,7 +282,7 @@ export default function Post() {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      WhatsApp Number *
+                      {t('WhatsApp Number')} *
                     </label>
                     <input
                       type="tel"
@@ -298,7 +298,7 @@ export default function Post() {
                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Property Type *
+                      {t('Property Type')} *
                     </label>
                     <select
                       value={formData.property_type}
@@ -313,7 +313,7 @@ export default function Post() {
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Number of Rooms
+                      {t('Number of Rooms')}
                     </label>
                     <select
                       value={formData.rooms}
@@ -328,7 +328,7 @@ export default function Post() {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Size (Square Meters)
+                      {t('Size (Square Meters)')}
                     </label>
                     <input
                       type="number"
@@ -342,7 +342,7 @@ export default function Post() {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      City
+                      {t('City')}
                     </label>
                     <select
                       value={formData.city}
@@ -358,7 +358,7 @@ export default function Post() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Property Location
+                    {t('Property Location')}
                   </label>
                   <button
                     type="button"
@@ -370,13 +370,13 @@ export default function Post() {
                     {formData.latitude ? (
                       <div>
                         <span className="text-2xl block mb-2">✅</span>
-                        <p className="font-medium text-green-800">Location Selected</p>
+                        <p className="font-medium text-green-800">{t('Location Selected')}</p>
                         <p className="text-sm text-green-600">{formData.address}</p>
                       </div>
                     ) : (
                       <div>
                         <span className="text-2xl block mb-2">🗺️</span>
-                        <p className="font-medium text-gray-700">Select Location on Map</p>
+                        <p className="font-medium text-gray-700">{t('Select Location on Map')}</p>
                         <p className="text-sm text-gray-500">Optional - helps tenants find you</p>
                       </div>
                     )}
@@ -393,7 +393,7 @@ export default function Post() {
                 <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg flex items-center justify-center">
                   <span className="text-white text-sm">📷</span>
                 </div>
-                <h2 className="text-2xl font-bold text-gray-900">Property Images</h2>
+                <h2 className="text-2xl font-bold text-gray-900">{t('Property Images')}</h2>
               </div>
               
               <div className="space-y-6">
@@ -416,7 +416,7 @@ export default function Post() {
                       )}
                     </div>
                     <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                      {imageLoading ? 'Uploading Images...' : 'Upload Images'}
+                      {imageLoading ? t('Uploading...') : t('Upload Images')}
                     </h3>
                     <p className="text-gray-600 mb-4">Add up to 10 high-quality photos</p>
                     <div className={`px-6 py-2 rounded-lg inline-block transition-colors ${
@@ -424,7 +424,7 @@ export default function Post() {
                         ? 'bg-gray-400 cursor-not-allowed' 
                         : 'bg-blue-600 hover:bg-blue-700 text-white'
                     }`}>
-                      {imageLoading ? 'Uploading...' : 'Choose Images'}
+                      {imageLoading ? t('Uploading...') : t('Choose Images')}
                     </div>
                   </label>
                 </div>
@@ -432,7 +432,7 @@ export default function Post() {
                 {formData.images.length > 0 && (
                   <div>
                     <h3 className="text-lg font-medium text-gray-900 mb-4">
-                      Uploaded Images ({formData.images.length}/10)
+                      {t('Uploaded Images')} ({formData.images.length}/10)
                     </h3>
                     <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                       {formData.images.map((image, index) => (
@@ -465,12 +465,12 @@ export default function Post() {
                 <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg flex items-center justify-center">
                   <span className="text-white text-sm">✓</span>
                 </div>
-                <h2 className="text-2xl font-bold text-gray-900">Review & Submit</h2>
+                <h2 className="text-2xl font-bold text-gray-900">{t('Review & Submit')}</h2>
               </div>
               
               <div className="space-y-6">
                 <div className="bg-gray-50 rounded-lg p-6">
-                  <h3 className="font-semibold text-gray-900 mb-4">Property Summary</h3>
+                  <h3 className="font-semibold text-gray-900 mb-4">{t('Property Summary')}</h3>
                   <div className="space-y-2 text-sm">
                     <div><strong>Title:</strong> {formData.title}</div>
                     <div><strong>Type:</strong> {PROPERTY_TYPES.find(t => t.value === formData.property_type)?.icon} {PROPERTY_TYPES.find(t => t.value === formData.property_type)?.label}</div>
@@ -487,7 +487,7 @@ export default function Post() {
                   <div className="flex items-start space-x-3">
                     <span className="text-blue-500 text-xl">ℹ️</span>
                     <div>
-                      <h4 className="font-medium text-blue-900">Review Process</h4>
+                      <h4 className="font-medium text-blue-900">{t('Review Process')}</h4>
                       <p className="text-blue-700 text-sm mt-1">
                         Your listing will be reviewed by our team within 24 hours. 
                         You'll receive an email notification once it's approved and live.
@@ -507,7 +507,7 @@ export default function Post() {
               disabled={currentStep === 1}
               className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              Previous
+              {t('Previous')}
             </button>
 
             {currentStep < 3 ? (
@@ -516,7 +516,7 @@ export default function Post() {
                 onClick={nextStep}
                 className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
               >
-                Next
+                {t('Next')}
               </button>
             ) : (
               <button
@@ -528,12 +528,12 @@ export default function Post() {
                 {loading ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    <span>Submitting...</span>
+                    <span>{t('Submitting...')}</span>
                   </>
                 ) : (
                   <>
                     <span>🚀</span>
-                    <span>Submit Listing</span>
+                    <span>{t('Submit Listing')}</span>
                   </>
                 )}
               </button>
