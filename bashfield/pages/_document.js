@@ -3,7 +3,6 @@ import Document, { Html, Head, Main, NextScript } from 'next/document';
 
 export default class MyDocument extends Document {
   render() {
-    // Treat Arabic + Kurdish as RTL; English as LTR
     const locale = this.props.__NEXT_DATA__?.locale || 'en';
     const rtl = ['ar', 'ku'].includes(locale);
     return (
