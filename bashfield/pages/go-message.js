@@ -1,36 +1,21 @@
+// bashfield/pages/go-message.js
 import { useEffect } from 'react'
 import { useRouter } from 'next/router'
-import { serverSideTranslations } from 'next-i18next/serverSideTranslations'
-import { ensureConversationAndGo } from '../lib/chat'
-import { supabase } from '../lib/supabase'
+import useSimpleTranslation from '../hooks/useSimpleTranslation'
 
 export default function GoMessage() {
   const router = useRouter()
+  const { t } = useSimpleTranslation()
 
   useEffect(() => {
-    if (!router.isReady) return
-    ;(async () => {
-      const peer = router.query.peer
-      const listing = router.query.listing || null
-
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) { router.replace('/login'); return }
-
-      if (!peer) { router.replace('/messages'); return }
-      await ensureConversationAndGo({ router, otherId: String(peer), listingId: listing ? String(listing) : null })
-    })()
-  }, [router.isReady])
+    // If you later add a helper to ensure a conversation,
+    // you can do it here before navigating.
+    router.replace('/messages')
+  }, [router])
 
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-      <div className="text-center">
-        <div className="w-12 h-12 border-4 border-blue-600 border-top-transparent rounded-full animate-spin mx-auto mb-4"></div>
-        <p className="text-gray-600">Opening chat…</p>
-      </div>
+    <div className="min-h-[60vh] grid place-items-center">
+      <div className="text-lg">{t('Loading...')}</div>
     </div>
   )
-}
-
-export async function getServerSideProps({ locale }) {
-  return { props: { ...(await serverSideTranslations(locale, ['common'])) } }
 }
