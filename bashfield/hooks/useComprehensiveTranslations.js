@@ -1,35 +1,25 @@
+// bashfield/hooks/useComprehensiveTranslations.js
 import { useState, useEffect } from 'react'
-import { getComprehensiveTranslation, getCurrentLanguage } from '../lib/comprehensive-translations'
+import i18n from '../lib/i18n-lite'
 
 export default function useComprehensiveTranslations() {
   const [currentLang, setCurrentLang] = useState('en')
 
   useEffect(() => {
-    const lang = getCurrentLanguage()
+    const lang = i18n.getLang()
     setCurrentLang(lang)
+    i18n.applyDocumentDirection(lang)
+    i18n.translatePage(lang)
 
-    const handleStorageChange = () => {
-      const newLang = getCurrentLanguage()
-      setCurrentLang(newLang)
+    const onChange = (e) => {
+      const l = e?.detail?.language || i18n.getLang()
+      setCurrentLang(l)
+      i18n.applyDocumentDirection(l)
+      i18n.translatePage(l)
     }
-
-    // Listen for language changes
-    window.addEventListener('storage', handleStorageChange)
-    
-    // Listen for custom language change events
-    const handleLanguageChange = (event) => {
-      setCurrentLang(event.detail.language)
-    }
-    
-    window.addEventListener('languageChanged', handleLanguageChange)
-    
-    return () => {
-      window.removeEventListener('storage', handleStorageChange)
-      window.removeEventListener('languageChanged', handleLanguageChange)
-    }
+    window.addEventListener('languageChanged', onChange)
+    return () => window.removeEventListener('languageChanged', onChange)
   }, [])
 
-  const t = (key) => getComprehensiveTranslation(key, currentLang)
-
-  return { t, currentLang }
+  return { t: (key) => i18n.t(key, currentLang), currentLang }
 }
