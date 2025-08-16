@@ -19,17 +19,8 @@ export default function Favorites() {
 
   useEffect(() => {
     if (user) {
-      // Listen for favorite changes
-      const handleFavoriteUpdate = (event) => {
-        const { action } = event.detail || {}
-        if (action === 'removed') {
-          // Remove from local state immediately for better UX
-          setFavorites(prev => prev.filter(fav => fav.id !== event.detail.listingId))
-        }
-        // Refresh favorites after a short delay to avoid rapid API calls
-        setTimeout(() => {
-          fetchFavorites(user)
-        }, 500)
+      const handleFavoriteUpdate = () => {
+        fetchFavorites(user)
       }
       
       window.addEventListener('favoriteUpdated', handleFavoriteUpdate)
@@ -62,12 +53,15 @@ export default function Favorites() {
     if (!user) return
     
     try {
-      // First get favorite listing IDs
+      console.log('Fetching favorites for user:', user.id)
+      
       const { data: favoriteIds, error: favError } = await supabase
         .from('favorites')
         .select('listing_id')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
+
+      console.log('Favorite IDs result:', { favoriteIds, favError })
 
       if (favError) {
         console.error('Error fetching favorite IDs:', favError)
@@ -76,26 +70,22 @@ export default function Favorites() {
       }
       
       if (!favoriteIds || favoriteIds.length === 0) {
+        console.log('No favorites found')
         setFavorites([])
         return
       }
 
       const listingIds = favoriteIds.map(fav => fav.listing_id)
+      console.log('Looking for listings:', listingIds)
 
-      // Get the actual listings with user profiles in one query
       const { data: listingsData, error: listingsError } = await supabase
         .from('listings')
-        .select(`
-          *,
-          user_profiles!inner(
-            user_id,
-            display_name,
-            profile_picture
-          )
-        `)
+        .select('*')
         .in('id', listingIds)
         .eq('status', 'approved')
-        .eq('is_active', true)
+        .neq('is_active', false)
+
+      console.log('Listings result:', { listingsData, listingsError })
 
       if (listingsError) {
         console.error('Error fetching listings:', listingsError)
@@ -103,7 +93,26 @@ export default function Favorites() {
         return
       }
 
-      setFavorites(listingsData || [])
+      if (!listingsData || listingsData.length === 0) {
+        console.log('No approved listings found for favorites')
+        setFavorites([])
+        return
+      }
+
+      const { data: profilesData } = await supabase
+        .from('user_profiles')
+        .select('user_id, display_name, profile_picture')
+
+      const listingsWithProfiles = listingsData.map(listing => {
+        const profile = (profilesData || []).find(p => p.user_id === listing.user_id)
+        return {
+          ...listing,
+          user_profiles: profile || null
+        }
+      })
+
+      console.log('Final favorites:', listingsWithProfiles)
+      setFavorites(listingsWithProfiles)
     } catch (error) {
       console.error('Error in fetchFavorites:', error)
       setFavorites([])
