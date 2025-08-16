@@ -1,88 +1,84 @@
-import React, { createContext, useContext, useMemo, useEffect } from "react";
-import {
-  translate as tr,
-  getDir,
-  isRTL,
-  applyDocumentDirection,
-} from "../lib/i18n-lite";
+import React, { createContext, useContext, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/router';
 
-export const TranslationContext = createContext({
-  lang: "en",
-  dir: "ltr",
-  rtl: false,
-  t: (key) => key,
-});
+// ---- IMPORT YOUR DICTIONARIES HERE ----
+// Adjust these paths to where your JSONs actually live.
+// Each file should export a plain object of translation keys.
+import en from '../locales/en.json';
+import ar from '../locales/ar.json';
+import ku from '../locales/ku.json';
 
-/**
- * Provider. Pass a `lang` like "en", "ar", or "ku".
- */
-export function TranslationProvider({ lang = "en", children }) {
-  const value = useMemo(() => {
-    const dir = getDir(lang);
-    return {
-      lang,
-      dir,
-      rtl: isRTL(lang),
-      t: (key) => tr(lang, key),
-    };
-  }, [lang]);
+const DICTS = { en, ar, ku };
 
-  // Keep <html dir="..."> in sync on the client
-  useEffect(() => {
-    applyDocumentDirection(lang);
-  }, [lang]);
+function getDir(lang) {
+  // Only Arabic is RTL; change if your Kurdish is RTL in your project.
+  return lang === 'ar' ? 'rtl' : 'ltr';
+}
 
-  return (
-    <TranslationContext.Provider value={value}>
-      {children}
-    </TranslationContext.Provider>
+function interpolate(str, vars) {
+  if (!vars) return str;
+  return Object.keys(vars).reduce(
+    (s, k) => s.replace(new RegExp(`{{\\s*${k}\\s*}}`, 'g'), String(vars[k])),
+    String(str)
   );
 }
 
-/**
- * Original hook name we introduced earlier.
- * Returns the raw context { lang, dir, rtl, t }.
- */
-export function useT() {
-  return useContext(TranslationContext);
+function getByPath(obj, path) {
+  return path.split('.').reduce((acc, key) => (acc && acc[key] != null ? acc[key] : undefined), obj);
 }
 
-/**
- * Compatibility hook: shape matches typical `react-i18next` usage.
- * Many components do: `const { t, i18n } = useTranslation()`.
- */
+const Ctx = createContext(null);
+
+export function TranslationProvider({ lang = 'en', children }) {
+  const messages = useMemo(() => DICTS[lang] || DICTS.en || {}, [lang]);
+  const dir = useMemo(() => getDir(lang), [lang]);
+
+  // Keep <html> attributes in sync on the client
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.documentElement.setAttribute('lang', lang);
+      document.documentElement.setAttribute('dir', dir);
+    }
+  }, [lang, dir]);
+
+  const t = useMemo(() => {
+    return (key, vars) => {
+      const val = getByPath(messages, key);
+      if (val == null) return key; // fallback to key when missing
+      if (typeof val === 'string') return interpolate(val, vars);
+      return String(val);
+    };
+  }, [messages]);
+
+  const value = useMemo(() => {
+    return {
+      lang,
+      dir,
+      rtl: dir === 'rtl',
+      t,
+    };
+  }, [lang, dir, t]);
+
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+}
+
 export function useTranslation() {
-  const ctx = useT();
+  const ctx = useContext(Ctx);
+  if (!ctx) {
+    throw new Error('useTranslation must be used inside <TranslationProvider>');
+  }
+  const router = useRouter();
+  // i18n adapter with a minimal API similar to i18next
+  const i18n = useMemo(
+    () => ({
+      language: ctx.lang,
+      changeLanguage: (nextLang) => {
+        // keep the same path, only switch locale
+        router.push(router.asPath, router.asPath, { locale: nextLang });
+      },
+    }),
+    [ctx.lang, router]
+  );
 
-  // Minimal i18n facade for callers that expect changeLanguage()
-  const i18n = {
-    language: ctx.lang,
-    changeLanguage: (nextLang) => {
-      // best-effort route prefix swap on the client
-      if (typeof window === "undefined") return;
-      try {
-        const re = /^\/(en|ar|ku)(\/|$)/;
-        const { pathname, search, hash } = window.location;
-        const nextPath = re.test(pathname)
-          ? pathname.replace(re, `/${nextLang}$2`)
-          : `/${nextLang}${pathname}`;
-        applyDocumentDirection(nextLang);
-        window.location.assign(`${nextPath}${search || ""}${hash || ""}`);
-      } catch {
-        /* no-op */
-      }
-    },
-  };
-
-  return {
-    t: ctx.t,
-    i18n,
-    // also expose these for convenience if any caller uses them
-    lang: ctx.lang,
-    dir: ctx.dir,
-    rtl: ctx.rtl,
-  };
+  return { t: ctx.t, i18n, lang: ctx.lang, dir: ctx.dir, rtl: ctx.rtl };
 }
-
-// default export (optional)
-export default { TranslationProvider, useT, useTranslation };
