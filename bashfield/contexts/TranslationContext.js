@@ -1,3 +1,4 @@
+cat > contexts/TranslationContext.js <<'EOF'
 // shim over to next-i18next + Next.js router
 import React from 'react';
 import { useRouter } from 'next/router';
@@ -25,13 +26,11 @@ export function useTranslation(ns = 'common') {
     changeLanguage: async (lang) => {
       if (!lang || lang === (router?.locale || 'en')) return;
       const asPath = router?.asPath || router?.pathname || '/';
-      // keep the current path & query, only switch locale
       return router.push(asPath, asPath, { locale: lang });
     },
   };
 
-  // Your UI checks this in a few places; keep it false (no spinner logic needed)
   const isTranslating = false;
-
   return { t, i18n, isTranslating };
 }
+EOF
