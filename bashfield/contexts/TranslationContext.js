@@ -1,23 +1,37 @@
+// shim over to next-i18next + Next.js router
+import React from 'react';
 import { useRouter } from 'next/router';
-import { createContext, useContext } from 'react';
+import { useTranslation as useI18Next } from 'next-i18next';
+
+export const TranslationContext = React.createContext(null);
+
+// No-op provider to keep your existing <TranslationProvider> usage working
+export function TranslationProvider({ children }) {
+  return children;
+}
 
 /**
- * Minimal shim so existing components keep working while we use next-i18next.
- * - No provider state is required; we rely on Next.js locale.
- * - `isTranslating` is always false (no spinner).
+ * Matches your previous `useTranslation()` shape:
+ * - returns { t, i18n, isTranslating }
+ * - i18n.language  -> current Next.js locale
+ * - i18n.changeLanguage(lang) -> switches locale via router
  */
-const DummyCtx = createContext({ isTranslating: false });
+export function useTranslation(ns = 'common') {
+  const router = useRouter();
+  const { t } = useI18Next(ns);
 
-export function TranslationProvider({ children }) {
-  return <DummyCtx.Provider value={{ isTranslating: false }}>{children}</DummyCtx.Provider>;
+  const i18n = {
+    language: router?.locale || 'en',
+    changeLanguage: async (lang) => {
+      if (!lang || lang === (router?.locale || 'en')) return;
+      const asPath = router?.asPath || router?.pathname || '/';
+      // keep the current path & query, only switch locale
+      return router.push(asPath, asPath, { locale: lang });
+    },
+  };
+
+  // Your UI checks this in a few places; keep it false (no spinner logic needed)
+  const isTranslating = false;
+
+  return { t, i18n, isTranslating };
 }
-
-// Keep the same API shape that callers expect:
-export function useTranslation() {
-  const { locale } = useRouter();
-  const ctx = useContext(DummyCtx);
-  return { ...ctx, currentLang: locale };
-}
-
-// Older named export some files might import:
-export const isTranslating = false;
