@@ -178,7 +178,14 @@ export default function AdminPage() {
   }
   const bulkDelete = async () => {
     if (idsOfFiltered.length === 0) return alert('Nothing to delete.')
-    if (!confirm(`PERMANENTLY delete ${idsOfFiltered.length} listing(s)? This cannot be undone.`)) return
+    
+    const userInput = prompt(`PERMANENTLY delete ${idsOfFiltered.length} listing(s)? This cannot be undone.\n\nIf you are sure, please type "delete all" to confirm:`)
+    
+    if (userInput !== 'delete all') {
+      alert('Deletion cancelled. You must type "delete all" exactly to confirm.')
+      return
+    }
+    
     setWorking(true)
     await supabase.from('listings').delete().in('id', idsOfFiltered)
     setWorking(false)
