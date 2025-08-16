@@ -1,14 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
-import { useTranslation } from 'next-i18next'
 import { supabase } from '../lib/supabase'
 import LanguageToggle from './LanguageToggle'
 import SimpleTranslate from './SimpleTranslate'
-import { useTranslation as useCustomTranslation } from '../contexts/TranslationContext'
+import useTranslations from '../hooks/useTranslations'
 
 export default function Layout({ children }) {
-  const { t, i18n } = useTranslation('common')
-  const { isTranslating } = useCustomTranslation()
+  const { t } = useTranslations()
   const router = useRouter()
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)

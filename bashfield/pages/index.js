@@ -298,14 +298,10 @@ export default function Home() {
             </div>
             
             <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold text-white mb-8 leading-tight">
-              {config.heroTitle.split(' ').slice(0, -2).join(' ')}
-              <span className="block bg-gradient-to-r from-blue-400 via-cyan-400 to-teal-400 bg-clip-text text-transparent">
-                {config.heroTitle.split(' ').slice(-2).join(' ')}
-              </span>
+              {t('home.title')}
             </h1>
             <p className="text-xl sm:text-2xl text-gray-200 mb-12 max-w-4xl mx-auto leading-relaxed">
-              {config.heroSubtitle}
-              <span className="block mt-2 text-blue-300 font-semibold">{mode === 'rent' ? 'Rent homes • List properties • Connect instantly' : 'Buy homes • Sell properties • Connect instantly'}</span>
+              {t('home.subtitle')}
             </p>
             
 
@@ -557,7 +553,7 @@ export default function Home() {
             <div className="flex justify-center py-20">
               <div className="text-center">
                 <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                <p className="text-gray-600">Loading properties...</p>
+                <p className="text-gray-600">{t('ui.loading')}</p>
               </div>
             </div>
           ) : filteredListings.length === 0 ? (

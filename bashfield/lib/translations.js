@@ -9,6 +9,7 @@ const translations = {
     'nav.profile': 'Profile',
     'nav.messages': 'Messages',
     'nav.favorites': 'Favorites',
+    'nav.viewProfile': 'View Profile',
     
     // Home
     'home.title': 'Find Your Perfect Home in Iraq',
@@ -23,6 +24,20 @@ const translations = {
     'home.loadMore': 'Load More Properties',
     'home.tryAdjustingFilters': 'Try adjusting your filters or be the first to list your property!',
     'home.listForRent': 'List for Rent',
+    'home.cities': 'Cities',
+    'home.quality': 'Quality',
+    'home.support': 'Support',
+    'home.grid': 'Grid',
+    'home.list': 'List',
+    'home.map': 'Map',
+    'home.sortBy': 'Sort by',
+    'home.default': 'Default',
+    'home.newestFirst': 'Newest First',
+    'home.priceLowToHigh': 'Price: Low to High',
+    'home.priceHighToLow': 'Price: High to Low',
+    'home.activeFilters': 'Active filters',
+    'home.rentalMap': 'Rental Map',
+    'home.exploreRentals': 'Explore {count} rentals by location',
     
     // Listing
     'listing.rooms': 'rooms',
@@ -95,6 +110,7 @@ const translations = {
     'nav.profile': 'پرۆفایل',
     'nav.messages': 'پەیامەکان',
     'nav.favorites': 'دڵخوازەکان',
+    'nav.viewProfile': 'بینینی پرۆفایل',
     
     // Home
     'home.title': 'ماڵی گونجاوی خۆت لە عێراق بدۆزەوە',
@@ -109,6 +125,20 @@ const translations = {
     'home.loadMore': 'جایدادی زیاتر باربکە',
     'home.tryAdjustingFilters': 'فلتەرەکان گۆڕ بدە یان یەکەم کەس بە بۆ دانانی جایداد!',
     'home.listForRent': 'بۆ کرێ دابنێ',
+    'home.cities': 'شارەکان',
+    'home.quality': 'کوالیتی',
+    'home.support': 'پشتگیری',
+    'home.grid': 'تۆڕ',
+    'home.list': 'لیست',
+    'home.map': 'نەخشە',
+    'home.sortBy': 'ڕیزکردن بە پێی',
+    'home.default': 'بنەڕەتی',
+    'home.newestFirst': 'نوێترین سەرەتا',
+    'home.priceLowToHigh': 'نرخ: کەم بۆ زۆر',
+    'home.priceHighToLow': 'نرخ: زۆر بۆ کەم',
+    'home.activeFilters': 'فلتەرە چالاکەکان',
+    'home.rentalMap': 'نەخشەی کرێ',
+    'home.exploreRentals': '{count} کرێ بە شوێن بگەڕێ',
     
     // Listing
     'listing.rooms': 'ژوور',
@@ -181,6 +211,7 @@ const translations = {
     'nav.profile': 'الملف الشخصي',
     'nav.messages': 'الرسائل',
     'nav.favorites': 'المفضلات',
+    'nav.viewProfile': 'عرض الملف الشخصي',
     
     // Home
     'home.title': 'اعثر على منزلك المثالي في العراق',
@@ -195,6 +226,20 @@ const translations = {
     'home.loadMore': 'تحميل المزيد من العقارات',
     'home.tryAdjustingFilters': 'جرب تعديل الفلاتر أو كن أول من يضع إعلان!',
     'home.listForRent': 'أعلن للإيجار',
+    'home.cities': 'المدن',
+    'home.quality': 'الجودة',
+    'home.support': 'الدعم',
+    'home.grid': 'شبكة',
+    'home.list': 'قائمة',
+    'home.map': 'خريطة',
+    'home.sortBy': 'ترتيب حسب',
+    'home.default': 'افتراضي',
+    'home.newestFirst': 'الأحدث أولاً',
+    'home.priceLowToHigh': 'السعر: من الأقل للأعلى',
+    'home.priceHighToLow': 'السعر: من الأعلى للأقل',
+    'home.activeFilters': 'الفلاتر النشطة',
+    'home.rentalMap': 'خريطة الإيجارات',
+    'home.exploreRentals': 'استكشف {count} إيجار حسب الموقع',
     
     // Listing
     'listing.rooms': 'غرف',
