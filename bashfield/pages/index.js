@@ -126,10 +126,10 @@ export default function Home() {
 
 
   useEffect(() => {
-    if (!switchingMode && listings.length > 0) {
-      applyFilters()
+    if (!switchingMode) {
+      loadFilteredListings()
     }
-  }, [filters, listings, sortBy, switchingMode])
+  }, [filters, sortBy, switchingMode, loadFilteredListings])
 
   useEffect(() => {
     updateDisplayedListings()
@@ -234,112 +234,105 @@ export default function Home() {
     setSwitchingMode(false)
   }
 
-  const getFilteredCount = useCallback(async () => {
-    if (switchingMode) return
-    
-    try {
-      let query = supabase
-        .from('listings')
-        .select('id', { count: 'exact', head: true })
-        .eq('status', 'approved')
-        .eq('is_active', true)
-        .eq('listing_mode', mode)
-
-      if (filters.city) {
-        query = query.eq('city', filters.city)
-      }
-
-      if (filters.propertyType) {
-        query = query.eq('property_type', filters.propertyType)
-      }
-
-      if (filters.rooms) {
-        query = query.gte('rooms', parseInt(filters.rooms))
-      }
-
-      if (filters.minSize) {
-        query = query.gte('size_sqm', parseInt(filters.minSize))
-      }
-
-      if (filters.minPrice) {
-        query = query.gte('price', parseInt(filters.minPrice))
-      }
-
-      if (filters.maxPrice) {
-        query = query.lte('price', parseInt(filters.maxPrice))
-      }
-
-      if (filters.searchQuery) {
-        const searchTerm = `%${filters.searchQuery.toLowerCase()}%`
-        query = query.or(`title.ilike.${searchTerm},description.ilike.${searchTerm},city.ilike.${searchTerm}`)
-      }
-
-      const { count } = await query
-      setTotalFilteredCount(count || 0)
-    } catch (error) {
-      console.error('Error getting filtered count:', error)
-      setTotalFilteredCount(0)
-    }
-  }, [filters, mode, switchingMode])
-
-  const applyFilters = useCallback(() => {
-    let filtered = listings
-
-    // Search query filter
-    if (filters.searchQuery) {
-      const query = filters.searchQuery.toLowerCase()
-      filtered = filtered.filter(listing => 
-        listing.title.toLowerCase().includes(query) ||
-        listing.description.toLowerCase().includes(query) ||
-        listing.city.toLowerCase().includes(query)
-      )
-    }
+  const buildFilteredQuery = useCallback(() => {
+    let query = supabase
+      .from('listings')
+      .select('*')
+      .eq('status', 'approved')
+      .eq('is_active', true)
+      .eq('listing_mode', mode)
+      .order('created_at', { ascending: false })
 
     if (filters.city) {
-      filtered = filtered.filter(listing => listing.city === filters.city)
+      query = query.eq('city', filters.city)
     }
 
     if (filters.propertyType) {
-      filtered = filtered.filter(listing => listing.property_type === filters.propertyType)
+      query = query.eq('property_type', filters.propertyType)
     }
 
     if (filters.rooms) {
-      filtered = filtered.filter(listing => listing.rooms >= parseInt(filters.rooms))
+      query = query.gte('rooms', parseInt(filters.rooms))
     }
 
     if (filters.minSize) {
-      filtered = filtered.filter(listing => listing.size_sqm && listing.size_sqm >= parseInt(filters.minSize))
+      query = query.gte('size_sqm', parseInt(filters.minSize))
     }
 
-    // Price filtering
-    if (filters.minPrice || filters.maxPrice) {
-      filtered = filtered.filter(listing => {
-        const price = listing.price
-        const minPrice = parseInt(filters.minPrice) || 0
-        const maxPrice = parseInt(filters.maxPrice) || 999999
-        return price >= minPrice && price <= maxPrice
-      })
+    if (filters.minPrice) {
+      query = query.gte('price', parseInt(filters.minPrice))
     }
 
-    // Apply sorting
-    filtered = [...filtered].sort((a, b) => {
-      switch (sortBy) {
-        case 'default':
-        case 'newest':
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-        case 'price-low':
-          return (a.price || 0) - (b.price || 0)
-        case 'price-high':
-          return (b.price || 0) - (a.price || 0)
-        default:
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    if (filters.maxPrice) {
+      query = query.lte('price', parseInt(filters.maxPrice))
+    }
+
+    if (filters.searchQuery) {
+      const searchTerm = `%${filters.searchQuery.toLowerCase()}%`
+      query = query.or(`title.ilike.${searchTerm},description.ilike.${searchTerm},city.ilike.${searchTerm}`)
+    }
+
+    return query
+  }, [filters, mode])
+
+  const loadFilteredListings = useCallback(async () => {
+    if (switchingMode) return
+    
+    try {
+      const { data: listingsData, error: listingsError } = await buildFilteredQuery()
+      
+      if (listingsError) {
+        console.error('Error fetching filtered listings:', listingsError)
+        setFilteredListings([])
+        setTotalFilteredCount(0)
+        return
       }
-    })
 
-    setFilteredListings(filtered)
-    setTotalFilteredCount(filtered.length)
-    setPage(1) // Reset pagination when filters change
-  }, [listings, filters, sortBy])
+      // Get user profiles for the filtered listings
+      const userIds = [...new Set(listingsData.map(l => l.user_id).filter(Boolean))]
+      let listingsWithProfiles = listingsData
+      
+      if (userIds.length > 0) {
+        const { data: profilesData } = await supabase
+          .from('user_profiles')
+          .select('user_id, display_name, profile_picture, is_verified')
+          .in('user_id', userIds)
+        
+        listingsWithProfiles = listingsData.map(listing => {
+          const profile = profilesData?.find(p => p.user_id === listing.user_id)
+          return {
+            ...listing,
+            user_profiles: profile || null
+          }
+        })
+      }
+
+      // Apply sorting
+      const sorted = [...listingsWithProfiles].sort((a, b) => {
+        switch (sortBy) {
+          case 'default':
+          case 'newest':
+            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          case 'price-low':
+            return (a.price || 0) - (b.price || 0)
+          case 'price-high':
+            return (b.price || 0) - (a.price || 0)
+          default:
+            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        }
+      })
+
+      setFilteredListings(sorted)
+      setTotalFilteredCount(sorted.length)
+      setPage(1)
+    } catch (error) {
+      console.error('Error loading filtered listings:', error)
+      setFilteredListings([])
+      setTotalFilteredCount(0)
+    }
+  }, [buildFilteredQuery, sortBy, switchingMode])
+
+
 
   const updateDisplayedListings = useCallback(() => {
     const endIndex = page * ITEMS_PER_PAGE
