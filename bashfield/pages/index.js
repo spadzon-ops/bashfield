@@ -387,7 +387,7 @@ export default function Home() {
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                     </svg>
-                    <span>{config.searchLabel}</span>
+                    <span>{t('Browse Rentals')}</span>
                   </button>
                   <button 
                     onClick={() => window.location.href = '/post'}
@@ -396,8 +396,8 @@ export default function Home() {
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                     </svg>
-                    <span>Post Your Property</span>
-                    <span className="text-xs bg-white/20 px-2 py-1 rounded-full">FREE</span>
+                    <span>{t('Post Your Property')}</span>
+                    <span className="text-xs bg-white/20 px-2 py-1 rounded-full">{t('FREE')}</span>
                   </button>
                 </div>
               </div>

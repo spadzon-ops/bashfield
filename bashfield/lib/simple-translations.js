@@ -154,7 +154,51 @@ const translations = {
     "Delete Conversation": "Delete Conversation",
     "View Property": "View Property",
     "Unknown User": "Unknown User",
-    "Direct Message": "Direct Message"
+    "Direct Message": "Direct Message",
+    
+    // Missing Homepage Elements
+    "#1 Property Platform": "#1 Property Platform",
+    "Renting": "Renting",
+    "Buying & Selling": "Buying & Selling",
+    "Browse Rentals": "Browse Rentals",
+    "Post Your Property": "Post Your Property",
+    "FREE": "FREE",
+    "Rentals": "Rentals",
+    "Rental Properties": "Rental Properties",
+    "Sale Properties": "Sale Properties",
+    "Switch": "Switch",
+    "Owner": "Owner",
+    "Chat": "Chat",
+    "Room": "Room",
+    "Message": "Message",
+    "Verified": "Verified",
+    
+    // Post Form Missing
+    "Reach thousands of potential tenants across Iraq": "Reach thousands of potential tenants across Iraq",
+    "Details": "Details",
+    "Images": "Images",
+    "Review": "Review",
+    "e.g., Modern 2BR Apartment in Erbil Center": "e.g., Modern 2BR Apartment in Erbil Center",
+    "Describe your property, amenities, nearby facilities...": "Describe your property, amenities, nearby facilities...",
+    "Optional - helps tenants find you": "Optional - helps tenants find you",
+    "e.g., 120": "e.g., 120",
+    
+    // Admin Dashboard Missing
+    "Manage property listings and user content": "Manage property listings and user content",
+    "e.g. BF-9A3C71": "e.g. BF-9A3C71",
+    "Apply Filters": "Apply Filters",
+    "Filtered:": "Filtered:",
+    "Inactivate All": "Inactivate All",
+    "Activate All": "Activate All",
+    "Delete All": "Delete All",
+    
+    // Footer
+    "Premier house rental platform. Find your perfect home across major cities with trust and ease.": "Premier house rental platform. Find your perfect home across major cities with trust and ease.",
+    "Quick Links": "Quick Links",
+    "Contact": "Contact",
+    "All rights reserved.": "All rights reserved.",
+    "Made with ❤️ for everyone": "Made with ❤️ for everyone",
+    "Premier Property Platform": "Premier Property Platform"
   },
   ku: {
     // Navigation & Header
@@ -311,7 +355,51 @@ const translations = {
     "Delete Conversation": "سڕینەوەی گفتوگۆ",
     "View Property": "بینینی جایداد",
     "Unknown User": "بەکارهێنەری نەناسراو",
-    "Direct Message": "پەیامی ڕاستەوخۆ"
+    "Direct Message": "پەیامی ڕاستەوخۆ",
+    
+    // Missing Homepage Elements
+    "#1 Property Platform": "پلاتفۆرمی یەکەم بۆ جایداد",
+    "Renting": "کرێگرتن",
+    "Buying & Selling": "کڕین و فرۆشتن",
+    "Browse Rentals": "گەڕان لە کرێیەکان",
+    "Post Your Property": "جایدادەکەت بڵاوبکەرەوە",
+    "FREE": "بەخۆڕایی",
+    "Rentals": "کرێیەکان",
+    "Rental Properties": "جایدادی کرێیەری",
+    "Sale Properties": "جایدادی فرۆشتن",
+    "Switch": "گۆڕین",
+    "Owner": "خاوەن",
+    "Chat": "گفتوگۆ",
+    "Room": "ژوور",
+    "Message": "پەیام",
+    "Verified": "دڵنیاکراو",
+    
+    // Post Form Missing
+    "Reach thousands of potential tenants across Iraq": "گەیشتن بە هەزاران کرێگری ئەگەری لە سەرتاسەری عێراق",
+    "Details": "وردەکاری",
+    "Images": "وێنەکان",
+    "Review": "پێداچوونەوە",
+    "e.g., Modern 2BR Apartment in Erbil Center": "نموونە، ئاپارتەمەنتی نوێی 2 ژوور لە ناوەندی هەولێر",
+    "Describe your property, amenities, nearby facilities...": "جایدادەکەت، ئامرازەکان، ئامێرە نزیکەکان باس بکە...",
+    "Optional - helps tenants find you": "ئیختیاری - یارمەتی کرێگران دەدات بتدۆزنەوە",
+    "e.g., 120": "نموونە، 120",
+    
+    // Admin Dashboard Missing
+    "Manage property listings and user content": "بەڕێوەبردنی ئاگهیەکانی جایداد و ناوەڕۆکی بەکارهێنەران",
+    "e.g. BF-9A3C71": "نموونە BF-9A3C71",
+    "Apply Filters": "فلتەرەکان جێبەجێ بکە",
+    "Filtered:": "دوای فلتەرکردن:",
+    "Inactivate All": "هەمووی ناچالاک بکە",
+    "Activate All": "هەمووی چالاک بکە",
+    "Delete All": "هەمووی بسڕەوە",
+    
+    // Footer
+    "Premier house rental platform. Find your perfect home across major cities with trust and ease.": "پلاتفۆرمی پێشەنگ بۆ کرێی خانوو. ماڵی گونجاوی خۆت بدۆزەوە لە شارە گەورەکان بە متمانە و ئاسانی.",
+    "Quick Links": "بەستەرە خێراکان",
+    "Contact": "پەیوەندی",
+    "All rights reserved.": "هەموو مافەکان پارێزراون.",
+    "Made with ❤️ for everyone": "دروستکراوە بە خۆشەویستی بۆ هەموو کەس",
+    "Premier Property Platform": "پلاتفۆرمی پێشەنگی جایداد"
   },
   ar: {
     // Navigation & Header
@@ -468,7 +556,51 @@ const translations = {
     "Delete Conversation": "حذف المحادثة",
     "View Property": "عرض العقار",
     "Unknown User": "مستخدم غير معروف",
-    "Direct Message": "رسالة مباشرة"
+    "Direct Message": "رسالة مباشرة",
+    
+    // Missing Homepage Elements
+    "#1 Property Platform": "منصة العقارات رقم 1",
+    "Renting": "الإيجار",
+    "Buying & Selling": "الشراء والبيع",
+    "Browse Rentals": "تصفح الإيجارات",
+    "Post Your Property": "أعلن عن عقارك",
+    "FREE": "مجاناً",
+    "Rentals": "إيجارات",
+    "Rental Properties": "عقارات للإيجار",
+    "Sale Properties": "عقارات للبيع",
+    "Switch": "تبديل",
+    "Owner": "المالك",
+    "Chat": "محادثة",
+    "Room": "غرفة",
+    "Message": "رسالة",
+    "Verified": "موثّق",
+    
+    // Post Form Missing
+    "Reach thousands of potential tenants across Iraq": "وصل إلى آلاف المستأجرين المحتملين في جميع أنحاء العراق",
+    "Details": "التفاصيل",
+    "Images": "الصور",
+    "Review": "مراجعة",
+    "e.g., Modern 2BR Apartment in Erbil Center": "مثال، شقة حديثة بغرفتين في وسط أربيل",
+    "Describe your property, amenities, nearby facilities...": "صف عقارك، المرافق، التسهيلات القريبة...",
+    "Optional - helps tenants find you": "اختياري - يساعد المستأجرين في العثور عليك",
+    "e.g., 120": "مثال، 120",
+    
+    // Admin Dashboard Missing
+    "Manage property listings and user content": "إدارة إعلانات العقارات ومحتوى المستخدمين",
+    "e.g. BF-9A3C71": "مثال BF-9A3C71",
+    "Apply Filters": "تطبيق الفلاتر",
+    "Filtered:": "بعد التصفية:",
+    "Inactivate All": "تعطيل الكل",
+    "Activate All": "تفعيل الكل",
+    "Delete All": "حذف الكل",
+    
+    // Footer
+    "Premier house rental platform. Find your perfect home across major cities with trust and ease.": "منصة إيجار المنازل الرائدة. اعثر على منزلك المثالي في المدن الكبرى بثقة وسهولة.",
+    "Quick Links": "روابط سريعة",
+    "Contact": "اتصل بنا",
+    "All rights reserved.": "جميع الحقوق محفوظة.",
+    "Made with ❤️ for everyone": "صُنع بحب للجميع",
+    "Premier Property Platform": "منصة العقارات الرائدة"
   }
 }
 

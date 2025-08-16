@@ -178,7 +178,7 @@ export default function Post() {
             </div>
             
             <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent mb-3">{t('Add Your Property')}</h1>
-            <p className="text-gray-600 text-lg">Reach thousands of potential {mode === 'rent' ? 'tenants' : 'buyers'} across Iraq</p>
+            <p className="text-gray-600 text-lg">{t('Reach thousands of potential tenants across Iraq')}</p>
           </div>
           
           {/* Progress Bar */}
@@ -196,9 +196,9 @@ export default function Post() {
                   <div className={`hidden sm:block ml-2 text-sm font-medium ${
                     step <= currentStep ? 'text-blue-600' : 'text-gray-500'
                   }`}>
-                    {step === 1 && t('Property Details')}
-                    {step === 2 && t('Property Images')}
-                    {step === 3 && t('Review & Submit')}
+                    {step === 1 && t('Details')}
+                    {step === 2 && t('Images')}
+                    {step === 3 && t('Review')}
                   </div>
                   {step < 3 && (
                     <div className={`flex-1 h-1 mx-4 ${
@@ -233,7 +233,7 @@ export default function Post() {
                   <input
                     type="text"
                     required
-                    placeholder="e.g., Modern 2BR Apartment in Erbil Center"
+                    placeholder={t('e.g., Modern 2BR Apartment in Erbil Center')}
                     value={formData.title}
                     onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -247,7 +247,7 @@ export default function Post() {
                   <textarea
                     required
                     rows={4}
-                    placeholder="Describe your property, amenities, nearby facilities..."
+                    placeholder={t('Describe your property, amenities, nearby facilities...')}
                     value={formData.description}
                     onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
@@ -333,7 +333,7 @@ export default function Post() {
                     <input
                       type="number"
                       min="1"
-                      placeholder="e.g., 120"
+                      placeholder={t('e.g., 120')}
                       value={formData.size_sqm}
                       onChange={(e) => setFormData(prev => ({ ...prev, size_sqm: e.target.value }))}
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -377,7 +377,7 @@ export default function Post() {
                       <div>
                         <span className="text-2xl block mb-2">🗺️</span>
                         <p className="font-medium text-gray-700">{t('Select Location on Map')}</p>
-                        <p className="text-sm text-gray-500">Optional - helps tenants find you</p>
+                        <p className="text-sm text-gray-500">{t('Optional - helps tenants find you')}</p>
                       </div>
                     )}
                   </button>

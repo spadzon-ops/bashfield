@@ -605,7 +605,7 @@ export default function Layout({ children }) {
                 <h3 className="text-2xl font-bold text-white">Bashfield</h3>
               </div>
               <p className="text-gray-300 mb-6 text-lg leading-relaxed">
-  Premier house rental platform. Find your perfect home across major cities with trust and ease.
+                {t('Premier house rental platform. Find your perfect home across major cities with trust and ease.')}
               </p>
               <div className="flex space-x-6">
                 <span className="text-3xl hover:scale-110 transition-transform cursor-pointer">🇮🇶</span>
@@ -614,7 +614,7 @@ export default function Layout({ children }) {
               </div>
             </div>
             <div>
-              <h4 className="font-bold text-white mb-6 text-lg">Quick Links</h4>
+              <h4 className="font-bold text-white mb-6 text-lg">{t('Quick Links')}</h4>
               <ul className="space-y-3 text-gray-300">
                 <li>
                   <button onClick={() => router.push('/')} className="hover:text-yellow-400 transition-colors duration-200 flex items-center space-x-2">
@@ -636,7 +636,7 @@ export default function Layout({ children }) {
               </ul>
             </div>
             <div>
-              <h4 className="font-bold text-white mb-6 text-lg">Contact</h4>
+              <h4 className="font-bold text-white mb-6 text-lg">{t('Contact')}</h4>
               <ul className="space-y-4 text-gray-300">
                 <li className="flex items-center space-x-3 hover:text-yellow-400 transition-colors duration-200">
                   <span className="text-xl">📧</span>
@@ -654,8 +654,8 @@ export default function Layout({ children }) {
             </div>
           </div>
           <div className="border-t border-gray-700 mt-12 pt-8 text-center">
-            <p className="text-gray-300 text-lg">&copy; 2025 Bashfield. All rights reserved.</p>
-            <p className="text-yellow-400 mt-2 font-semibold">Made with ❤️ for everyone</p>
+            <p className="text-gray-300 text-lg">&copy; 2025 Bashfield. {t('All rights reserved.')}</p>
+            <p className="text-yellow-400 mt-2 font-semibold">{t('Made with ❤️ for everyone')}</p>
           </div>
         </div>
       </footer>
