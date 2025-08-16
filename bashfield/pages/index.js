@@ -132,12 +132,6 @@ export default function Home() {
   }, [filters, listings, sortBy, switchingMode])
 
   useEffect(() => {
-    if (!switchingMode) {
-      getFilteredCount()
-    }
-  }, [filters, mode, switchingMode])
-
-  useEffect(() => {
     updateDisplayedListings()
   }, [filteredListings, page])
 
@@ -172,20 +166,7 @@ export default function Home() {
       
       setLoading(true)
       
-      // Get total count first
-      const { count } = await supabase
-        .from('listings')
-        .select('id', { count: 'exact', head: true })
-        .eq('status', 'approved')
-        .eq('is_active', true)
-        .eq('listing_mode', mode)
-        .abortSignal(signal)
-      
-      if (!signal.aborted) {
-        setTotalFilteredCount(count || 0)
-      }
-      
-      // Then get all approved and active listings
+      // Get all approved and active listings
       const { data: listingsData, error: listingsError } = await supabase
         .from('listings')
         .select('*')
@@ -238,8 +219,7 @@ export default function Home() {
       setListings(newListings)
       setFilteredListings(newListings)
       setDisplayedListings(newListings.slice(0, ITEMS_PER_PAGE))
-      // Keep the total count from database, don't overwrite with loaded count
-      if (!count) setTotalFilteredCount(newListings.length)
+      setTotalFilteredCount(newListings.length)
       setHasInitialData(true)
     } catch (error) {
       if (error.name !== 'AbortError') {
@@ -357,6 +337,7 @@ export default function Home() {
     })
 
     setFilteredListings(filtered)
+    setTotalFilteredCount(filtered.length)
     setPage(1) // Reset pagination when filters change
   }, [listings, filters, sortBy])
 
