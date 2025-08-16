@@ -1,0 +1,20 @@
+{
+  "nav": {
+    "home": "Home",
+    "post": "Post",
+    "admin": "Admin",
+    "chat": "Chat"
+  },
+  "actions": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "submit": "Submit",
+    "back": "Back"
+  },
+  "common": {
+    "language": "Language",
+    "success": "Success",
+    "error": "Error",
+    "loading": "Loading..."
+  }
+}
