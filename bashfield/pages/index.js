@@ -56,24 +56,22 @@ export default function Home() {
       setHasInitialData(false)
     }
     
-    // Debounce the mode change
-    debounceTimeoutRef.current = setTimeout(() => {
-      fetchListings()
-      // Reset filters when mode changes
-      if (prevMode !== mode) {
-        setFilters({
-          city: '',
-          propertyType: '',
-          minPrice: '',
-          maxPrice: '',
-          rooms: '',
-          minSize: '',
-          searchQuery: ''
-        })
-        setPage(1)
-        setPrevMode(mode)
-      }
-    }, 300)
+    // Immediate mode change without debounce
+    fetchListings()
+    // Reset filters when mode changes
+    if (prevMode !== mode) {
+      setFilters({
+        city: '',
+        propertyType: '',
+        minPrice: '',
+        maxPrice: '',
+        rooms: '',
+        minSize: '',
+        searchQuery: ''
+      })
+      setPage(1)
+      setPrevMode(mode)
+    }
     
     return () => {
       if (debounceTimeoutRef.current) {
@@ -708,14 +706,7 @@ export default function Home() {
                 <p className="text-gray-600">Loading properties...</p>
               </div>
             </div>
-          ) : switchingMode ? (
-            <div className="flex justify-center py-20">
-              <div className="text-center">
-                <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                <p className="text-gray-600">Switching modes...</p>
-              </div>
-            </div>
-          ) : (!loading && !switchingMode && hasInitialData && filteredListings.length === 0) ? (
+          ) : (!loading && hasInitialData && filteredListings.length === 0) ? (
             <div className="text-center py-20">
               <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
                 <span className="text-4xl">🏠</span>
