@@ -319,7 +319,7 @@ export default function Home() {
                     onChange={(e) => setFilters(prev => ({ ...prev, propertyType: e.target.value }))}
                     className="w-full px-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-gray-900 font-medium"
                   >
-                    <option value="">All Types</option>
+                    <option value="">{t('home.allTypes')}</option>
                     {PROPERTY_TYPES.map(type => (
                       <option key={type.value} value={type.value}>{type.icon} {type.label}</option>
                     ))}
@@ -341,7 +341,7 @@ export default function Home() {
                     onChange={(e) => setFilters(prev => ({ ...prev, rooms: e.target.value }))}
                     className="w-full px-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-gray-900 font-medium"
                   >
-                    <option value="">Any Rooms</option>
+                    <option value="">{t('home.anyRooms')}</option>
                     <option value="1">1+ Room</option>
                     <option value="2">2+ Rooms</option>
                     <option value="3">3+ Rooms</option>
@@ -351,7 +351,7 @@ export default function Home() {
                   
                   <input
                     type="number"
-                    placeholder="Min Size (m²)"
+                    placeholder={`${t('home.minSize')} (m²)`}
                     value={filters.minSize || ''}
                     onChange={(e) => {
                       const value = e.target.value
@@ -362,7 +362,7 @@ export default function Home() {
                   
                   <input
                     type="number"
-                    placeholder="Min Price"
+                    placeholder={t('home.minPrice')}
                     value={filters.minPrice || ''}
                     onChange={(e) => {
                       const value = e.target.value
@@ -373,7 +373,7 @@ export default function Home() {
                   
                   <input
                     type="number"
-                    placeholder="Max Price"
+                    placeholder={t('home.maxPrice')}
                     value={filters.maxPrice || ''}
                     onChange={(e) => {
                       const value = e.target.value
