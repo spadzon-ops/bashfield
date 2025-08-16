@@ -37,8 +37,12 @@ export default function FavoriteButton({ listingId, className = "" }) {
   }, [user, listingId])
 
   const getUser = async () => {
-    const { data: { user } } = await supabase.auth.getUser()
-    setUser(user)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      setUser(user)
+    } catch (error) {
+      console.error('Error getting user:', error)
+    }
   }
 
   const checkFavoriteStatus = async () => {
@@ -100,7 +104,13 @@ export default function FavoriteButton({ listingId, className = "" }) {
     setLoading(false)
   }
 
-  if (!user) return null
+  if (!user) {
+    return (
+      <div className="p-2 rounded-full bg-gray-100 text-gray-400 shadow-lg backdrop-blur-sm" style={{ minWidth: '40px', minHeight: '40px' }}>
+        <span className="text-xl">🤍</span>
+      </div>
+    )
+  }
 
   return (
     <button
