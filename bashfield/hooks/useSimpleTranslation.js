@@ -1,2 +1,6 @@
-// If other files import this hook, keep it as a thin re-export.
-export { useTranslation as default, useTranslation } from '../contexts/TranslationContext';
+import { useTranslation } from 'next-i18next';
+
+export default function useSimpleTranslation(ns = 'common') {
+  const { t } = useTranslation(ns);
+  return t;
+}
