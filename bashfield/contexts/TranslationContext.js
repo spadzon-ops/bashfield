@@ -1,84 +1,92 @@
-import React, { createContext, useContext, useEffect, useMemo } from 'react';
+import React, { createContext, useContext, useMemo, useState, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/router';
 
-// ---- IMPORT YOUR DICTIONARIES HERE ----
-// Adjust these paths to where your JSONs actually live.
-// Each file should export a plain object of translation keys.
-import en from '../locales/en.json';
-import ar from '../locales/ar.json';
-import ku from '../locales/ku.json';
+// Load dictionaries (statically at build time)
+import en from '../public/locales/en/common.json';
+import ar from '../public/locales/ar/common.json';
+import ku from '../public/locales/ku/common.json';
 
-const DICTS = { en, ar, ku };
-
-function getDir(lang) {
-  // Only Arabic is RTL; change if your Kurdish is RTL in your project.
-  return lang === 'ar' ? 'rtl' : 'ltr';
-}
-
-function interpolate(str, vars) {
-  if (!vars) return str;
-  return Object.keys(vars).reduce(
-    (s, k) => s.replace(new RegExp(`{{\\s*${k}\\s*}}`, 'g'), String(vars[k])),
-    String(str)
-  );
-}
-
+// Helper: safely read a dotted path from an object
 function getByPath(obj, path) {
+  if (!obj || !path) return undefined;
   return path.split('.').reduce((acc, key) => (acc && acc[key] != null ? acc[key] : undefined), obj);
 }
 
-const Ctx = createContext(null);
+const DICTS = { en, ar, ku };
 
-export function TranslationProvider({ lang = 'en', children }) {
-  const messages = useMemo(() => DICTS[lang] || DICTS.en || {}, [lang]);
-  const dir = useMemo(() => getDir(lang), [lang]);
+const TranslationContext = createContext(null);
 
-  // Keep <html> attributes in sync on the client
-  useEffect(() => {
-    if (typeof document !== 'undefined') {
-      document.documentElement.setAttribute('lang', lang);
-      document.documentElement.setAttribute('dir', dir);
+export function TranslationProvider({ children }) {
+  const router = useRouter();
+
+  // Derive initial language from next/router locale or from pathname prefix
+  const detectInitial = () => {
+    const l = router?.locale;
+    if (l && DICTS[l]) return l;
+    if (typeof window !== 'undefined') {
+      const seg = window.location.pathname.split('/').filter(Boolean)[0];
+      if (seg && DICTS[seg]) return seg;
     }
-  }, [lang, dir]);
+    return 'en';
+  };
 
-  const t = useMemo(() => {
-    return (key, vars) => {
-      const val = getByPath(messages, key);
-      if (val == null) return key; // fallback to key when missing
-      if (typeof val === 'string') return interpolate(val, vars);
-      return String(val);
-    };
-  }, [messages]);
+  const [language, setLanguage] = useState(detectInitial);
+  const [isTranslating, setIsTranslating] = useState(false);
 
-  const value = useMemo(() => {
-    return {
-      lang,
-      dir,
-      rtl: dir === 'rtl',
+  // Keep state in sync if the router.locale changes
+  useEffect(() => {
+    const l = router?.locale;
+    if (l && DICTS[l] && l !== language) setLanguage(l);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router?.locale]);
+
+  const changeLanguage = useCallback(
+    async (lng) => {
+      if (!DICTS[lng]) return;
+      setIsTranslating(true);
+      try {
+        if (router && router.asPath) {
+          await router.push(router.asPath, router.asPath, { locale: lng, scroll: false });
+        }
+        setLanguage(lng);
+      } finally {
+        setIsTranslating(false);
+      }
+    },
+    [router]
+  );
+
+  const t = useCallback(
+    (key, fallback) => {
+      const dict = DICTS[language] || en;
+      const value = getByPath(dict, key);
+      if (value != null) return value;
+      const enValue = getByPath(en, key);
+      return enValue != null ? enValue : (fallback != null ? fallback : key);
+    },
+    [language]
+  );
+
+  const value = useMemo(
+    () => ({
       t,
-    };
-  }, [lang, dir, t]);
+      i18n: {
+        language,
+        changeLanguage,
+      },
+      isTranslating,
+      setIsTranslating,
+    }),
+    [t, language, changeLanguage, isTranslating]
+  );
 
-  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
+  return <TranslationContext.Provider value={value}>{children}</TranslationContext.Provider>;
 }
 
 export function useTranslation() {
-  const ctx = useContext(Ctx);
-  if (!ctx) {
-    throw new Error('useTranslation must be used inside <TranslationProvider>');
-  }
-  const router = useRouter();
-  // i18n adapter with a minimal API similar to i18next
-  const i18n = useMemo(
-    () => ({
-      language: ctx.lang,
-      changeLanguage: (nextLang) => {
-        // keep the same path, only switch locale
-        router.push(router.asPath, router.asPath, { locale: nextLang });
-      },
-    }),
-    [ctx.lang, router]
-  );
-
-  return { t: ctx.t, i18n, lang: ctx.lang, dir: ctx.dir, rtl: ctx.rtl };
+  const ctx = useContext(TranslationContext);
+  if (!ctx) throw new Error('useTranslation must be used within a TranslationProvider');
+  return ctx;
 }
+
+export default TranslationContext;
