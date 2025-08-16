@@ -1,68 +1,49 @@
-// Central helper to guarantee we open/create the right conversation.
-// Usage: ensureConversation({ otherId, listingId })
-import { supabase } from './supabase'
+// lib/chat.js
+import { createClient } from '@supabase/supabase-js';
 
-/**
- * Ensures (and returns) a conversation id. Property-first:
- * - If listingId is provided -> use (listing_id + two participants).
- * - Else -> fallback to 1:1 non-listing conversation (listing_id IS NULL).
- * Returns the conversation id (string).
- */
-export async function ensureConversation({ otherId, listingId = null }) {
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Not authenticated')
-  if (!otherId) throw new Error('Missing otherId')
-  if (otherId === user.id) throw new Error('Cannot message yourself')
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
 
-  // Property-scoped conversation
-  if (listingId) {
-    const { data: existing } = await supabase
-      .from('conversations')
-      .select('id')
-      .or(
-        `and(listing_id.eq.${listingId},participant1.eq.${user.id},participant2.eq.${otherId}),` +
-        `and(listing_id.eq.${listingId},participant1.eq.${otherId},participant2.eq.${user.id})`
-      )
-      .maybeSingle()
+// Ensure a conversation exists for (me, otherUserId) on a listing and return its id
+export async function ensureConversation({ listingId, otherUserId }) {
+  if (!listingId || !otherUserId) throw new Error('Missing listingId or otherUserId');
 
-    if (existing?.id) return existing.id
+  const { data: { user }, error: uErr } = await supabase.auth.getUser();
+  if (uErr || !user) throw new Error('Not authenticated');
 
-    const { data: created, error } = await supabase
-      .from('conversations')
-      .insert({
-        listing_id: listingId,
-        participant1: user.id,
-        participant2: otherId,
-      })
-      .select('id')
-      .single()
+  const me = user.id;
+  // normalize pair to match unique index logic
+  const a = me < otherUserId ? me : otherUserId;
+  const b = me < otherUserId ? otherUserId : me;
 
-    if (error) throw error
-    return created.id
-  }
-
-  // Non-listing (general) conversation as fallback
-  const { data: existingGeneral } = await supabase
+  const { data: existing, error: qErr } = await supabase
     .from('conversations')
     .select('id')
+    .eq('listing_id', listingId)
     .or(
-      `and(listing_id.is.null,participant1.eq.${user.id},participant2.eq.${otherId}),` +
-      `and(listing_id.is.null,participant1.eq.${otherId},participant2.eq.${user.id})`
+      `and(participant1.eq.${a},participant2.eq.${b}),and(participant1.eq.${b},participant2.eq.${a})`
     )
-    .maybeSingle()
+    .limit(1)
+    .maybeSingle();
 
-  if (existingGeneral?.id) return existingGeneral.id
+  if (qErr && qErr.code !== 'PGRST116') throw qErr;
+  if (existing) return existing.id;
 
-  const { data: createdGeneral, error: err2 } = await supabase
+  const { data: created, error: iErr } = await supabase
     .from('conversations')
-    .insert({
-      listing_id: null,
-      participant1: user.id,
-      participant2: otherId,
-    })
+    .insert([{ listing_id: listingId, participant1: me, participant2: otherUserId }])
     .select('id')
-    .single()
+    .single();
 
-  if (err2) throw err2
-  return createdGeneral.id
+  if (iErr) throw iErr;
+  return created.id;
+}
+
+// The function your page imports
+export async function ensureConversationAndGo(router, { listingId, otherUserId }) {
+  const id = await ensureConversation({ listingId, otherUserId });
+  await router.replace(`/chat/${listingId}`); // route into your chat page
+  return id;
 }
