@@ -1,34 +1,25 @@
+Don’t replace it with the short snippet. Keep your styling and **use this final merged `styles/globals.css`** (your file + the required i18n bits). Paste it as-is:
+
+```css
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* Required for Next + i18n */
+html, body, #__next { height: 100%; }
+[dir="rtl"] * { direction: rtl; }
+
 /* Custom animations */
 @keyframes blob {
-  0% {
-    transform: translate(0px, 0px) scale(1);
-  }
-  33% {
-    transform: translate(30px, -50px) scale(1.1);
-  }
-  66% {
-    transform: translate(-20px, 20px) scale(0.9);
-  }
-  100% {
-    transform: translate(0px, 0px) scale(1);
-  }
+  0% { transform: translate(0px, 0px) scale(1); }
+  33% { transform: translate(30px, -50px) scale(1.1); }
+  66% { transform: translate(-20px, 20px) scale(0.9); }
+  100% { transform: translate(0px, 0px) scale(1); }
 }
 
-.animate-blob {
-  animation: blob 7s infinite;
-}
-
-.animation-delay-2000 {
-  animation-delay: 2s;
-}
-
-.animation-delay-4000 {
-  animation-delay: 4s;
-}
+.animate-blob { animation: blob 7s infinite; }
+.animation-delay-2000 { animation-delay: 2s; }
+.animation-delay-4000 { animation-delay: 4s; }
 
 :root {
   --primary: #2563eb;
@@ -58,6 +49,9 @@ html {
 body {
   @apply bg-slate-50 text-slate-900 font-sans;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  /* Keep these to neutralize old Google Translate layout shifts */
+  top: 0 !important;
+  position: static !important;
 }
 
 .btn-primary {
@@ -77,20 +71,12 @@ body {
 }
 
 /* Enhanced scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: #f1f5f9;
-  border-radius: 4px;
-}
-
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
 ::-webkit-scrollbar-thumb {
   background: linear-gradient(to bottom, #2563eb, #0ea5e9);
   border-radius: 4px;
 }
-
 ::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(to bottom, #1d4ed8, #0284c7);
 }
@@ -103,9 +89,7 @@ body {
 }
 
 /* Card hover effects */
-.card-hover {
-  @apply transition-all duration-500 hover:shadow-2xl hover:-translate-y-2 hover:scale-105;
-}
+.card-hover { @apply transition-all duration-500 hover:shadow-2xl hover:-translate-y-2 hover:scale-105; }
 
 /* Loading skeleton */
 .skeleton {
@@ -115,38 +99,17 @@ body {
 }
 
 @keyframes skeleton-loading {
-  0% {
-    background-position: 200% 0;
-  }
-  100% {
-    background-position: -200% 0;
-  }
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
 }
 
 /* Enhanced focus styles */
-*:focus {
-  outline: 2px solid #2563eb;
-  outline-offset: 2px;
-}
+*:focus { outline: 2px solid #2563eb; outline-offset: 2px; }
 
-button {
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
-input, textarea, select {
-  transition: all 0.3s ease;
-}
-
-img {
-  max-width: 100%;
-  height: auto;
-}
+button { cursor: pointer; transition: all 0.3s ease; }
+button:disabled { cursor: not-allowed; opacity: 0.6; }
+input, textarea, select { transition: all 0.3s ease; }
+img { max-width: 100%; height: auto; }
 
 /* Enhanced dual-range slider styling */
 .slider-thumb {
@@ -156,66 +119,32 @@ img {
   cursor: pointer;
   pointer-events: none;
 }
-
-.slider-thumb::-webkit-slider-track {
-  background: transparent;
-  height: 8px;
-  border-radius: 4px;
-}
-
+.slider-thumb::-webkit-slider-track { background: transparent; height: 8px; border-radius: 4px; }
 .slider-thumb::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
   background: linear-gradient(135deg, #3b82f6, #1d4ed8);
-  height: 20px;
-  width: 20px;
-  border-radius: 50%;
+  height: 20px; width: 20px; border-radius: 50%;
   border: 3px solid white;
   box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
-  cursor: pointer;
-  pointer-events: auto;
-  position: relative;
-  z-index: 10;
+  cursor: pointer; pointer-events: auto; position: relative; z-index: 10;
 }
-
-.slider-thumb::-moz-range-track {
-  background: transparent;
-  height: 8px;
-  border-radius: 4px;
-  border: none;
-}
-
+.slider-thumb::-moz-range-track { background: transparent; height: 8px; border-radius: 4px; border: none; }
 .slider-thumb::-moz-range-thumb {
   background: linear-gradient(135deg, #3b82f6, #1d4ed8);
-  height: 20px;
-  width: 20px;
-  border-radius: 50%;
+  height: 20px; width: 20px; border-radius: 50%;
   border: 3px solid white;
   box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
-  cursor: pointer;
-  pointer-events: auto;
+  cursor: pointer; pointer-events: auto;
 }
-
-.slider-thumb:hover::-webkit-slider-thumb {
-  transform: scale(1.1);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
-}
-
-.slider-thumb:hover::-moz-range-thumb {
-  transform: scale(1.1);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
-}
+.slider-thumb:hover::-webkit-slider-thumb { transform: scale(1.1); box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4); }
+.slider-thumb:hover::-moz-range-thumb { transform: scale(1.1); box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4); }
 
 /* Translation animations */
-.translate-fade {
-  transition: opacity 0.3s ease-in-out;
-}
+.translate-fade { transition: opacity 0.3s ease-in-out; }
+.translate-fade.translating { opacity: 0.7; }
 
-.translate-fade.translating {
-  opacity: 0.7;
-}
-
-/* Google Translate overrides */
+/* Google Translate overrides (kept harmlessly hidden) */
 #google_translate_element,
 .goog-te-banner-frame,
 .goog-te-menu-frame,
@@ -237,56 +166,22 @@ img {
   top: -9999px !important;
 }
 
-body {
-  top: 0 !important;
-  position: static !important;
-}
-
-.goog-te-banner-frame.skiptranslate {
-  display: none !important;
-}
-
-body.goog-te-hl-en #google_translate_element {
-  display: none !important;
-}
-
-.notranslate {
-  translate: no !important;
-}
+.goog-te-banner-frame.skiptranslate { display: none !important; }
+body.goog-te-hl-en #google_translate_element { display: none !important; }
+.notranslate { translate: no !important; }
 
 /* Language toggle animations */
 @keyframes slideInFromTop {
-  0% {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  0% { opacity: 0; transform: translateY(-10px); }
+  100% { opacity: 1; transform: translateY(0); }
 }
-
-.animate-in {
-  animation: slideInFromTop 0.2s ease-out;
-}
+.animate-in { animation: slideInFromTop 0.2s ease-out; }
 
 /* Mobile optimizations */
 @media (max-width: 640px) {
-  .mobile-padding {
-    @apply px-4 py-2;
-  }
-  
-  .mobile-text {
-    @apply text-sm;
-  }
-  
-  .slider-thumb::-webkit-slider-thumb {
-    height: 24px;
-    width: 24px;
-  }
-  
-  .slider-thumb::-moz-range-thumb {
-    height: 24px;
-    width: 24px;
-  }
+  .mobile-padding { @apply px-4 py-2; }
+  .mobile-text { @apply text-sm; }
+  .slider-thumb::-webkit-slider-thumb { height: 24px; width: 24px; }
+  .slider-thumb::-moz-range-thumb { height: 24px; width: 24px; }
 }
+```
