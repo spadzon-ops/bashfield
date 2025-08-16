@@ -26,6 +26,7 @@ export default function AdminPage() {
   const [statusFilter, setStatusFilter] = useState('all')      // all | pending | approved | rejected
   const [activeFilter, setActiveFilter] = useState('any')      // any | active | inactive
   const [ageFilter, setAgeFilter] = useState('any')            // any | 1m | 3m | 6m | 12m
+  const [modeFilter, setModeFilter] = useState('all')          // all | rent | sale
 
   const [listings, setListings] = useState([])
   const [profiles, setProfiles] = useState(new Map())
@@ -90,12 +91,13 @@ export default function AdminPage() {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [activeTab, loadingMoreListings, hasMoreListings, listings, displayedListings])
 
-  const buildQuery = (q = query, status = statusFilter, active = activeFilter, age = ageFilter) => {
+  const buildQuery = (q = query, status = statusFilter, active = activeFilter, age = ageFilter, mode = modeFilter) => {
     let r = supabase.from('listings').select('*').order('created_at', { ascending: false })
 
     if (status !== 'all') r = r.eq('status', status)
     if (active === 'active') r = r.eq('is_active', true)
     if (active === 'inactive') r = r.eq('is_active', false)
+    if (mode !== 'all') r = r.eq('listing_mode', mode)
 
     if (age !== 'any') {
       const map = { '1m': 1, '3m': 3, '6m': 6, '12m': 12 }
@@ -115,8 +117,8 @@ export default function AdminPage() {
     return r
   }
 
-  const loadListings = async (q = query, s = statusFilter, a = activeFilter, g = ageFilter) => {
-    const { data } = await buildQuery(q, s, a, g)
+  const loadListings = async (q = query, s = statusFilter, a = activeFilter, g = ageFilter, m = modeFilter) => {
+    const { data } = await buildQuery(q, s, a, g, m)
     const rows = data || []
     setListings(rows)
     setDisplayedListings(12)
@@ -357,13 +359,13 @@ export default function AdminPage() {
           {activeTab === 'listings' && (
             <div className="p-8">
               {/* Search & Filters */}
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
             <div className="md:col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">Search by Property Code or Title</label>
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && loadListings(e.target.value, statusFilter, activeFilter, ageFilter)}
+                onKeyDown={(e) => e.key === 'Enter' && loadListings(e.target.value, statusFilter, activeFilter, ageFilter, modeFilter)}
                 placeholder="e.g. BF-9A3C71"
                 className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
               />
@@ -373,7 +375,7 @@ export default function AdminPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
               <select
                 value={statusFilter}
-                onChange={(e) => { setStatusFilter(e.target.value); loadListings(query, e.target.value, activeFilter, ageFilter) }}
+                onChange={(e) => { setStatusFilter(e.target.value); loadListings(query, e.target.value, activeFilter, ageFilter, modeFilter) }}
                 className="w-full border border-gray-300 rounded-xl px-4 py-3 transition-all duration-200 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="all">All</option>
@@ -387,7 +389,7 @@ export default function AdminPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1">Active</label>
               <select
                 value={activeFilter}
-                onChange={(e) => { setActiveFilter(e.target.value); loadListings(query, statusFilter, e.target.value, ageFilter) }}
+                onChange={(e) => { setActiveFilter(e.target.value); loadListings(query, statusFilter, e.target.value, ageFilter, modeFilter) }}
                 className="w-full border border-gray-300 rounded-xl px-4 py-3 transition-all duration-200 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="any">Any</option>
@@ -397,10 +399,23 @@ export default function AdminPage() {
             </div>
 
             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+              <select
+                value={modeFilter}
+                onChange={(e) => { setModeFilter(e.target.value); loadListings(query, statusFilter, activeFilter, ageFilter, e.target.value) }}
+                className="w-full border border-gray-300 rounded-xl px-4 py-3 transition-all duration-200 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="all">All</option>
+                <option value="rent">For Rent</option>
+                <option value="sale">For Sale</option>
+              </select>
+            </div>
+
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Age</label>
               <select
                 value={ageFilter}
-                onChange={(e) => { setAgeFilter(e.target.value); loadListings(query, statusFilter, activeFilter, e.target.value) }}
+                onChange={(e) => { setAgeFilter(e.target.value); loadListings(query, statusFilter, activeFilter, e.target.value, modeFilter) }}
                 className="w-full border border-gray-300 rounded-xl px-4 py-3 transition-all duration-200 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="any">Any</option>
@@ -607,7 +622,7 @@ export default function AdminPage() {
                       <span className="font-medium">Posted:</span> {fmtDate(l.created_at)}
                     </div>
                     <div className="text-sm text-gray-600">City: {l.city}</div>
-                    <div className="text-sm text-gray-600">Price: {Number(l.price || 0).toLocaleString()} {l.currency}</div>
+                    <div className="text-sm text-gray-600">Price: {Number(l.price || 0).toLocaleString()} {l.currency} ({l.listing_mode === 'rent' ? 'For Rent' : 'For Sale'})</div>
                     {l.size_sqm && (
                       <div className="text-sm text-gray-600">Size: {l.size_sqm} m²</div>
                     )}
