@@ -497,11 +497,6 @@ export default function ListingDetail({ listing: initialListing }) {
                     </svg>
                     <span>Message Owner</span>
                   </button>
-                </div>
-              </div>
-            </div>
-            
-                <div className="w-full mt-6 space-y-3">
                   <button
                     onClick={openWhatsApp}
                     className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 transform hover:scale-105 shadow-lg hover:shadow-xl"
