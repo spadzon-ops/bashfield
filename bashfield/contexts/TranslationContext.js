@@ -1,21 +1,20 @@
-cat > contexts/TranslationContext.js <<'EOF'
-// shim over to next-i18next + Next.js router
+// contexts/TranslationContext.js
 import React from 'react';
 import { useRouter } from 'next/router';
 import { useTranslation as useI18Next } from 'next-i18next';
 
 export const TranslationContext = React.createContext(null);
 
-// No-op provider to keep your existing <TranslationProvider> usage working
+// Keep your existing <TranslationProvider> usage working as a no-op
 export function TranslationProvider({ children }) {
   return children;
 }
 
 /**
- * Matches your previous `useTranslation()` shape:
+ * Matches your previous custom hook shape:
  * - returns { t, i18n, isTranslating }
- * - i18n.language  -> current Next.js locale
- * - i18n.changeLanguage(lang) -> switches locale via router
+ * - i18n.language -> current locale
+ * - i18n.changeLanguage(lang) -> switches route locale
  */
 export function useTranslation(ns = 'common') {
   const router = useRouter();
@@ -33,4 +32,3 @@ export function useTranslation(ns = 'common') {
   const isTranslating = false;
   return { t, i18n, isTranslating };
 }
-EOF
