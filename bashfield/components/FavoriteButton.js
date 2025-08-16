@@ -13,6 +13,26 @@ export default function FavoriteButton({ listingId, className = "" }) {
   useEffect(() => {
     if (user && listingId) {
       checkFavoriteStatus()
+      
+      // Listen for realtime changes
+      const channel = supabase
+        .channel(`favorites-${listingId}`)
+        .on('postgres_changes', 
+          { 
+            event: '*', 
+            schema: 'public', 
+            table: 'favorites',
+            filter: `user_id=eq.${user.id}`
+          }, 
+          () => {
+            checkFavoriteStatus()
+          }
+        )
+        .subscribe()
+
+      return () => {
+        supabase.removeChannel(channel)
+      }
     }
   }, [user, listingId])
 
@@ -24,14 +44,23 @@ export default function FavoriteButton({ listingId, className = "" }) {
   const checkFavoriteStatus = async () => {
     if (!user || !listingId) return
     
-    const { data } = await supabase
-      .from('favorites')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('listing_id', listingId)
-      .maybeSingle()
-    
-    setIsFavorited(!!data)
+    try {
+      const { data, error } = await supabase
+        .from('favorites')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('listing_id', listingId)
+        .maybeSingle()
+      
+      if (error && error.code !== 'PGRST116') {
+        console.error('Error checking favorite status:', error)
+        return
+      }
+      
+      setIsFavorited(!!data)
+    } catch (error) {
+      console.error('Error in checkFavoriteStatus:', error)
+    }
   }
 
   const toggleFavorite = async (e) => {
