@@ -29,7 +29,7 @@ export default function Profile() {
     
     const urlParams = new URLSearchParams(window.location.search)
     const tab = urlParams.get('tab')
-    if (tab && ['profile', 'listings', 'account'].includes(tab)) {
+    if (tab && ['profile', 'listings', 'pending', 'account'].includes(tab)) {
       setActiveTab(tab)
     }
   }, [])
@@ -43,13 +43,15 @@ export default function Profile() {
       const documentHeight = document.documentElement.scrollHeight
       
       if (scrollTop + windowHeight >= documentHeight - 100) {
-        const approvedListings = userListings.filter(listing => listing.status === 'approved' && listing.is_active !== false)
-        if (approvedListings.length > displayedListings) {
+        const filteredListings = activeTab === 'listings' 
+          ? userListings.filter(listing => listing.status === 'approved' && listing.is_active !== false)
+          : userListings.filter(listing => listing.status === 'pending')
+        if (filteredListings.length > displayedListings) {
           setLoadingMore(true)
           setTimeout(() => {
             setDisplayedListings(prev => {
               const newCount = prev + 12
-              setHasMoreListings(approvedListings.length > newCount)
+              setHasMoreListings(filteredListings.length > newCount)
               return newCount
             })
             setLoadingMore(false)

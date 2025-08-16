@@ -92,7 +92,7 @@ export default function AdminPage() {
   }, [activeTab, loadingMoreListings, hasMoreListings, listings, displayedListings])
 
   const buildQuery = (q = query, status = statusFilter, active = activeFilter, age = ageFilter) => {
-    let r = supabase.from('listings').select('*').order('created_at', { ascending: false })
+    let r = supabase.from('listings').select('*, description_ku, description_ar').order('created_at', { ascending: false })
 
     if (status !== 'all') r = r.eq('status', status)
     if (active === 'active') r = r.eq('is_active', true)
@@ -117,7 +117,7 @@ export default function AdminPage() {
   }
 
   const loadListings = async (q = query, s = statusFilter, a = activeFilter, g = ageFilter) => {
-    const { data } = await buildQuery(q, s, a, g).select('*, description_ku, description_ar')
+    const { data } = await buildQuery(q, s, a, g)
     const rows = data || []
     setListings(rows)
     setDisplayedListings(12)
