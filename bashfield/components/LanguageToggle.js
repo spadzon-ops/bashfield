@@ -1,26 +1,36 @@
-import React from 'react';
-import { useTranslation } from '../contexts/TranslationContext';
+import { useRouter } from 'next/router';
+import { useState } from 'react';
 
-export default function LanguageToggle({ className }) {
-  const { i18n } = useTranslation();
+export default function LanguageToggle() {
+  const router = useRouter();
+  const { locale, asPath } = router;
+  const [loading, setLoading] = useState(false);
 
-  const onChange = (e) => {
-    const next = e.target.value;
-    if (next && next !== i18n.language) {
-      i18n.changeLanguage(next);
+  const handleToggle = async (e) => {
+    const nextLocale = e.target.value;
+    if (nextLocale === locale) return;
+    setLoading(true);
+    try {
+      await router.push(asPath, asPath, { locale: nextLocale, scroll: false });
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <select
-      aria-label="Language"
-      value={i18n.language}
-      onChange={onChange}
-      className={className}
-    >
-      <option value="en">English</option>
-      <option value="ar">العربية</option>
-      <option value="ku">کوردی</option>
-    </select>
+    <div className="inline-flex items-center gap-2">
+      <select
+        onChange={handleToggle}
+        defaultValue={locale}
+        disabled={loading}
+        className="border rounded px-2 py-1"
+        aria-label="Select language"
+      >
+        <option value="en">English</option>
+        <option value="ar">العربية</option>
+        <option value="ku">Kurdî</option>
+      </select>
+      {loading ? <span className="text-sm opacity-70">…</span> : null}
+    </div>
   );
 }
