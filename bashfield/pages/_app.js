@@ -1,15 +1,14 @@
-// pages/_app.js
+// bashfield/pages/_app.js
 import '../styles/globals.css';
-import { appWithTranslation } from 'next-i18next';
-import nextI18NextConfig from '../next-i18next.config.js';
 import { TranslationProvider } from '../contexts/TranslationContext';
+import { ModeProvider } from '../contexts/ModeContext';
 
-function App({ Component, pageProps }) {
+export default function MyApp({ Component, pageProps }) {
   return (
     <TranslationProvider>
-      <Component {...pageProps} />
+      <ModeProvider>
+        <Component {...pageProps} />
+      </ModeProvider>
     </TranslationProvider>
   );
 }
-
-export default appWithTranslation(App, nextI18NextConfig);
