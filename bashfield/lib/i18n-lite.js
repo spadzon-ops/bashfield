@@ -1,207 +1,42 @@
 // bashfield/lib/i18n-lite.js
-// Deterministic i18n core (no DOM scanning). SSR-safe helpers.
+// Deterministic i18n core with a small compatibility layer
+// - NO DOM scanning (translatePage is a noop)
+// - Provides getLang/setLang/applyDocumentDirection for legacy code
 
 const DICT = {
   en: {
-    // --- common UI ---
-    "Home": "Home",
-    "Add Property": "Add Property",
-    "Favorites": "Favorites",
-    "Admin": "Admin",
-    "Admin Dashboard": "Admin Dashboard",
-    "Bashfield": "Bashfield",
-    "Premier Property Platform": "Premier Property Platform",
-    "Cities": "Cities",
-    "City": "City",
-    "City:": "City:",
-    "All": "All",
-    "Any": "Any",
-    "Rooms": "Rooms",
-    "Rooms:": "Rooms:",
-    "Type": "Type",
-    "Type:": "Type:",
-    "Size (m²)": "Size (m²)",
-    "Price:": "Price:",
-    "USD": "USD",
-    "IQD": "IQD",
-    "For Rent": "For Rent",
-    "For Sale": "For Sale",
-    "Search properties...": "Search properties...",
-    "Search by code": "Search by code",
-    "e.g. BF-9A3C71": "e.g. BF-9A3C71",
-    "List Your Property": "List Your Property",
-    "Submit Listing": "Submit Listing",
-    "View Details": "View Details",
-    "Message Owner": "Message Owner",
-    "Messages": "Messages",
-    "Send": "Send",
-    "Write a message...": "Write a message...",
-    "Open in Maps": "Open in Maps",
-    "Verified": "Verified",
-    "Verification": "Verification",
-    "Profile": "Profile",
-    "View Profile": "View Profile",
-    "Sign In": "Sign In",
-    "Sign Out": "Sign Out",
-    "Loading...": "Loading...",
-    "No listings found": "No listings found",
-
-    // --- homepage hero / filters (from your screenshot) ---
-    "Property Platform #1 🏠": "Property Platform #1 🏠",
-    "Buying & Selling 🏡": "Buying & Selling 🏡",
-    "Renting 🏡": "Renting 🏡",
-    "Find Your Perfect Home in Iraq": "Find Your Perfect Home in Iraq",
-    "Discover amazing rental properties in Erbil and across Iraq":
-      "Discover amazing rental properties in Erbil and across Iraq",
-    "Max Price": "Max Price",
-    "Min Price": "Min Price",
-    "in Size (m²)": "in Size (m²)",
-    "Any Rooms": "Any Rooms",
-    "All Cities": "All Cities",
-    "All Types": "All Types",
-    "Types": "Types",
-    "FREE": "FREE",
-    "Post Your Property+": "Post Your Property+",
-    "Browse Rentals": "Browse Rentals",
-    "Browse Rentals🔍": "Browse Rentals🔍",
-    "Rentals": "Rentals"
+    "Home": "Home","Add Property": "Add Property","Favorites": "Favorites","Admin": "Admin","Admin Dashboard": "Admin Dashboard","Bashfield": "Bashfield","Premier Property Platform": "Premier Property Platform","Cities": "Cities","City": "City","City:": "City:","All": "All","Any": "Any","Rooms": "Rooms","Rooms:": "Rooms:","Type": "Type","Type:": "Type:","Size (m²)": "Size (m²)","Price:": "Price:","USD": "USD","IQD": "IQD","For Rent": "For Rent","For Sale": "For Sale","Search properties...": "Search properties...","Search by code": "Search by code","e.g. BF-9A3C71": "e.g. BF-9A3C71","List Your Property": "List Your Property","Submit Listing": "Submit Listing","View Details": "View Details","Message Owner": "Message Owner","Messages": "Messages","Send": "Send","Write a message...": "Write a message...","Open in Maps": "Open in Maps","Verified": "Verified","Verification": "Verification","Profile": "Profile","View Profile": "View Profile","Sign In": "Sign In","Sign Out": "Sign Out","Loading...": "Loading...","No listings found": "No listings found",
+    "Property Platform #1 🏠": "Property Platform #1 🏠","Buying & Selling 🏡": "Buying & Selling 🏡","Renting 🏡": "Renting 🏡","Find Your Perfect Home in Iraq": "Find Your Perfect Home in Iraq","Discover amazing rental properties in Erbil and across Iraq": "Discover amazing rental properties in Erbil and across Iraq","Max Price": "Max Price","Min Price": "Min Price","in Size (m²)": "in Size (m²)","Any Rooms": "Any Rooms","All Cities": "All Cities","All Types": "All Types","Types": "Types","FREE": "FREE","Post Your Property+": "Post Your Property+","Browse Rentals": "Browse Rentals","Browse Rentals🔍": "Browse Rentals🔍","Rentals": "Rentals","Switch":"Switch"
   },
   ar: {
-    "Home": "الرئيسية",
-    "Add Property": "إضافة عقار",
-    "Favorites": "المفضلات",
-    "Admin": "الإدارة",
-    "Admin Dashboard": "لوحة تحكم الإدارة",
-    "Bashfield": "باشفيلد",
-    "Premier Property Platform": "منصة عقارية رائدة",
-    "Cities": "المدن",
-    "City": "المدينة",
-    "City:": "المدينة:",
-    "All": "الكل",
-    "Any": "أي",
-    "Rooms": "الغرف",
-    "Rooms:": "الغرف:",
-    "Type": "النوع",
-    "Type:": "النوع:",
-    "Size (m²)": "المساحة (م²)",
-    "Price:": "السعر:",
-    "USD": "دولار أمريكي",
-    "IQD": "دينار عراقي",
-    "For Rent": "للإيجار",
-    "For Sale": "للبيع",
-    "Search properties...": "ابحث عن عقارات...",
-    "Search by code": "ابحث بالرمز",
-    "e.g. BF-9A3C71": "مثال: BF-9A3C71",
-    "List Your Property": "أضف عقارك",
-    "Submit Listing": "إرسال الإعلان",
-    "View Details": "عرض التفاصيل",
-    "Message Owner": "أرسل رسالة للمالك",
-    "Messages": "الرسائل",
-    "Send": "إرسال",
-    "Write a message...": "اكتب رسالة...",
-    "Open in Maps": "افتح في الخرائط",
-    "Verified": "موثّق",
-    "Verification": "التحقق",
-    "Profile": "الملف الشخصي",
-    "View Profile": "عرض الملف الشخصي",
-    "Sign In": "تسجيل الدخول",
-    "Sign Out": "تسجيل الخروج",
-    "Loading...": "جاري التحميل...",
-    "No listings found": "لم يتم العثور على إعلانات",
-
-    "Property Platform #1 🏠": "منصة العقارات رقم 1 🏠",
-    "Buying & Selling 🏡": "البيع والشراء 🏡",
-    "Renting 🏡": "الإيجار 🏡",
-    "Find Your Perfect Home in Iraq": "اعثر على منزلك المثالي في العراق",
-    "Discover amazing rental properties in Erbil and across Iraq":
-      "اكتشف عقارات إيجار رائعة في أربيل وجميع أنحاء العراق",
-    "Max Price": "أعلى سعر",
-    "Min Price": "أقل سعر",
-    "in Size (m²)": "بمساحة (م²)",
-    "Any Rooms": "أي عدد من الغرف",
-    "All Cities": "جميع المدن",
-    "All Types": "جميع الأنواع",
-    "Types": "الأنواع",
-    "FREE": "مجاني",
-    "Post Your Property+": "أضف عقارك+",
-    "Browse Rentals": "تصفح الإيجارات",
-    "Browse Rentals🔍": "تصفح الإيجارات🔍",
-    "Rentals": "الإيجارات"
+    "Home": "الرئيسية","Add Property": "إضافة عقار","Favorites": "المفضلات","Admin": "الإدارة","Admin Dashboard": "لوحة تحكم الإدارة","Bashfield": "باشفيلد","Premier Property Platform": "منصة عقارية رائدة","Cities": "المدن","City": "المدينة","City:": "المدينة:","All": "الكل","Any": "أي","Rooms": "الغرف","Rooms:": "الغرف:","Type": "النوع","Type:": "النوع:","Size (m²)": "المساحة (م²)","Price:": "السعر:","USD": "دولار أمريكي","IQD": "دينار عراقي","For Rent": "للإيجار","For Sale": "للبيع","Search properties...": "ابحث عن عقارات...","Search by code": "ابحث بالرمز","e.g. BF-9A3C71": "مثال: BF-9A3C71","List Your Property": "أضف عقارك","Submit Listing": "إرسال الإعلان","View Details": "عرض التفاصيل","Message Owner": "أرسل رسالة للمالك","Messages": "الرسائل","Send": "إرسال","Write a message...": "اكتب رسالة...","Open in Maps": "افتح في الخرائط","Verified": "موثّق","Verification": "التحقق","Profile": "الملف الشخصي","View Profile": "عرض الملف الشخصي","Sign In": "تسجيل الدخول","Sign Out": "تسجيل الخروج","Loading...": "جاري التحميل...","No listings found": "لم يتم العثور على إعلانات",
+    "Property Platform #1 🏠": "منصة العقارات رقم 1 🏠","Buying & Selling 🏡": "البيع والشراء 🏡","Renting 🏡": "الإيجار 🏡","Find Your Perfect Home in Iraq": "اعثر على منزلك المثالي في العراق","Discover amazing rental properties in Erbil and across Iraq": "اكتشف عقارات إيجار رائعة في أربيل وجميع أنحاء العراق","Max Price": "أعلى سعر","Min Price": "أقل سعر","in Size (m²)": "بمساحة (م²)","Any Rooms": "أي عدد من الغرف","All Cities": "جميع المدن","All Types": "جميع الأنواع","Types": "الأنواع","FREE": "مجاني","Post Your Property+": "أضف عقارك+","Browse Rentals": "تصفح الإيجارات","Browse Rentals🔍": "تصفح الإيجارات🔍","Rentals": "الإيجارات","Switch":"تبديل"
   },
   ku: {
-    "Home": "ماڵەوە",
-    "Add Property": "زیادکردنی ملک",
-    "Favorites": "دڵخوازەکان",
-    "Admin": "بەڕێوەبەر",
-    "Admin Dashboard": "داشبۆردی بەڕێوەبەر",
-    "Bashfield": "باشفیلد",
-    "Premier Property Platform": "پلاتفۆرمی پێشەنگی ملکان",
-    "Cities": "شارەکان",
-    "City": "شار",
-    "City:": "شار:",
-    "All": "هەموو",
-    "Any": "هەرکام",
-    "Rooms": "ژوورەکان",
-    "Rooms:": "ژوورەکان:",
-    "Type": "جۆر",
-    "Type:": "جۆر:",
-    "Size (م²)": "قەبارە (م²)",
-    "Size (m²)": "قەبارە (م²)",
-    "Price:": "نرخ:",
-    "USD": "USD",
-    "IQD": "IQD",
-    "For Rent": "بۆ کرێ",
-    "For Sale": "بۆ فرۆشتن",
-    "Search properties...": "بەدوای ملکان بگەڕێ...",
-    "Search by code": "بەپێی کۆد بگەڕێ",
-    "e.g. BF-9A3C71": "نموونە: BF-9A3C71",
-    "List Your Property": "ملکت بڵاو بکە",
-    "Submit Listing": "ناردنی تۆمار",
-    "View Details": "وردەکاری ببینە",
-    "Message Owner": "پەیام بنێرە بۆ خاوەنی ملک",
-    "Messages": "پەیامەکان",
-    "Send": "ناردن",
-    "Write a message...": "پەیامێك بنووسە...",
-    "Open in Maps": "لە نەخشەدا بکەرەوە",
-    "Verified": "دڵنیابوون",
-    "Verification": "پشتراستکردنەوە",
-    "Profile": "پرۆفایل",
-    "View Profile": "پرۆفایل ببینە",
-    "Sign In": "چوونەژوورەوە",
-    "Sign Out": "چوونەدەرەوە",
-    "Loading...": "بار دەکرێت...",
-    "No listings found": "هیچ تۆمارێك نەدۆزرایەوە",
-
-    "Property Platform #1 🏠": "پلاتفۆرمی ملکان ژمارە ١ 🏠",
-    "Buying & Selling 🏡": "کڕین و فرۆشتن 🏡",
-    "Renting 🏡": "کرێدان 🏡",
-    "Find Your Perfect Home in Iraq": "خانووی گونجای خۆت لە عێراق بدۆزەوە",
-    "Discover amazing rental properties in Erbil and across Iraq":
-      "ملکە کرێدارییە جوانەکان لە هەولێر و هەموو عێراق بدۆزەوە",
-    "Max Price": "زۆرترین نرخ",
-    "Min Price": "کەمترین نرخ",
-    "in Size (m²)": "بە قەبارەی (م²)",
-    "Any Rooms": "هەر چەند ژوور",
-    "All Cities": "هەموو شارەکان",
-    "All Types": "هەموو جۆرەکان",
-    "Types": "جۆرەکان",
-    "FREE": "بێبەرامبەر",
-    "Post Your Property+": "ملکت زیاد بکە+",
-    "Browse Rentals": "کرێکان بگەڕێ",
-    "Browse Rentals🔍": "کرێکان بگەڕێ🔍",
-    "Rentals": "کرێکان"
+    "Home": "ماڵەوە","Add Property": "زیادکردنی ملک","Favorites": "دڵخوازەکان","Admin": "بەڕێوەبەر","Admin Dashboard": "داشبۆردی بەڕێوەبەر","Bashfield": "باشفیلد","Premier Property Platform": "پلاتفۆرمی پێشەنگی ملکان","Cities": "شارەکان","City": "شار","City:": "شار:","All": "هەموو","Any": "هەرکام","Rooms": "ژوورەکان","Rooms:": "ژوورەکان:","Type": "جۆر","Type:": "جۆر:","Size (m²)": "قەبارە (م²)","Price:": "نرخ:","USD": "USD","IQD": "IQD","For Rent": "بۆ کرێ","For Sale": "بۆ فرۆشتن","Search properties...": "بەدوای ملکان بگەڕێ...","Search by code": "بەپێی کۆد بگەڕێ","e.g. BF-9A3C71": "نموونە: BF-9A3C71","List Your Property": "ملکت بڵاو بکە","Submit Listing": "ناردنی تۆمار","View Details": "وردەکاری ببینە","Message Owner": "پەیام بنێرە بۆ خاوەنی ملک","Messages": "پەیامەکان","Send": "ناردن","Write a message...": "پەیامێك بنووسە...","Open in Maps": "لە نەخشەدا بکەرەوە","Verified": "دڵنیابوون","Verification": "پشتراستکردنەوە","Profile": "پرۆفایل","View Profile": "پرۆفایل ببینە","Sign In": "چوونەژوورەوە","Sign Out": "چوونەدەرەوە","Loading...": "بار دەکرێت...","No listings found": "هیچ تۆمارێك نەدۆزرایەوە",
+    "Property Platform #1 🏠": "پلاتفۆرمی ملکان ژمارە ١ 🏠","Buying & Selling 🏡": "کڕین و فرۆشتن 🏡","Renting 🏡": "کرێدان 🏡","Find Your Perfect Home in Iraq": "خانووی گونجای خۆت لە عێراق بدۆزەوە","Discover amazing rental properties in Erbil and across Iraq": "ملکە کرێدارییە جوانەکان لە هەولێر و هەموو عێراق بدۆزەوە","Max Price": "زۆرترین نرخ","Min Price": "کەمترین نرخ","in Size (m²)": "بە قەبارەی (م²)","Any Rooms": "هەر چەند ژوور","All Cities": "هەموو شارەکان","All Types": "هەموو جۆرەکان","Types": "جۆرەکان","FREE": "بێبەرامبەر","Post Your Property+": "ملکت زیاد بکە+","Browse Rentals": "کرێکان بگەڕێ","Browse Rentals🔍": "کرێکان بگەڕێ🔍","Rentals": "کرێکان","Switch":"گۆڕین"
   }
 };
 
-// languages with RTL
 const RTL = new Set(['ar','ku']);
+const COOKIE = 'bf_lang';
 
-export function isRTL(lang) { return RTL.has(lang); }
-export function getDir(lang) { return isRTL(lang) ? 'rtl' : 'ltr'; }
+function isRTL(lang){ return RTL.has(lang); }
+function getDir(lang){ return isRTL(lang)?'rtl':'ltr'; }
 
-// Strict lookup with graceful fallback to the key
-export function translate(lang, key) {
-  if (!key) return '';
+function readCookie(name){
+  if (typeof document==='undefined') return null;
+  const m = document.cookie.match(new RegExp('(^| )'+name+'=([^;]+)'));
+  return m ? decodeURIComponent(m[2]) : null;
+}
+function writeCookie(name, value){
+  if (typeof document==='undefined') return;
+  document.cookie = `${name}=${encodeURIComponent(value)}; Path=/; Max-Age=31536000; SameSite=Lax`;
+}
+
+// --- deterministic translation ---
+function translate(lang, key){
+  if(!key) return '';
   const dict = DICT[lang] || {};
   const k = String(key);
   if (Object.prototype.hasOwnProperty.call(dict, k)) return dict[k];
@@ -210,5 +45,28 @@ export function translate(lang, key) {
   return key;
 }
 
-export const i18nCore = { DICT, translate, isRTL, getDir };
+// ===== Compatibility layer (for old code) =====
+function getLang(){
+  // cookie -> localStorage -> default
+  const c = readCookie(COOKIE);
+  const s = (typeof window!=='undefined') ? localStorage.getItem(COOKIE) : null;
+  return c || s || 'en';
+}
+function setLang(lang){
+  if (typeof window==='undefined') return;
+  writeCookie(COOKIE, lang);
+  localStorage.setItem(COOKIE, lang);
+  applyDocumentDirection(lang);
+  // notify any legacy listeners
+  window.dispatchEvent(new CustomEvent('languageChanged',{ detail:{ language: lang }}));
+}
+function applyDocumentDirection(lang=getLang()){
+  if (typeof document==='undefined') return;
+  document.documentElement.setAttribute('lang', lang);
+  document.documentElement.setAttribute('dir', getDir(lang));
+}
+// kept only for API compatibility – does nothing
+function translatePage(){ /* noop – DOM scanning removed intentionally */ }
+
+export const i18nCore = { DICT, translate, isRTL, getDir, getLang, setLang, applyDocumentDirection, translatePage };
 export default i18nCore;
