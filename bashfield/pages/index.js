@@ -126,8 +126,8 @@ export default function Home() {
 
 
   useEffect(() => {
-    loadFilteredListings()
-  }, [filters, sortBy, loadFilteredListings])
+    loadListings()
+  }, [filters, sortBy, loadListings])
 
   useEffect(() => {
     updateDisplayedListings()
@@ -152,82 +152,77 @@ export default function Home() {
   }, [loadingMore, displayedListings.length, filteredListings.length])
 
   const fetchListings = async () => {
-    loadFilteredListings()
+    loadListings()
   }
 
-  const buildFilteredQuery = useCallback(() => {
-    let query = supabase
+  const getFilteredCount = useCallback(async () => {
+    let countQuery = supabase
       .from('listings')
-      .select('*')
+      .select('id', { count: 'exact', head: true })
       .eq('status', 'approved')
       .eq('is_active', true)
       .eq('listing_mode', mode)
-      .order('created_at', { ascending: false })
 
-    if (filters.city) {
-      query = query.eq('city', filters.city)
-    }
-
-    if (filters.propertyType) {
-      query = query.eq('property_type', filters.propertyType)
-    }
-
-    if (filters.rooms) {
-      query = query.gte('rooms', parseInt(filters.rooms))
-    }
-
-    if (filters.minSize) {
-      query = query.gte('size_sqm', parseInt(filters.minSize))
-    }
-
-    if (filters.minPrice) {
-      query = query.gte('price', parseInt(filters.minPrice))
-    }
-
-    if (filters.maxPrice) {
-      query = query.lte('price', parseInt(filters.maxPrice))
-    }
-
+    if (filters.city) countQuery = countQuery.eq('city', filters.city)
+    if (filters.propertyType) countQuery = countQuery.eq('property_type', filters.propertyType)
+    if (filters.rooms) countQuery = countQuery.gte('rooms', parseInt(filters.rooms))
+    if (filters.minSize) countQuery = countQuery.gte('size_sqm', parseInt(filters.minSize))
+    if (filters.minPrice) countQuery = countQuery.gte('price', parseInt(filters.minPrice))
+    if (filters.maxPrice) countQuery = countQuery.lte('price', parseInt(filters.maxPrice))
     if (filters.searchQuery) {
       const searchTerm = `%${filters.searchQuery.toLowerCase()}%`
-      query = query.or(`title.ilike.${searchTerm},description.ilike.${searchTerm},city.ilike.${searchTerm}`)
+      countQuery = countQuery.or(`title.ilike.${searchTerm},description.ilike.${searchTerm},city.ilike.${searchTerm}`)
     }
 
-    return query
+    const { count } = await countQuery
+    setTotalFilteredCount(count || 0)
   }, [filters, mode])
 
-  const loadFilteredListings = useCallback(async () => {
+  const loadListings = useCallback(async () => {
     try {
-      // Cancel previous request
       if (abortControllerRef.current) {
         abortControllerRef.current.abort()
       }
       
-      // Create new abort controller
       abortControllerRef.current = new AbortController()
       const signal = abortControllerRef.current.signal
       
       setLoading(true)
       
-      const { data: listingsData, error: listingsError } = await buildFilteredQuery().abortSignal(signal)
+      // Get count first
+      await getFilteredCount()
       
-      if (listingsError) {
-        if (listingsError.name !== 'AbortError') {
-          console.error('Error fetching filtered listings:', listingsError)
-          setListings([])
-          setFilteredListings([])
-          setDisplayedListings([])
-          setTotalFilteredCount(0)
-        }
+      // Get data
+      let dataQuery = supabase
+        .from('listings')
+        .select('*')
+        .eq('status', 'approved')
+        .eq('is_active', true)
+        .eq('listing_mode', mode)
+        .order('created_at', { ascending: false })
+        .abortSignal(signal)
+
+      if (filters.city) dataQuery = dataQuery.eq('city', filters.city)
+      if (filters.propertyType) dataQuery = dataQuery.eq('property_type', filters.propertyType)
+      if (filters.rooms) dataQuery = dataQuery.gte('rooms', parseInt(filters.rooms))
+      if (filters.minSize) dataQuery = dataQuery.gte('size_sqm', parseInt(filters.minSize))
+      if (filters.minPrice) dataQuery = dataQuery.gte('price', parseInt(filters.minPrice))
+      if (filters.maxPrice) dataQuery = dataQuery.lte('price', parseInt(filters.maxPrice))
+      if (filters.searchQuery) {
+        const searchTerm = `%${filters.searchQuery.toLowerCase()}%`
+        dataQuery = dataQuery.or(`title.ilike.${searchTerm},description.ilike.${searchTerm},city.ilike.${searchTerm}`)
+      }
+
+      const { data: listingsData, error } = await dataQuery
+      
+      if (error || signal.aborted) {
+        if (!signal.aborted) console.error('Error:', error)
         setLoading(false)
         setSwitchingMode(false)
         return
       }
 
-      // Check if request was aborted
-      if (signal.aborted) return
-
-      // Get user profiles for the filtered listings
+      // Get profiles
       const userIds = [...new Set(listingsData.map(l => l.user_id).filter(Boolean))]
       let listingsWithProfiles = listingsData
       
@@ -242,46 +237,32 @@ export default function Home() {
         
         listingsWithProfiles = listingsData.map(listing => {
           const profile = profilesData?.find(p => p.user_id === listing.user_id)
-          return {
-            ...listing,
-            user_profiles: profile || null
-          }
+          return { ...listing, user_profiles: profile || null }
         })
       }
 
-      // Apply sorting
+      // Sort
       const sorted = [...listingsWithProfiles].sort((a, b) => {
         switch (sortBy) {
-          case 'default':
-          case 'newest':
-            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-          case 'price-low':
-            return (a.price || 0) - (b.price || 0)
-          case 'price-high':
-            return (b.price || 0) - (a.price || 0)
-          default:
-            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          case 'price-low': return (a.price || 0) - (b.price || 0)
+          case 'price-high': return (b.price || 0) - (a.price || 0)
+          default: return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         }
       })
 
       setListings(sorted)
       setFilteredListings(sorted)
       setDisplayedListings(sorted.slice(0, ITEMS_PER_PAGE))
-      setTotalFilteredCount(sorted.length)
       setHasInitialData(true)
       setPage(1)
     } catch (error) {
       if (error.name !== 'AbortError') {
-        console.error('Error loading filtered listings:', error)
-        setListings([])
-        setFilteredListings([])
-        setDisplayedListings([])
-        setTotalFilteredCount(0)
+        console.error('Error:', error)
       }
     }
     setLoading(false)
     setSwitchingMode(false)
-  }, [buildFilteredQuery, sortBy])
+  }, [filters, mode, sortBy, getFilteredCount])
 
 
 
