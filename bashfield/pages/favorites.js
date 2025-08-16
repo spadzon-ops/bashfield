@@ -12,10 +12,40 @@ export default function Favorites() {
   const [user, setUser] = useState(null)
   const [favorites, setFavorites] = useState([])
   const [loading, setLoading] = useState(true)
+  const [displayedFavorites, setDisplayedFavorites] = useState(12)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMoreFavorites, setHasMoreFavorites] = useState(true)
 
   useEffect(() => {
     checkAuth()
   }, [])
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (loadingMore || !hasMoreFavorites) return
+      
+      const scrollTop = window.pageYOffset || document.documentElement.scrollTop
+      const windowHeight = window.innerHeight
+      const documentHeight = document.documentElement.scrollHeight
+      
+      if (scrollTop + windowHeight >= documentHeight - 100) {
+        if (favorites.length > displayedFavorites) {
+          setLoadingMore(true)
+          setTimeout(() => {
+            setDisplayedFavorites(prev => {
+              const newCount = prev + 12
+              setHasMoreFavorites(favorites.length > newCount)
+              return newCount
+            })
+            setLoadingMore(false)
+          }, 300)
+        }
+      }
+    }
+
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [loadingMore, hasMoreFavorites, favorites, displayedFavorites])
 
   useEffect(() => {
     if (user) {
@@ -113,6 +143,8 @@ export default function Favorites() {
 
       console.log('Final favorites:', listingsWithProfiles)
       setFavorites(listingsWithProfiles)
+      setDisplayedFavorites(12)
+      setHasMoreFavorites(listingsWithProfiles.length > 12)
     } catch (error) {
       console.error('Error in fetchFavorites:', error)
       setFavorites([])
@@ -176,11 +208,16 @@ export default function Favorites() {
             <div className="mb-8 text-center">
               <p className="text-gray-600">
                 You have <span className="font-semibold text-blue-600">{favorites.length}</span> favorite {favorites.length === 1 ? 'property' : 'properties'}
+                {favorites.length > 12 && (
+                  <span className="text-sm text-gray-500 block mt-1">
+                    Showing {Math.min(displayedFavorites, favorites.length)} of {favorites.length}
+                  </span>
+                )}
               </p>
             </div>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-              {favorites.map(listing => (
+              {favorites.slice(0, displayedFavorites).map(listing => (
                 <ListingCard 
                   key={listing.id} 
                   listing={listing}
@@ -188,6 +225,40 @@ export default function Favorites() {
                 />
               ))}
             </div>
+            
+            {hasMoreFavorites && (
+              <div className="text-center mt-8">
+                {loadingMore ? (
+                  <div className="flex items-center justify-center space-x-2">
+                    <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                    <span className="text-gray-600">Loading more favorites...</span>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => {
+                      setLoadingMore(true)
+                      setTimeout(() => {
+                        setDisplayedFavorites(prev => {
+                          const newCount = prev + 12
+                          setHasMoreFavorites(favorites.length > newCount)
+                          return newCount
+                        })
+                        setLoadingMore(false)
+                      }, 300)
+                    }}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors font-semibold"
+                  >
+                    Load More Favorites
+                  </button>
+                )}
+              </div>
+            )}
+            
+            {!hasMoreFavorites && favorites.length > 12 && (
+              <div className="text-center mt-8 text-gray-500">
+                You've reached the end of your favorites
+              </div>
+            )}
           </>
         )}
       </div>
