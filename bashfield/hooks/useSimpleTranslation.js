@@ -1,6 +1,2 @@
-// bashfield/hooks/useSimpleTranslation.js
-import { useTranslation } from '../contexts/TranslationContext'
-export default function useSimpleTranslation() {
-  const { t, lang, setLang } = useTranslation()
-  return { t, currentLang: lang, setLang }
-}
+// If other files import this hook, keep it as a thin re-export.
+export { useTranslation as default, useTranslation } from '../contexts/TranslationContext';
