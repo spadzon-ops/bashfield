@@ -1,6 +1,6 @@
 // components/LanguageSwitcher.jsx
 import { useRouter } from 'next/router';
-import { useTranslation } from '@/contexts/TranslationContext';
+import { useTranslation } from '../contexts/TranslationContext';
 
 const LANGS = [
   { code: 'en', labelKey: 'language.english' },
@@ -10,7 +10,7 @@ const LANGS = [
 
 export default function LanguageSwitcher() {
   const router = useRouter();
-  const { t, i18n } = useTranslation('common');
+  const { t } = useTranslation('common');
 
   const change = async (code) => {
     if (code === router.locale) return;
