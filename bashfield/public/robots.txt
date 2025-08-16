@@ -1,0 +1,15 @@
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://bashfield.com/sitemap.xml
+
+# Disallow admin pages
+Disallow: /admin
+Disallow: /api/
+
+# Allow important pages
+Allow: /
+Allow: /post
+Allow: /listing/*
+Allow: /profile/*
