@@ -50,37 +50,38 @@ export default function Home() {
       clearTimeout(debounceTimeoutRef.current)
     }
     
-    // Set switching mode state
+    // Set switching mode state and clear data immediately when mode changes
     if (prevMode !== mode) {
       setSwitchingMode(true)
       setHasInitialData(false)
+      setListings([])
+      setFilteredListings([])
+      setDisplayedListings([])
+      setTotalFilteredCount(0)
+      
+      // Reset filters when mode changes
+      setFilters({
+        city: '',
+        propertyType: '',
+        minPrice: '',
+        maxPrice: '',
+        rooms: '',
+        minSize: '',
+        searchQuery: ''
+      })
+      setPage(1)
+      setPrevMode(mode)
     }
     
-    // Debounce the mode change
-    debounceTimeoutRef.current = setTimeout(() => {
-      fetchListings()
-      // Reset filters when mode changes
-      if (prevMode !== mode) {
-        setFilters({
-          city: '',
-          propertyType: '',
-          minPrice: '',
-          maxPrice: '',
-          rooms: '',
-          minSize: '',
-          searchQuery: ''
-        })
-        setPage(1)
-        setPrevMode(mode)
-      }
-    }, 300)
+    // Fetch listings immediately without debounce to prevent "No properties found" flash
+    fetchListings()
     
     return () => {
       if (debounceTimeoutRef.current) {
         clearTimeout(debounceTimeoutRef.current)
       }
     }
-  }, [mode, prevMode])
+  }, [mode])
 
   // Prevent initial scroll to top flash
   useEffect(() => {
@@ -125,11 +126,11 @@ export default function Home() {
 
 
   useEffect(() => {
-    if (!switchingMode) {
+    if (!switchingMode && listings.length > 0) {
       applyFilters()
       getFilteredCount()
     }
-  }, [filters, listings, sortBy, mode, switchingMode])
+  }, [filters, listings, sortBy, switchingMode])
 
   useEffect(() => {
     updateDisplayedListings()
@@ -166,19 +167,6 @@ export default function Home() {
       
       setLoading(true)
       
-      // Get count first for immediate display
-      const { count } = await supabase
-        .from('listings')
-        .select('id', { count: 'exact', head: true })
-        .eq('status', 'approved')
-        .eq('is_active', true)
-        .eq('listing_mode', mode)
-        .abortSignal(signal)
-      
-      if (!signal.aborted) {
-        setTotalFilteredCount(count || 0)
-      }
-      
       // First get all approved and active listings
       const { data: listingsData, error: listingsError } = await supabase
         .from('listings')
@@ -193,6 +181,9 @@ export default function Home() {
         if (listingsError.name !== 'AbortError') {
           console.error('Error fetching listings:', listingsError)
           setListings([])
+          setFilteredListings([])
+          setDisplayedListings([])
+          setTotalFilteredCount(0)
         }
         setLoading(false)
         setSwitchingMode(false)
@@ -224,12 +215,20 @@ export default function Home() {
         }
       })
 
-      setListings(listingsWithProfiles || [])
+      // Set all data at once to prevent race conditions
+      const newListings = listingsWithProfiles || []
+      setListings(newListings)
+      setFilteredListings(newListings)
+      setDisplayedListings(newListings.slice(0, ITEMS_PER_PAGE))
+      setTotalFilteredCount(newListings.length)
       setHasInitialData(true)
     } catch (error) {
       if (error.name !== 'AbortError') {
         console.error('Error in fetchListings:', error)
         setListings([])
+        setFilteredListings([])
+        setDisplayedListings([])
+        setTotalFilteredCount(0)
       }
     }
     setLoading(false)
@@ -715,7 +714,7 @@ export default function Home() {
                 <p className="text-gray-600">Switching modes...</p>
               </div>
             </div>
-          ) : (!loading && !switchingMode && hasInitialData && filteredListings.length === 0) ? (
+          ) : (!loading && !switchingMode && hasInitialData && filteredListings.length === 0 && listings.length === 0) ? (
             <div className="text-center py-20">
               <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
                 <span className="text-4xl">🏠</span>
