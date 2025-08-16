@@ -565,12 +565,6 @@ export default function Layout({ children }) {
       </nav>
       
       <main className="relative">
-        {isTranslating && (
-          <div className="fixed top-20 right-4 bg-blue-600 text-white px-4 py-2 rounded-lg shadow-lg z-50 flex items-center space-x-2">
-            <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-            <span className="text-sm font-medium">Translating...</span>
-          </div>
-        )}
         {children}
         {/* Floating Action Buttons */}
         {user && router.pathname === '/' && (
