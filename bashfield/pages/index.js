@@ -167,7 +167,20 @@ export default function Home() {
       
       setLoading(true)
       
-      // First get all approved and active listings
+      // Get total count first
+      const { count } = await supabase
+        .from('listings')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'approved')
+        .eq('is_active', true)
+        .eq('listing_mode', mode)
+        .abortSignal(signal)
+      
+      if (!signal.aborted) {
+        setTotalFilteredCount(count || 0)
+      }
+      
+      // Then get all approved and active listings
       const { data: listingsData, error: listingsError } = await supabase
         .from('listings')
         .select('*')
@@ -220,7 +233,8 @@ export default function Home() {
       setListings(newListings)
       setFilteredListings(newListings)
       setDisplayedListings(newListings.slice(0, ITEMS_PER_PAGE))
-      setTotalFilteredCount(newListings.length)
+      // Keep the total count from database, don't overwrite with loaded count
+      if (!count) setTotalFilteredCount(newListings.length)
       setHasInitialData(true)
     } catch (error) {
       if (error.name !== 'AbortError') {
