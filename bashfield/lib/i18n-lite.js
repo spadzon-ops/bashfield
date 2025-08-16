@@ -1,7 +1,8 @@
 // bashfield/lib/i18n-lite.js
-// Deterministic i18n core with a small compatibility layer
-// - NO DOM scanning (translatePage is a noop)
-// - Provides getLang/setLang/applyDocumentDirection for legacy code
+// Deterministic i18n core with a small compatibility layer.
+// - NO DOM scanning (translatePage is a noop).
+// - Provides getLang/setLang/applyDocumentDirection for any legacy code.
+// - Exposes BOTH named exports (translate, getDir, isRTL, etc.) and a default object.
 
 const DICT = {
   en: {
@@ -21,9 +22,21 @@ const DICT = {
 const RTL = new Set(['ar','ku']);
 const COOKIE = 'bf_lang';
 
-function isRTL(lang){ return RTL.has(lang); }
-function getDir(lang){ return isRTL(lang)?'rtl':'ltr'; }
+export function isRTL(lang){ return RTL.has(lang); }
+export function getDir(lang){ return isRTL(lang)?'rtl':'ltr'; }
 
+// deterministic translate
+export function translate(lang, key){
+  if(!key) return '';
+  const dict = DICT[lang] || {};
+  const k = String(key);
+  if (Object.prototype.hasOwnProperty.call(dict, k)) return dict[k];
+  const trimmed = k.trim();
+  if (Object.prototype.hasOwnProperty.call(dict, trimmed)) return dict[trimmed];
+  return key;
+}
+
+// cookies/localStorage helpers
 function readCookie(name){
   if (typeof document==='undefined') return null;
   const m = document.cookie.match(new RegExp('(^| )'+name+'=([^;]+)'));
@@ -34,39 +47,31 @@ function writeCookie(name, value){
   document.cookie = `${name}=${encodeURIComponent(value)}; Path=/; Max-Age=31536000; SameSite=Lax`;
 }
 
-// --- deterministic translation ---
-function translate(lang, key){
-  if(!key) return '';
-  const dict = DICT[lang] || {};
-  const k = String(key);
-  if (Object.prototype.hasOwnProperty.call(dict, k)) return dict[k];
-  const trimmed = k.trim();
-  if (Object.prototype.hasOwnProperty.call(dict, trimmed)) return dict[trimmed];
-  return key;
-}
-
-// ===== Compatibility layer (for old code) =====
-function getLang(){
-  // cookie -> localStorage -> default
+// legacy-compatible getters/setters
+export function getLang(){
   const c = readCookie(COOKIE);
   const s = (typeof window!=='undefined') ? localStorage.getItem(COOKIE) : null;
   return c || s || 'en';
 }
-function setLang(lang){
+export function setLang(lang){
   if (typeof window==='undefined') return;
   writeCookie(COOKIE, lang);
   localStorage.setItem(COOKIE, lang);
   applyDocumentDirection(lang);
-  // notify any legacy listeners
   window.dispatchEvent(new CustomEvent('languageChanged',{ detail:{ language: lang }}));
 }
-function applyDocumentDirection(lang=getLang()){
+export function applyDocumentDirection(lang=getLang()){
   if (typeof document==='undefined') return;
   document.documentElement.setAttribute('lang', lang);
   document.documentElement.setAttribute('dir', getDir(lang));
 }
-// kept only for API compatibility – does nothing
-function translatePage(){ /* noop – DOM scanning removed intentionally */ }
 
-export const i18nCore = { DICT, translate, isRTL, getDir, getLang, setLang, applyDocumentDirection, translatePage };
+// kept only for API compatibility – does nothing
+export function translatePage(){ /* noop – DOM scanning removed */ }
+
+const i18nCore = {
+  DICT, translate, isRTL, getDir,
+  getLang, setLang, applyDocumentDirection, translatePage
+};
+export { DICT };
 export default i18nCore;
