@@ -1,21 +1,27 @@
-// bashfield/pages/go-message.js
-import { useEffect } from 'react'
-import { useRouter } from 'next/router'
-import useSimpleTranslation from '../hooks/useSimpleTranslation'
+import { ensureConversation } from "../lib/chat";
 
 export default function GoMessage() {
-  const router = useRouter()
-  const { t } = useSimpleTranslation()
+  // This page exists only to trigger creation of a conversation
+  // and then redirect to the chat page handled by router logic.
+  return null;
+}
 
-  useEffect(() => {
-    // If you later add a helper to ensure a conversation,
-    // you can do it here before navigating.
-    router.replace('/messages')
-  }, [router])
+export async function getServerSideProps(context) {
+  const { listingId } = context.query || {};
+  if (!listingId) {
+    return {
+      redirect: { destination: "/", permanent: false },
+    };
+  }
 
-  return (
-    <div className="min-h-[60vh] grid place-items-center">
-      <div className="text-lg">{t('Loading...')}</div>
-    </div>
-  )
+  const convo = await ensureConversation({ listingId, context });
+
+  return {
+    redirect: {
+      destination: `/chat/${encodeURIComponent(listingId)}?c=${encodeURIComponent(
+        convo?.id || ""
+      )}`,
+      permanent: false,
+    },
+  };
 }
