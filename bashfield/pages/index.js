@@ -754,7 +754,7 @@ export default function Home() {
             <>
               <div className="mb-6 text-center">
                 <p className="text-gray-600">
-                  Showing <span className="font-semibold">{displayedListings.length}</span> of <span className="font-semibold">{totalFilteredCount}</span> {mode === 'rent' ? 'rentals' : 'properties'}
+                  Showing <span className="font-semibold">{displayedListings.length}</span> of <span className="font-semibold">{filteredListings.length}</span> {mode === 'rent' ? 'rentals' : 'properties'}
                   {viewMode === 'list' && <span className="ml-2">in list view</span>}
                 </p>
               </div>
