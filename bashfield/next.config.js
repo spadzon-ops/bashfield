@@ -1,15 +1,12 @@
-const { i18n } = require('./next-i18next.config.js')
-
+// next.config.js
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  i18n,
-  images: {
-    domains: ['txytcxselephovrtryuv.supabase.co'],
+  reactStrictMode: true,
+  i18n: {
+    locales: ['en', 'ar', 'ku'],
+    defaultLocale: 'en',
+    localeDetection: true,
   },
-  trailingSlash: false,
-  experimental: {
-    esmExternals: false
-  }
-}
+};
 
-module.exports = nextConfig
+module.exports = nextConfig;
