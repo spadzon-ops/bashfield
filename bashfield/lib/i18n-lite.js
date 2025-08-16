@@ -1,77 +1,140 @@
-// bashfield/lib/i18n-lite.js
-// Deterministic i18n core with a small compatibility layer.
-// - NO DOM scanning (translatePage is a noop).
-// - Provides getLang/setLang/applyDocumentDirection for any legacy code.
-// - Exposes BOTH named exports (translate, getDir, isRTL, etc.) and a default object.
+// Lightweight i18n utilities for Bashfield
+// Exposes BOTH named exports (translate, getDir, isRTL, applyDocumentDirection)
+// and a default export object for flexibility.
 
-const DICT = {
+export const DICT = {
   en: {
-    "Home": "Home","Add Property": "Add Property","Favorites": "Favorites","Admin": "Admin","Admin Dashboard": "Admin Dashboard","Bashfield": "Bashfield","Premier Property Platform": "Premier Property Platform","Cities": "Cities","City": "City","City:": "City:","All": "All","Any": "Any","Rooms": "Rooms","Rooms:": "Rooms:","Type": "Type","Type:": "Type:","Size (m²)": "Size (m²)","Price:": "Price:","USD": "USD","IQD": "IQD","For Rent": "For Rent","For Sale": "For Sale","Search properties...": "Search properties...","Search by code": "Search by code","e.g. BF-9A3C71": "e.g. BF-9A3C71","List Your Property": "List Your Property","Submit Listing": "Submit Listing","View Details": "View Details","Message Owner": "Message Owner","Messages": "Messages","Send": "Send","Write a message...": "Write a message...","Open in Maps": "Open in Maps","Verified": "Verified","Verification": "Verification","Profile": "Profile","View Profile": "View Profile","Sign In": "Sign In","Sign Out": "Sign Out","Loading...": "Loading...","No listings found": "No listings found",
-    "Property Platform #1 🏠": "Property Platform #1 🏠","Buying & Selling 🏡": "Buying & Selling 🏡","Renting 🏡": "Renting 🏡","Find Your Perfect Home in Iraq": "Find Your Perfect Home in Iraq","Discover amazing rental properties in Erbil and across Iraq": "Discover amazing rental properties in Erbil and across Iraq","Max Price": "Max Price","Min Price": "Min Price","in Size (m²)": "in Size (m²)","Any Rooms": "Any Rooms","All Cities": "All Cities","All Types": "All Types","Types": "Types","FREE": "FREE","Post Your Property+": "Post Your Property+","Browse Rentals": "Browse Rentals","Browse Rentals🔍": "Browse Rentals🔍","Rentals": "Rentals","Switch":"Switch"
-  },
-  ar: {
-    "Home": "الرئيسية","Add Property": "إضافة عقار","Favorites": "المفضلات","Admin": "الإدارة","Admin Dashboard": "لوحة تحكم الإدارة","Bashfield": "باشفيلد","Premier Property Platform": "منصة عقارية رائدة","Cities": "المدن","City": "المدينة","City:": "المدينة:","All": "الكل","Any": "أي","Rooms": "الغرف","Rooms:": "الغرف:","Type": "النوع","Type:": "النوع:","Size (m²)": "المساحة (م²)","Price:": "السعر:","USD": "دولار أمريكي","IQD": "دينار عراقي","For Rent": "للإيجار","For Sale": "للبيع","Search properties...": "ابحث عن عقارات...","Search by code": "ابحث بالرمز","e.g. BF-9A3C71": "مثال: BF-9A3C71","List Your Property": "أضف عقارك","Submit Listing": "إرسال الإعلان","View Details": "عرض التفاصيل","Message Owner": "أرسل رسالة للمالك","Messages": "الرسائل","Send": "إرسال","Write a message...": "اكتب رسالة...","Open in Maps": "افتح في الخرائط","Verified": "موثّق","Verification": "التحقق","Profile": "الملف الشخصي","View Profile": "عرض الملف الشخصي","Sign In": "تسجيل الدخول","Sign Out": "تسجيل الخروج","Loading...": "جاري التحميل...","No listings found": "لم يتم العثور على إعلانات",
-    "Property Platform #1 🏠": "منصة العقارات رقم 1 🏠","Buying & Selling 🏡": "البيع والشراء 🏡","Renting 🏡": "الإيجار 🏡","Find Your Perfect Home in Iraq": "اعثر على منزلك المثالي في العراق","Discover amazing rental properties in Erbil and across Iraq": "اكتشف عقارات إيجار رائعة في أربيل وجميع أنحاء العراق","Max Price": "أعلى سعر","Min Price": "أقل سعر","in Size (m²)": "بمساحة (م²)","Any Rooms": "أي عدد من الغرف","All Cities": "جميع المدن","All Types": "جميع الأنواع","Types": "الأنواع","FREE": "مجاني","Post Your Property+": "أضف عقارك+","Browse Rentals": "تصفح الإيجارات","Browse Rentals🔍": "تصفح الإيجارات🔍","Rentals": "الإيجارات","Switch":"تبديل"
+    dir: "ltr",
+    "Home": "Home",
+    "Post": "Post",
+    "Admin": "Admin",
+    "Chat with owner": "Chat with owner",
+    "Post created successfully!": "Post created successfully!",
+    "Something went wrong.": "Something went wrong.",
+    "Send message": "Send message",
+    "Type your message…": "Type your message…",
+    "Back": "Back",
+    "Post a listing": "Post a listing",
+    "Title": "Title",
+    "Price": "Price",
+    "Description": "Description",
+    "Location": "Location",
+    "Submit": "Submit",
+    "Required": "Required",
+    "Invalid": "Invalid",
+    "Loading…": "Loading…",
+    "Try again": "Try again",
+    "Go to chat": "Go to chat",
+    "All listings": "All listings",
+    "No results": "No results",
+    "Owner": "Owner",
+    "You": "You",
+    "minutes ago": "minutes ago",
+    "Just now": "Just now"
   },
   ku: {
-    "Home": "ماڵەوە","Add Property": "زیادکردنی ملک","Favorites": "دڵخوازەکان","Admin": "بەڕێوەبەر","Admin Dashboard": "داشبۆردی بەڕێوەبەر","Bashfield": "باشفیلد","Premier Property Platform": "پلاتفۆرمی پێشەنگی ملکان","Cities": "شارەکان","City": "شار","City:": "شار:","All": "هەموو","Any": "هەرکام","Rooms": "ژوورەکان","Rooms:": "ژوورەکان:","Type": "جۆر","Type:": "جۆر:","Size (m²)": "قەبارە (م²)","Price:": "نرخ:","USD": "USD","IQD": "IQD","For Rent": "بۆ کرێ","For Sale": "بۆ فرۆشتن","Search properties...": "بەدوای ملکان بگەڕێ...","Search by code": "بەپێی کۆد بگەڕێ","e.g. BF-9A3C71": "نموونە: BF-9A3C71","List Your Property": "ملکت بڵاو بکە","Submit Listing": "ناردنی تۆمار","View Details": "وردەکاری ببینە","Message Owner": "پەیام بنێرە بۆ خاوەنی ملک","Messages": "پەیامەکان","Send": "ناردن","Write a message...": "پەیامێك بنووسە...","Open in Maps": "لە نەخشەدا بکەرەوە","Verified": "دڵنیابوون","Verification": "پشتراستکردنەوە","Profile": "پرۆفایل","View Profile": "پرۆفایل ببینە","Sign In": "چوونەژوورەوە","Sign Out": "چوونەدەرەوە","Loading...": "بار دەکرێت...","No listings found": "هیچ تۆمارێك نەدۆزرایەوە",
-    "Property Platform #1 🏠": "پلاتفۆرمی ملکان ژمارە ١ 🏠","Buying & Selling 🏡": "کڕین و فرۆشتن 🏡","Renting 🏡": "کرێدان 🏡","Find Your Perfect Home in Iraq": "خانووی گونجای خۆت لە عێراق بدۆزەوە","Discover amazing rental properties in Erbil and across Iraq": "ملکە کرێدارییە جوانەکان لە هەولێر و هەموو عێراق بدۆزەوە","Max Price": "زۆرترین نرخ","Min Price": "کەمترین نرخ","in Size (m²)": "بە قەبارەی (م²)","Any Rooms": "هەر چەند ژوور","All Cities": "هەموو شارەکان","All Types": "هەموو جۆرەکان","Types": "جۆرەکان","FREE": "بێبەرامبەر","Post Your Property+": "ملکت زیاد بکە+","Browse Rentals": "کرێکان بگەڕێ","Browse Rentals🔍": "کرێکان بگەڕێ🔍","Rentals": "کرێکان","Switch":"گۆڕین"
+    dir: "rtl",
+    "Home": "سەرەتا",
+    "Post": "بەشداری",
+    "Admin": "بەڕێوەبەرایەتی",
+    "Chat with owner": "گفتوگۆ لەگەڵ خاوی",
+    "Post created successfully!": "بەشداری بە سەرکەوتوویی دروست کرا!",
+    "Something went wrong.": "هەڵەیەک ڕوویدا.",
+    "Send message": "نامە بنێرە",
+    "Type your message…": "نامەکەت بنووسە…",
+    "Back": "گەڕانەوە",
+    "Post a listing": "لیستێک بڵاو بکەوە",
+    "Title": "ناونیشان",
+    "Price": "نرخ",
+    "Description": "وەسف",
+    "Location": "شوێن",
+    "Submit": "ناردن",
+    "Required": "پێویستە",
+    "Invalid": "نادروست",
+    "Loading…": "باردەکرێت…",
+    "Try again": "دووبارە هەوڵبدە",
+    "Go to chat": "بڕۆ بۆ گفتوگۆ",
+    "All listings": "هەموو لیستەکان",
+    "No results": "هیچ ئەنجامێک نییە",
+    "Owner": "خاوەن",
+    "You": "تۆ",
+    "minutes ago": "خولەک لەمەوبەر",
+    "Just now": "ئێستا"
+  },
+  ar: {
+    dir: "rtl",
+    "Home": "الرئيسية",
+    "Post": "نشر",
+    "Admin": "الإدارة",
+    "Chat with owner": "الدردشة مع المالك",
+    "Post created successfully!": "تم إنشاء المنشور بنجاح!",
+    "Something went wrong.": "حدث خطأ ما.",
+    "Send message": "إرسال",
+    "Type your message…": "اكتب رسالتك…",
+    "Back": "رجوع",
+    "Post a listing": "إضافة إعلان",
+    "Title": "العنوان",
+    "Price": "السعر",
+    "Description": "الوصف",
+    "Location": "الموقع",
+    "Submit": "إرسال",
+    "Required": "مطلوب",
+    "Invalid": "غير صالح",
+    "Loading…": "جارٍ التحميل…",
+    "Try again": "أعد المحاولة",
+    "Go to chat": "اذهب للدردشة",
+    "All listings": "كل الإعلانات",
+    "No results": "لا توجد نتائج",
+    "Owner": "المالك",
+    "You": "أنت",
+    "minutes ago": "دقائق مضت",
+    "Just now": "الآن"
   }
 };
 
-const RTL = new Set(['ar','ku']);
-const COOKIE = 'bf_lang';
+/**
+ * Returns "rtl" or "ltr" for a language code.
+ */
+export function getDir(lang) {
+  const code = (lang || "").toLowerCase().split("-")[0];
+  return (DICT[code] && DICT[code].dir) || "ltr";
+}
 
-export function isRTL(lang){ return RTL.has(lang); }
-export function getDir(lang){ return isRTL(lang)?'rtl':'ltr'; }
+/**
+ * Is the language Right-To-Left?
+ */
+export function isRTL(lang) {
+  return getDir(lang) === "rtl";
+}
 
-// deterministic translate
-export function translate(lang, key){
-  if(!key) return '';
-  const dict = DICT[lang] || {};
-  const k = String(key);
-  if (Object.prototype.hasOwnProperty.call(dict, k)) return dict[k];
-  const trimmed = k.trim();
-  if (Object.prototype.hasOwnProperty.call(dict, trimmed)) return dict[trimmed];
+/**
+ * Translate helper. Signature matches how the app calls it: tr(lang, key)
+ * Falls back gracefully: key -> en -> first available language -> key
+ */
+export function translate(lang, key) {
+  const code = (lang || "").toLowerCase().split("-")[0];
+  if (DICT[code] && DICT[code][key]) return DICT[code][key];
+  if (DICT.en && DICT.en[key]) return DICT.en[key];
+  // fallback: try any other language that has the key
+  for (const k of Object.keys(DICT)) {
+    if (DICT[k] && DICT[k][key]) return DICT[k][key];
+  }
   return key;
 }
 
-// cookies/localStorage helpers
-function readCookie(name){
-  if (typeof document==='undefined') return null;
-  const m = document.cookie.match(new RegExp('(^| )'+name+'=([^;]+)'));
-  return m ? decodeURIComponent(m[2]) : null;
-}
-function writeCookie(name, value){
-  if (typeof document==='undefined') return;
-  document.cookie = `${name}=${encodeURIComponent(value)}; Path=/; Max-Age=31536000; SameSite=Lax`;
-}
-
-// legacy-compatible getters/setters
-export function getLang(){
-  const c = readCookie(COOKIE);
-  const s = (typeof window!=='undefined') ? localStorage.getItem(COOKIE) : null;
-  return c || s || 'en';
-}
-export function setLang(lang){
-  if (typeof window==='undefined') return;
-  writeCookie(COOKIE, lang);
-  localStorage.setItem(COOKIE, lang);
-  applyDocumentDirection(lang);
-  window.dispatchEvent(new CustomEvent('languageChanged',{ detail:{ language: lang }}));
-}
-export function applyDocumentDirection(lang=getLang()){
-  if (typeof document==='undefined') return;
-  document.documentElement.setAttribute('lang', lang);
-  document.documentElement.setAttribute('dir', getDir(lang));
+/**
+ * Apply document.dir on the client. Safe no-op on server.
+ */
+export function applyDocumentDirection(lang) {
+  if (typeof window === "undefined") return;
+  try {
+    const dir = getDir(lang);
+    if (document && document.documentElement) {
+      document.documentElement.setAttribute("dir", dir);
+    }
+  } catch {}
 }
 
-// kept only for API compatibility – does nothing
-export function translatePage(){ /* noop – DOM scanning removed */ }
-
-const i18nCore = {
-  DICT, translate, isRTL, getDir,
-  getLang, setLang, applyDocumentDirection, translatePage
-};
-export { DICT };
+// Default export (optional usage)
+const i18nCore = { DICT, translate, getDir, isRTL, applyDocumentDirection };
 export default i18nCore;
