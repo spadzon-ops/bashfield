@@ -7,10 +7,10 @@ import MapView from '../components/MapView'
 import ModeSwitcher from '../components/ModeSwitcher'
 import InlineModeSwitcher from '../components/InlineModeSwitcher'
 import { useMode } from '../contexts/ModeContext'
-import useComprehensiveTranslations from '../hooks/useComprehensiveTranslations'
+import useSimpleTranslation from '../hooks/useSimpleTranslation'
 
 export default function Home() {
-  const { t } = useComprehensiveTranslations()
+  const { t } = useSimpleTranslation()
   const router = useRouter()
   const { mode, config } = useMode()
   const [prevMode, setPrevMode] = useState(mode)
@@ -298,10 +298,10 @@ export default function Home() {
             </div>
             
             <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold text-white mb-8 leading-tight">
-              {t('home.title')}
+              {t('Find Your Perfect Home in Iraq')}
             </h1>
             <p className="text-xl sm:text-2xl text-gray-200 mb-12 max-w-4xl mx-auto leading-relaxed">
-              {t('home.subtitle')}
+              {t('Discover amazing rental properties in Erbil and across Iraq')}
             </p>
             
 
@@ -315,7 +315,7 @@ export default function Home() {
                     onChange={(e) => setFilters(prev => ({ ...prev, propertyType: e.target.value }))}
                     className="w-full px-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-gray-900 font-medium"
                   >
-                    <option value="">{t('home.allTypes')}</option>
+                    <option value="">{t('All Types')}</option>
                     {PROPERTY_TYPES.map(type => (
                       <option key={type.value} value={type.value}>{type.icon} {type.label}</option>
                     ))}
@@ -326,7 +326,7 @@ export default function Home() {
                     onChange={(e) => setFilters(prev => ({ ...prev, city: e.target.value }))}
                     className="w-full px-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-gray-900 font-medium"
                   >
-                    <option value="">All Cities</option>
+                    <option value="">{t('All Cities')}</option>
                     {CITIES.map(city => (
                       <option key={city} value={city}>{city.charAt(0).toUpperCase() + city.slice(1)}</option>
                     ))}
@@ -337,7 +337,7 @@ export default function Home() {
                     onChange={(e) => setFilters(prev => ({ ...prev, rooms: e.target.value }))}
                     className="w-full px-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-gray-900 font-medium"
                   >
-                    <option value="">{t('home.anyRooms')}</option>
+                    <option value="">{t('Any Rooms')}</option>
                     <option value="1">1+ Room</option>
                     <option value="2">2+ Rooms</option>
                     <option value="3">3+ Rooms</option>
@@ -347,7 +347,7 @@ export default function Home() {
                   
                   <input
                     type="number"
-                    placeholder={`${t('home.minSize')} (m²)`}
+                    placeholder={`${t('Min Size')} (m²)`}
                     value={filters.minSize || ''}
                     onChange={(e) => {
                       const value = e.target.value
@@ -358,7 +358,7 @@ export default function Home() {
                   
                   <input
                     type="number"
-                    placeholder={t('home.minPrice')}
+                    placeholder={t('Min Price')}
                     value={filters.minPrice || ''}
                     onChange={(e) => {
                       const value = e.target.value
@@ -369,7 +369,7 @@ export default function Home() {
                   
                   <input
                     type="number"
-                    placeholder={t('home.maxPrice')}
+                    placeholder={t('Max Price')}
                     value={filters.maxPrice || ''}
                     onChange={(e) => {
                       const value = e.target.value
@@ -464,7 +464,7 @@ export default function Home() {
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                     <path d="M5 3a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2V5a2 2 0 00-2-2H5zM5 11a2 2 0 00-2 2v2a2 2 0 002 2h2a2 2 0 002-2v-2a2 2 0 00-2-2H5zM11 5a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V5zM11 13a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
                   </svg>
-                  <span>Grid</span>
+                  <span>{t('Grid')}</span>
                 </button>
                 <button
                   onClick={() => setViewMode('list')}
@@ -477,7 +477,7 @@ export default function Home() {
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
                   </svg>
-                  <span>List</span>
+                  <span>{t('List')}</span>
                 </button>
                 <button
                   onClick={() => setViewMode('map')}
@@ -490,22 +490,22 @@ export default function Home() {
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M12 1.586l-4 4v12.828l4-4V1.586zM3.707 3.293A1 1 0 002 4v10a1 1 0 00.293.707L6 18.414V5.586L3.707 3.293zM17.707 5.293L14 1.586v12.828l2.293 2.293A1 1 0 0018 16V6a1 1 0 00-.293-.707z" clipRule="evenodd" />
                   </svg>
-                  <span>Map</span>
+                  <span>{t('Map')}</span>
                 </button>
               </div>
               
               {/* Sort Dropdown */}
               <div className="flex items-center space-x-4">
-                <label className="text-sm font-medium text-gray-700">Sort by:</label>
+                <label className="text-sm font-medium text-gray-700">{t('Sort by')}:</label>
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
                   className="px-4 py-2 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-blue-500/20 focus:border-blue-500 transition-all bg-white"
                 >
-                  <option value="default">Default</option>
-                  <option value="newest">Newest First</option>
-                  <option value="price-low">Price: Low to High</option>
-                  <option value="price-high">Price: High to Low</option>
+                  <option value="default">{t('Default')}</option>
+                  <option value="newest">{t('Newest First')}</option>
+                  <option value="price-low">{t('Price: Low to High')}</option>
+                  <option value="price-high">{t('Price: High to Low')}</option>
                 </select>
               </div>
             </div>
@@ -553,7 +553,7 @@ export default function Home() {
             <div className="flex justify-center py-20">
               <div className="text-center">
                 <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                <p className="text-gray-600">{t('ui.loading')}</p>
+                <p className="text-gray-600">{t('Loading...')}</p>
               </div>
             </div>
           ) : filteredListings.length === 0 ? (

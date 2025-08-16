@@ -3,10 +3,11 @@ import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
 import LanguageToggle from './LanguageToggle'
 import SimpleTranslate from './SimpleTranslate'
-import useComprehensiveTranslations from '../hooks/useComprehensiveTranslations'
+import useSimpleTranslation from '../hooks/useSimpleTranslation'
+import SimpleLanguageToggle from './SimpleLanguageToggle'
 
 export default function Layout({ children }) {
-  const { t } = useComprehensiveTranslations()
+  const { t } = useSimpleTranslation()
   const router = useRouter()
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
@@ -333,7 +334,7 @@ export default function Layout({ children }) {
                   )}
                 </button>
               )}
-              <SimpleTranslate />
+              <SimpleLanguageToggle />
               
               {loading ? (
                 <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
@@ -388,7 +389,7 @@ export default function Layout({ children }) {
 
             {/* Enhanced Mobile Menu Button */}
             <div className="lg:hidden flex items-center space-x-2">
-              <LanguageToggle isMobile={true} />
+              <SimpleLanguageToggle />
               <button
                 onClick={(e) => {
                   setMobileMenuOpen(!mobileMenuOpen)
