@@ -1,0 +1,270 @@
+const translations = {
+  en: {
+    // Navigation
+    'nav.home': 'Home',
+    'nav.post': 'Post Your House',
+    'nav.admin': 'Admin',
+    'nav.login': 'Login',
+    'nav.logout': 'Logout',
+    'nav.profile': 'Profile',
+    'nav.messages': 'Messages',
+    'nav.favorites': 'Favorites',
+    
+    // Home
+    'home.title': 'Find Your Perfect Home in Iraq',
+    'home.subtitle': 'Discover amazing rental properties in Erbil and across Iraq',
+    'home.allCities': 'All Cities',
+    'home.allTypes': 'All Types',
+    'home.anyRooms': 'Any Rooms',
+    'home.minSize': 'Min Size',
+    'home.minPrice': 'Min Price',
+    'home.maxPrice': 'Max Price',
+    'home.noListings': 'No listings found',
+    'home.loadMore': 'Load More Properties',
+    'home.tryAdjustingFilters': 'Try adjusting your filters or be the first to list your property!',
+    'home.listForRent': 'List for Rent',
+    
+    // Listing
+    'listing.rooms': 'rooms',
+    'listing.postedBy': 'Posted by',
+    'listing.viewDetails': 'View Details',
+    'listing.contactOwner': 'Contact Owner',
+    'listing.perMonth': 'per month',
+    'listing.forSale': 'for sale',
+    'listing.forRent': 'for rent',
+    
+    // Property Details
+    'propertyDetails.backToListings': 'Back to listings',
+    'propertyDetails.propertyDescription': 'Property Description',
+    'propertyDetails.location': 'Location',
+    'propertyDetails.rooms': 'Rooms',
+    'propertyDetails.size': 'Size',
+    'propertyDetails.owner': 'Owner',
+    'propertyDetails.propertyCode': 'Property Code',
+    'propertyDetails.city': 'City',
+    'propertyDetails.currency': 'Currency',
+    'propertyDetails.address': 'Address',
+    'propertyDetails.notAvailable': 'Not available',
+    'propertyDetails.propertyOwner': 'Property Owner',
+    'propertyDetails.clickToViewProfile': 'Click to view profile',
+    'propertyDetails.messageOwner': 'Message Owner',
+    'propertyDetails.contactViaWhatsApp': 'Contact via WhatsApp',
+    'propertyDetails.safetyFirst': 'Safety First',
+    'propertyDetails.safetyMessage': 'Always verify the property and meet in person before making any payments. Report suspicious activity to our support team.',
+    'propertyDetails.openInMaps': 'Open in Maps',
+    
+    // Profile
+    'profile.myListings': 'My Listings',
+    'profile.pending': 'Pending',
+    'profile.accountSettings': 'Account Settings',
+    'profile.noApprovedListings': 'No approved listings yet',
+    'profile.approvedListingsWillAppear': 'Your approved listings will appear here!',
+    'profile.noPendingListings': 'No pending listings',
+    'profile.pendingListingsWillAppear': 'Your pending listings awaiting approval will appear here!',
+    'profile.createListing': 'Create Listing',
+    'profile.delete': 'Delete',
+    'profile.memberSince': 'Member since',
+    'profile.verified': 'Verified',
+    
+    // UI
+    'ui.loading': 'Loading...',
+    'ui.save': 'Save',
+    'ui.cancel': 'Cancel',
+    'ui.edit': 'Edit',
+    'ui.delete': 'Delete',
+    'ui.search': 'Search',
+    'ui.filter': 'Filter',
+    'ui.clear': 'Clear',
+    'ui.apply': 'Apply',
+    'ui.submit': 'Submit',
+    'ui.back': 'Back',
+    'ui.next': 'Next',
+    'ui.previous': 'Previous',
+    'ui.yes': 'Yes',
+    'ui.no': 'No',
+    'ui.close': 'Close'
+  },
+  
+  ku: {
+    // Navigation
+    'nav.home': 'ماڵەوە',
+    'nav.post': 'خانووت بڵاوبکەرەوە',
+    'nav.admin': 'بەڕێوەبەر',
+    'nav.login': 'چوونەژوورەوە',
+    'nav.logout': 'دەرچوون',
+    'nav.profile': 'پرۆفایل',
+    'nav.messages': 'پەیامەکان',
+    'nav.favorites': 'دڵخوازەکان',
+    
+    // Home
+    'home.title': 'ماڵی گونجاوی خۆت لە عێراق بدۆزەوە',
+    'home.subtitle': 'جایدادەکانی کرێیەری سەرنجڕاکێش بدۆزەوە لە هەولێر و سەرتاسەری عێراق',
+    'home.allCities': 'هەموو شارەکان',
+    'home.allTypes': 'هەموو جۆرەکان',
+    'home.anyRooms': 'هەر ژوورێک',
+    'home.minSize': 'کەمترین قەبارە',
+    'home.minPrice': 'کەمترین نرخ',
+    'home.maxPrice': 'زۆرترین نرخ',
+    'home.noListings': 'هیچ ئاگهیەک نەدۆزرایەوە',
+    'home.loadMore': 'جایدادی زیاتر باربکە',
+    'home.tryAdjustingFilters': 'فلتەرەکان گۆڕ بدە یان یەکەم کەس بە بۆ دانانی جایداد!',
+    'home.listForRent': 'بۆ کرێ دابنێ',
+    
+    // Listing
+    'listing.rooms': 'ژوور',
+    'listing.postedBy': 'بڵاوکراوە لە لایەن',
+    'listing.viewDetails': 'بینینی وردەکاری',
+    'listing.contactOwner': 'پەیوەندی بە خاوەن بکە',
+    'listing.perMonth': 'مانگانە',
+    'listing.forSale': 'بۆ فرۆشتن',
+    'listing.forRent': 'بۆ کرێ',
+    
+    // Property Details
+    'propertyDetails.backToListings': 'گەڕانەوە بۆ ئاگهیەکان',
+    'propertyDetails.propertyDescription': 'وەسفی جایداد',
+    'propertyDetails.location': 'شوێن',
+    'propertyDetails.rooms': 'ژوورەکان',
+    'propertyDetails.size': 'قەبارە',
+    'propertyDetails.owner': 'خاوەن',
+    'propertyDetails.propertyCode': 'کۆدی جایداد',
+    'propertyDetails.city': 'شار',
+    'propertyDetails.currency': 'دراو',
+    'propertyDetails.address': 'ناونیشان',
+    'propertyDetails.notAvailable': 'بوونی نییە',
+    'propertyDetails.propertyOwner': 'خاوەنی جایداد',
+    'propertyDetails.clickToViewProfile': 'کرتە بکە بۆ بینینی پرۆفایل',
+    'propertyDetails.messageOwner': 'پەیام بنێرە بۆ خاوەن',
+    'propertyDetails.contactViaWhatsApp': 'بەپێی واتساب پەیوەندی بکە',
+    'propertyDetails.safetyFirst': 'سەلامەتی خاڵی یەکەمە',
+    'propertyDetails.safetyMessage': 'هەمیشە جایدادەکە پشکنین بکە و پێش هەر پارەدانێک کەسەکان بەڕووبەڕو ببین.',
+    'propertyDetails.openInMaps': 'لە نەخشەدا بکەرەوە',
+    
+    // Profile
+    'profile.myListings': 'ئاگهیەکانم',
+    'profile.pending': 'لە چاوەڕوانیدا',
+    'profile.accountSettings': 'ڕێکخستنەکانی هەژمار',
+    'profile.noApprovedListings': 'هێشتا هیچ ئاگهیەکی پەسەندکراو نییە',
+    'profile.approvedListingsWillAppear': 'ئاگهیە پەسەندکراوەکانت لێرە دەردەکەون!',
+    'profile.noPendingListings': 'هیچ ئاگهیەکی چاوەڕوانی نییە',
+    'profile.pendingListingsWillAppear': 'ئاگهیە چاوەڕوانەکانت لێرە دەردەکەون!',
+    'profile.createListing': 'دروستکردنی ئاگهی',
+    'profile.delete': 'سڕینەوە',
+    'profile.memberSince': 'ئەندام لە',
+    'profile.verified': 'دڵنیاکراو',
+    
+    // UI
+    'ui.loading': 'باردەکرێت...',
+    'ui.save': 'پاشەکەوت',
+    'ui.cancel': 'هەڵوەشاندنەوە',
+    'ui.edit': 'دەستکاری',
+    'ui.delete': 'سڕینەوە',
+    'ui.search': 'گەڕان',
+    'ui.filter': 'فلتەر',
+    'ui.clear': 'پاککردنەوە',
+    'ui.apply': 'جێبەجێکردن',
+    'ui.submit': 'ناردن',
+    'ui.back': 'گەڕانەوە',
+    'ui.next': 'دواتر',
+    'ui.previous': 'پێشوتر',
+    'ui.yes': 'بەڵێ',
+    'ui.no': 'نەخێر',
+    'ui.close': 'داخستن'
+  },
+  
+  ar: {
+    // Navigation
+    'nav.home': 'الرئيسية',
+    'nav.post': 'أعلن عن منزلك',
+    'nav.admin': 'الإدارة',
+    'nav.login': 'تسجيل الدخول',
+    'nav.logout': 'تسجيل الخروج',
+    'nav.profile': 'الملف الشخصي',
+    'nav.messages': 'الرسائل',
+    'nav.favorites': 'المفضلات',
+    
+    // Home
+    'home.title': 'اعثر على منزلك المثالي في العراق',
+    'home.subtitle': 'اكتشف عقارات إيجار مذهلة في أربيل وأنحاء العراق',
+    'home.allCities': 'جميع المدن',
+    'home.allTypes': 'جميع الأنواع',
+    'home.anyRooms': 'أي غرف',
+    'home.minSize': 'أقل مساحة',
+    'home.minPrice': 'أقل سعر',
+    'home.maxPrice': 'أعلى سعر',
+    'home.noListings': 'لا توجد إعلانات',
+    'home.loadMore': 'تحميل المزيد من العقارات',
+    'home.tryAdjustingFilters': 'جرب تعديل الفلاتر أو كن أول من يضع إعلان!',
+    'home.listForRent': 'أعلن للإيجار',
+    
+    // Listing
+    'listing.rooms': 'غرف',
+    'listing.postedBy': 'نُشر بواسطة',
+    'listing.viewDetails': 'عرض التفاصيل',
+    'listing.contactOwner': 'اتصل بالمالك',
+    'listing.perMonth': 'شهريًا',
+    'listing.forSale': 'للبيع',
+    'listing.forRent': 'للإيجار',
+    
+    // Property Details
+    'propertyDetails.backToListings': 'العودة إلى الإعلانات',
+    'propertyDetails.propertyDescription': 'وصف العقار',
+    'propertyDetails.location': 'الموقع',
+    'propertyDetails.rooms': 'الغرف',
+    'propertyDetails.size': 'المساحة',
+    'propertyDetails.owner': 'المالك',
+    'propertyDetails.propertyCode': 'رمز العقار',
+    'propertyDetails.city': 'المدينة',
+    'propertyDetails.currency': 'العملة',
+    'propertyDetails.address': 'العنوان',
+    'propertyDetails.notAvailable': 'غير متاح',
+    'propertyDetails.propertyOwner': 'مالك العقار',
+    'propertyDetails.clickToViewProfile': 'انقر لعرض الملف الشخصي',
+    'propertyDetails.messageOwner': 'أرسل رسالة للمالك',
+    'propertyDetails.contactViaWhatsApp': 'تواصل عبر واتساب',
+    'propertyDetails.safetyFirst': 'السلامة أولاً',
+    'propertyDetails.safetyMessage': 'تحقّق دائمًا من العقار والتقِ شخصيًا قبل دفع أي مبالغ.',
+    'propertyDetails.openInMaps': 'افتح في الخرائط',
+    
+    // Profile
+    'profile.myListings': 'إعلاناتي',
+    'profile.pending': 'قيد الانتظار',
+    'profile.accountSettings': 'إعدادات الحساب',
+    'profile.noApprovedListings': 'لا توجد إعلانات معتمدة بعد',
+    'profile.approvedListingsWillAppear': 'ستظهر إعلاناتك المعتمدة هنا!',
+    'profile.noPendingListings': 'لا توجد إعلانات قيد الانتظار',
+    'profile.pendingListingsWillAppear': 'ستظهر هنا إعلاناتك بانتظار الموافقة!',
+    'profile.createListing': 'إنشاء إعلان',
+    'profile.delete': 'حذف',
+    'profile.memberSince': 'عضو منذ',
+    'profile.verified': 'موثّق',
+    
+    // UI
+    'ui.loading': 'جاري التحميل...',
+    'ui.save': 'حفظ',
+    'ui.cancel': 'إلغاء',
+    'ui.edit': 'تعديل',
+    'ui.delete': 'حذف',
+    'ui.search': 'بحث',
+    'ui.filter': 'تصفية',
+    'ui.clear': 'مسح',
+    'ui.apply': 'تطبيق',
+    'ui.submit': 'إرسال',
+    'ui.back': 'رجوع',
+    'ui.next': 'التالي',
+    'ui.previous': 'السابق',
+    'ui.yes': 'نعم',
+    'ui.no': 'لا',
+    'ui.close': 'إغلاق'
+  }
+}
+
+export function getTranslation(key, lang = 'en') {
+  return translations[lang]?.[key] || translations.en[key] || key
+}
+
+export function getCurrentLanguage() {
+  if (typeof window === 'undefined') return 'en'
+  return localStorage.getItem('translate-lang') || 'en'
+}
+
+export default translations
