@@ -395,7 +395,7 @@ export default function Home() {
           <div className="text-center">
             <div className="mb-8">
               <span className="inline-flex items-center px-4 py-2 rounded-full text-sm font-medium bg-white/10 text-white backdrop-blur-sm border border-white/20">
-                🏠 #1 Property Platform
+                {t('numberOnePlatform')}
               </span>
             </div>
             <div className="mb-8">
@@ -421,7 +421,7 @@ export default function Home() {
             </h1>
             <p className="text-xl sm:text-2xl text-gray-200 mb-12 max-w-4xl mx-auto leading-relaxed">
               {config.heroSubtitle}
-              <span className="block mt-2 text-blue-300 font-semibold">{mode === 'rent' ? 'Rent homes • List properties • Connect instantly' : 'Buy homes • Sell properties • Connect instantly'}</span>
+              <span className="block mt-2 text-blue-300 font-semibold">{mode === 'rent' ? t('rentHomesTagline') : t('buyHomesTagline')}</span>
             </p>
             
 
@@ -460,9 +460,9 @@ export default function Home() {
                     <option value="">{t('anyRooms')}</option>
                     <option value="1">{t('onePlusRoom')}</option>
                     <option value="2">{t('twoPlusRooms')}</option>
-                    <option value="3">3+ Rooms</option>
-                    <option value="4">4+ Rooms</option>
-                    <option value="5">5+ Rooms</option>
+                    <option value="3">{t('threePlusRooms')}</option>
+                    <option value="4">{t('fourPlusRooms')}</option>
+                    <option value="5">{t('fivePlusRooms')}</option>
                   </select>
                   
                   <input
@@ -682,7 +682,7 @@ export default function Home() {
               )}
               {filters.minSize && (
                 <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm">
-                  📏 {filters.minSize}+ m²
+                  📏 {filters.minSize}{t('plusSquareMeters')}
                 </span>
               )}
               {(filters.minPrice || filters.maxPrice) && (

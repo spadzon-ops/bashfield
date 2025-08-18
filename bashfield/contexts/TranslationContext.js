@@ -28,7 +28,20 @@ const translations = {
     // Languages
     english: "English",
     kurdish: "Kurdish", 
-    arabic: "Arabic"
+    arabic: "Arabic",
+    
+    // Hero Section
+    numberOnePlatform: "🏠 #1 Property Platform",
+    rentHomesTagline: "Rent homes • List properties • Connect instantly",
+    buyHomesTagline: "Buy homes • Sell properties • Connect instantly",
+    
+    // Room Options
+    threePlusRooms: "3+ Rooms",
+    fourPlusRooms: "4+ Rooms",
+    fivePlusRooms: "5+ Rooms",
+    
+    // Filter Units
+    plusSquareMeters: "+ m²"
   },
   ku: {
     // Navigation
@@ -192,7 +205,20 @@ const translations = {
     clearAll: "هەمووی پاکبکە",
     rentalMap: "نەخشەی کرێ",
     exploreByLocation: "گەڕان لە",
-    byLocation: "بە شوێن"
+    byLocation: "بە شوێن",
+    
+    // Hero Section
+    numberOnePlatform: "🏠 پلاتفۆرمی ژمارە ١ ئۆفەر",
+    rentHomesTagline: "کرێی خانوو • تۆمارکردنی ئۆفەر • پەیوەندی خێرا",
+    buyHomesTagline: "کڕینی خانوو • فرۆشتنی ئۆفەر • پەیوەندی خێرا",
+    
+    // Room Options
+    threePlusRooms: "٣+ ژوور",
+    fourPlusRooms: "٤+ ژوور",
+    fivePlusRooms: "٥+ ژوور",
+    
+    // Filter Units
+    plusSquareMeters: "+ مەتر چوارگۆشە"
   },
   ar: {
     // Navigation
@@ -356,7 +382,20 @@ const translations = {
     clearAll: "مسح الكل",
     rentalMap: "خريطة الإيجارات",
     exploreByLocation: "استكشف",
-    byLocation: "حسب الموقع"
+    byLocation: "حسب الموقع",
+    
+    // Hero Section
+    numberOnePlatform: "🏠 المنصة العقارية رقم ١",
+    rentHomesTagline: "استئجار منازل • إدراج عقارات • تواصل فوري",
+    buyHomesTagline: "شراء منازل • بيع عقارات • تواصل فوري",
+    
+    // Room Options
+    threePlusRooms: "٣+ غرف",
+    fourPlusRooms: "٤+ غرف",
+    fivePlusRooms: "٥+ غرف",
+    
+    // Filter Units
+    plusSquareMeters: "+ متر مربع"
   }
 }
 
