@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
+import { useTranslation } from '../contexts/TranslationContext'
 
 function fmtDate(ts) {
   const d = new Date(ts)
@@ -18,6 +19,7 @@ function ageThreshold(months) {
 
 export default function AdminPage() {
   const router = useRouter()
+  const { t } = useTranslation()
   const [user, setUser] = useState(null)
   const [isAdmin, setIsAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
@@ -280,7 +282,7 @@ export default function AdminPage() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-gray-600">Loading admin…</div>
+        <div className="text-gray-600">{t('loadingAdmin')}</div>
       </div>
     )
   }
@@ -293,47 +295,47 @@ export default function AdminPage() {
           <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <span className="text-2xl text-white">⚙️</span>
           </div>
-          <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent mb-2">Admin Dashboard</h1>
-          <p className="text-gray-600 text-lg">Manage property listings and user content</p>
+          <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent mb-2">{t('adminDashboard')}</h1>
+          <p className="text-gray-600 text-lg">{t('managePropertyListings')}</p>
         </div>
 
         {/* Statistics */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-9 gap-4 mb-8">
           <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg p-4 border border-gray-100">
             <div className="text-2xl font-bold text-blue-600">{stats.totalUsers}</div>
-            <div className="text-sm text-gray-600">Total Users</div>
+            <div className="text-sm text-gray-600">{t('totalUsers')}</div>
           </div>
           <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg p-4 border border-gray-100">
             <div className="text-2xl font-bold text-green-500">{stats.activeUsers}</div>
-            <div className="text-sm text-gray-600">Active (24h)</div>
+            <div className="text-sm text-gray-600">{t('activeUsers')}</div>
           </div>
           <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg p-4 border border-gray-100">
             <div className="text-2xl font-bold text-green-600">{stats.totalListings}</div>
-            <div className="text-sm text-gray-600">Total Listings</div>
+            <div className="text-sm text-gray-600">{t('totalListings')}</div>
           </div>
           <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg p-4 border border-gray-100">
             <div className="text-2xl font-bold text-blue-500">{stats.rentListings}</div>
-            <div className="text-sm text-gray-600">For Rent</div>
+            <div className="text-sm text-gray-600">{t('forRent')}</div>
           </div>
           <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg p-4 border border-gray-100">
             <div className="text-2xl font-bold text-orange-500">{stats.saleListings}</div>
-            <div className="text-sm text-gray-600">For Sale</div>
+            <div className="text-sm text-gray-600">{t('forSale')}</div>
           </div>
           <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg p-4 border border-gray-100">
             <div className="text-2xl font-bold text-yellow-600">{stats.pendingListings}</div>
-            <div className="text-sm text-gray-600">Pending</div>
+            <div className="text-sm text-gray-600">{t('pending')}</div>
           </div>
           <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg p-4 border border-gray-100">
             <div className="text-2xl font-bold text-green-600">{stats.approvedListings}</div>
-            <div className="text-sm text-gray-600">Approved</div>
+            <div className="text-sm text-gray-600">{t('approved')}</div>
           </div>
           <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg p-4 border border-gray-100">
             <div className="text-2xl font-bold text-purple-600">{stats.totalMessages}</div>
-            <div className="text-sm text-gray-600">Messages</div>
+            <div className="text-sm text-gray-600">{t('messages')}</div>
           </div>
           <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg p-4 border border-gray-100">
             <div className="text-2xl font-bold text-pink-600">{stats.totalFavorites}</div>
-            <div className="text-sm text-gray-600">Favorites</div>
+            <div className="text-sm text-gray-600">{t('favorites')}</div>
           </div>
         </div>
 
@@ -349,7 +351,7 @@ export default function AdminPage() {
                     : 'border-transparent text-gray-600 hover:text-blue-600'
                 }`}
               >
-                🏠 Listings Management
+                🏠 {t('listingsManagement')}
               </button>
               <button
                 onClick={() => setActiveTab('users')}
@@ -359,7 +361,7 @@ export default function AdminPage() {
                     : 'border-transparent text-gray-600 hover:text-blue-600'
                 }`}
               >
-                👥 User Management
+                👥 {t('userManagement')}
               </button>
             </nav>
           </div>
