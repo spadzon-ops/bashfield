@@ -68,7 +68,24 @@ const translations = {
     
     // LoadingScreen
     loading: "Loading...",
-    pleaseWait: "Please wait a moment..."
+    pleaseWait: "Please wait a moment...",
+    
+    // Messages
+    messages: "Messages",
+    yourConversations: "Your conversations",
+    noConversationsYet: "No conversations yet",
+    startBrowsingProperties: "Start browsing properties to connect with owners",
+    loadingMessages: "Loading messages...",
+    selectConversation: "Select a conversation",
+    chooseConversation: "Choose a conversation from the list to start messaging with property owners and potential tenants",
+    directMessage: "Direct Message",
+    deleteConversation: "Delete Conversation",
+    viewProperty: "View Property",
+    viewProfile: "View Profile",
+    typeYourMessage: "Type your message…",
+    deleteConversationConfirm: "Are you sure you want to delete this conversation? This action cannot be undone.",
+    errorDeletingConversation: "Error deleting conversation. Please try again.",
+    failedToSendMessage: "Failed to send message. Please try again."
   },
   ku: {
     // Navigation
@@ -272,7 +289,24 @@ const translations = {
     
     // LoadingScreen
     loading: "بارکردن...",
-    pleaseWait: "تکایە کەمێک چاوەڕێبە..."
+    pleaseWait: "تکایە کەمێک چاوەڕێبە...",
+    
+    // Messages
+    messages: "نامەکان",
+    yourConversations: "گفتوگۆکانت",
+    noConversationsYet: "هێشتا هیچ گفتوگۆیەک نییە",
+    startBrowsingProperties: "دەست بکە بە گەڕان لە ئۆفەرەکان بۆ پەیوەندی لەگەڵ خاوەنەکان",
+    loadingMessages: "نامەکان باردەکرێن...",
+    selectConversation: "گفتوگۆیەک هەڵبژێرە",
+    chooseConversation: "گفتوگۆیەک لە لیستەکە هەڵبژێرە بۆ دەستپێکردنی نامەنووسین لەگەڵ خاوەن ئۆفەرەکان و کرێخوازان",
+    directMessage: "نامەی ڕاستەوخۆ",
+    deleteConversation: "سڕینەوەی گفتوگۆ",
+    viewProperty: "بینینی ئۆفەر",
+    viewProfile: "بینینی پرۆفایل",
+    typeYourMessage: "نامەکەت بنووسە…",
+    deleteConversationConfirm: "دڵنیایت لە سڕینەوەی ئەم گفتوگۆیە؟ ئەم کردارە ناگەڕێتەوە.",
+    errorDeletingConversation: "هەڵە لە سڕینەوەی گفتوگۆ. تکایە هەوڵبدەوە.",
+    failedToSendMessage: "شکستی هێنا لە ناردنی نامە. تکایە هەوڵبدەوە."
   },
   ar: {
     // Navigation
@@ -476,7 +510,24 @@ const translations = {
     
     // LoadingScreen
     loading: "جاري التحميل...",
-    pleaseWait: "يرجى الانتظار لحظة..."
+    pleaseWait: "يرجى الانتظار لحظة...",
+    
+    // Messages
+    messages: "الرسائل",
+    yourConversations: "محادثاتك",
+    noConversationsYet: "لا توجد محادثات بعد",
+    startBrowsingProperties: "ابدأ بتصفح العقارات للتواصل مع الملاك",
+    loadingMessages: "جاري تحميل الرسائل...",
+    selectConversation: "اختر محادثة",
+    chooseConversation: "اختر محادثة من القائمة لبدء المراسلة مع ملاك العقارات والمستأجرين المحتملين",
+    directMessage: "رسالة مباشرة",
+    deleteConversation: "حذف المحادثة",
+    viewProperty: "عرض العقار",
+    viewProfile: "عرض الملف الشخصي",
+    typeYourMessage: "اكتب رسالتك…",
+    deleteConversationConfirm: "هل أنت متأكد من حذف هذه المحادثة؟ لا يمكن التراجع عن هذا الإجراء.",
+    errorDeletingConversation: "خطأ في حذف المحادثة. يرجى المحاولة مرة أخرى.",
+    failedToSendMessage: "فشل في إرسال الرسالة. يرجى المحاولة مرة أخرى."
   }
 }
 

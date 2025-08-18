@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
-import { serverSideTranslations } from 'next-i18next/serverSideTranslations'
-import { useTranslation } from 'next-i18next'
+import { useTranslation } from '../../contexts/TranslationContext'
 import { supabase } from '../../lib/supabase'
 import ListingCard from '../../components/ListingCard'
 
 export default function UserProfile({ profile: initialProfile, listings: initialListings }) {
-  const { t } = useTranslation('common')
+  const { t } = useTranslation()
   const router = useRouter()
   const { userId } = router.query
   const [profile, setProfile] = useState(initialProfile)
@@ -323,7 +322,7 @@ export default function UserProfile({ profile: initialProfile, listings: initial
   )
 }
 
-export async function getServerSideProps({ params, locale }) {
+export async function getServerSideProps({ params }) {
   const { userId } = params
   
   try {
@@ -338,8 +337,7 @@ export async function getServerSideProps({ params, locale }) {
       return {
         props: {
           profile: null,
-          listings: [],
-          ...(await serverSideTranslations(locale, ['common'])),
+          listings: []
         },
       }
     }
@@ -362,8 +360,7 @@ export async function getServerSideProps({ params, locale }) {
     return {
       props: {
         profile: profileData,
-        listings: listingsWithProfile,
-        ...(await serverSideTranslations(locale, ['common'])),
+        listings: listingsWithProfile
       },
     }
   } catch (error) {
@@ -371,8 +368,7 @@ export async function getServerSideProps({ params, locale }) {
     return {
       props: {
         profile: null,
-        listings: [],
-        ...(await serverSideTranslations(locale, ['common'])),
+        listings: []
       },
     }
   }
