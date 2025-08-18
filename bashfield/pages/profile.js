@@ -1,12 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
-import { serverSideTranslations } from 'next-i18next/serverSideTranslations'
-import { useTranslation } from 'next-i18next'
 import { supabase } from '../lib/supabase'
 import ListingCard from '../components/ListingCard'
 
 export default function Profile() {
-  const { t } = useTranslation('common')
   const router = useRouter()
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
@@ -675,10 +672,3 @@ export default function Profile() {
   )
 }
 
-export async function getServerSideProps({ locale }) {
-  return {
-    props: {
-      ...(await serverSideTranslations(locale, ['common'])),
-    },
-  }
-}

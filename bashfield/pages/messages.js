@@ -1,13 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
-import { serverSideTranslations } from 'next-i18next/serverSideTranslations'
-import { useTranslation } from 'next-i18next'
 import { supabase } from '../lib/supabase'
 import { ensureConversation } from '../lib/chat'
 
 export default function Messages() {
-  const { t } = useTranslation('common')
   const router = useRouter()
 
   const [user, setUser] = useState(null)
@@ -766,6 +763,4 @@ function AvatarCircle({ profile, size = 40 }) {
   )
 }
 
-export async function getServerSideProps({ locale }) {
-  return { props: { ...(await serverSideTranslations(locale, ['common'])) } }
-}
+

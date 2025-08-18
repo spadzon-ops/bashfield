@@ -1,13 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
-import { serverSideTranslations } from 'next-i18next/serverSideTranslations'
-import { useTranslation } from 'next-i18next'
 import { supabase } from '../lib/supabase'
 import ListingCard from '../components/ListingCard'
 import LoadingScreen from '../components/LoadingScreen'
 
 export default function Favorites() {
-  const { t } = useTranslation('common')
   const router = useRouter()
   const [user, setUser] = useState(null)
   const [favorites, setFavorites] = useState([])
@@ -266,10 +263,4 @@ export default function Favorites() {
   )
 }
 
-export async function getServerSideProps({ locale }) {
-  return {
-    props: {
-      ...(await serverSideTranslations(locale, ['common'])),
-    },
-  }
-}
+
