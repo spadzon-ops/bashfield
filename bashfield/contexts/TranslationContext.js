@@ -515,7 +515,12 @@ export function TranslationProvider({ children }) {
 export const useTranslation = () => {
   const context = useContext(TranslationContext)
   if (!context) {
-    throw new Error('useTranslation must be used within TranslationProvider')
+    // Fallback for when context is not available
+    return {
+      language: 'en',
+      changeLanguage: () => {},
+      t: (key) => key
+    }
   }
   return context
 }

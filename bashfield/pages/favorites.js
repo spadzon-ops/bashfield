@@ -3,9 +3,11 @@ import { useRouter } from 'next/router'
 import { supabase } from '../lib/supabase'
 import ListingCard from '../components/ListingCard'
 import LoadingScreen from '../components/LoadingScreen'
+import { useTranslation } from '../contexts/TranslationContext'
 
 export default function Favorites() {
   const router = useRouter()
+  const { t } = useTranslation()
   const [user, setUser] = useState(null)
   const [favorites, setFavorites] = useState([])
   const [loading, setLoading] = useState(true)
@@ -149,7 +151,7 @@ export default function Favorites() {
   }
 
   if (loading) {
-    return <LoadingScreen message="Loading your favorites..." />
+    return <LoadingScreen message={t('loadingFavorites')} />
   }
 
   if (!user) {
@@ -159,13 +161,13 @@ export default function Favorites() {
           <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <span className="text-2xl">🔐</span>
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Login Required</h2>
-          <p className="text-gray-600 mb-6">Please sign in to view your favorites</p>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">{t('loginRequired')}</h2>
+          <p className="text-gray-600 mb-6">{t('pleaseSignInFavorites')}</p>
           <button 
             onClick={() => router.push('/')}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
           >
-            Go to Homepage
+            {t('goToHomepage')}
           </button>
         </div>
       </div>
@@ -177,10 +179,10 @@ export default function Favorites() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
           <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-4">
-            Your Favorites
+            {t('yourFavorites')}
           </h1>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Properties you've saved for later viewing
+            {t('propertiesSaved')}
           </p>
         </div>
 
@@ -189,15 +191,15 @@ export default function Favorites() {
             <div className="w-24 h-24 bg-gradient-to-r from-red-100 to-pink-100 rounded-full flex items-center justify-center mx-auto mb-8">
               <span className="text-5xl">💔</span>
             </div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-4">No favorites yet</h3>
+            <h3 className="text-2xl font-bold text-gray-900 mb-4">{t('noFavoritesYet')}</h3>
             <p className="text-gray-600 mb-8 max-w-md mx-auto">
-              Start exploring properties and save your favorites by clicking the heart icon on any listing.
+              {t('startExploring')}
             </p>
             <button
               onClick={() => router.push('/')}
               className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-8 py-4 rounded-xl font-bold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
             >
-              Browse Properties
+              {t('browseProperties')}
             </button>
           </div>
         ) : (
