@@ -4,34 +4,16 @@ import { useTranslation } from 'next-i18next'
 import { supabase } from '../lib/supabase'
 
 export default function Layout({ children }) {
-  const { t, i18n, ready } = useTranslation('common')
+  const { t, i18n } = useTranslation('common')
   const router = useRouter()
   
-  // Debug logging
-  useEffect(() => {
-    console.log('Translation debug:', {
-      ready,
-      language: i18n.language,
-      isInitialized: i18n.isInitialized,
-      testTranslation: t('nav.home')
-    })
-  }, [ready, i18n.language, t])
-  
-  // Safe translation function with fallback
+  // Simple translation function - no complex checks
   const safeT = (key, fallback) => {
     try {
-      if (!ready || !t || !i18n.isInitialized) {
-        return fallback || key
-      }
       const translation = t(key)
-      // If translation is missing or same as key, use fallback
-      if (!translation || translation === key || translation.startsWith('common.')) {
-        return fallback || key
-      }
-      return translation
-    } catch (error) {
-      console.warn(`Translation error for ${key}:`, error)
-      return fallback || key
+      return translation && translation !== key ? translation : fallback
+    } catch {
+      return fallback
     }
   }
   
@@ -124,17 +106,12 @@ export default function Layout({ children }) {
     router.push('/')
   }
 
-  const changeLanguage = async (lng) => {
-    if (lng === i18n.language) return
+  // Simple, reliable language change
+  const changeLanguage = (lng) => {
+    if (lng === router.locale) return
     
-    try {
-      // Use Next.js router with locale
-      await router.push(router.asPath, router.asPath, { locale: lng })
-    } catch (error) {
-      // Fallback to direct navigation
-      const currentPath = router.asPath === '/' ? '' : router.asPath
-      window.location.href = `/${lng}${currentPath}`
-    }
+    const { pathname, asPath, query } = router
+    router.push({ pathname, query }, asPath, { locale: lng })
   }
 
   const isAdmin = user?.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL
@@ -251,12 +228,12 @@ export default function Layout({ children }) {
               <div className="relative">
                 <div className="flex items-center space-x-3 bg-gradient-to-r from-gray-50 to-gray-100 border-2 border-gray-200 px-4 py-2 rounded-xl hover:shadow-lg transition-all duration-300">
                   <img 
-                    src={`/flags/${i18n.language === 'en' ? 'us' : i18n.language === 'ku' ? 'kurdistan' : 'iraq'}.svg`}
+                    src={`/flags/${router.locale === 'en' ? 'us' : router.locale === 'ku' ? 'kurdistan' : 'iraq'}.svg`}
                     alt="Flag"
                     className="w-6 h-4 object-cover rounded-sm shadow-sm"
                   />
                   <select 
-                    value={i18n.language} 
+                    value={router.locale} 
                     onChange={(e) => changeLanguage(e.target.value)}
                     className="bg-transparent border-none text-gray-700 font-semibold focus:outline-none appearance-none cursor-pointer"
                   >
@@ -267,10 +244,6 @@ export default function Layout({ children }) {
                   <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
-                </div>
-                {/* Debug info */}
-                <div className="absolute top-full left-0 mt-1 text-xs text-gray-500 bg-white px-2 py-1 rounded shadow">
-                  Lang: {i18n.language} | Ready: {ready ? 'Yes' : 'No'}
                 </div>
               </div>
               
@@ -330,12 +303,12 @@ export default function Layout({ children }) {
               <div className="relative">
                 <div className="flex items-center space-x-2 bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200 px-3 py-2 rounded-xl">
                   <img 
-                    src={`/flags/${i18n.language === 'en' ? 'us' : i18n.language === 'ku' ? 'kurdistan' : 'iraq'}.svg`}
+                    src={`/flags/${router.locale === 'en' ? 'us' : router.locale === 'ku' ? 'kurdistan' : 'iraq'}.svg`}
                     alt="Flag"
                     className="w-4 h-3 object-cover rounded-sm"
                   />
                   <select 
-                    value={i18n.language} 
+                    value={router.locale} 
                     onChange={(e) => changeLanguage(e.target.value)}
                     className="bg-transparent border-none text-gray-700 text-xs font-semibold focus:outline-none appearance-none"
                   >
