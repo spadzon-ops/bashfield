@@ -7,17 +7,30 @@ export default function Layout({ children }) {
   const { t, i18n, ready } = useTranslation('common')
   const router = useRouter()
   
+  // Debug logging
+  useEffect(() => {
+    console.log('Translation debug:', {
+      ready,
+      language: i18n.language,
+      isInitialized: i18n.isInitialized,
+      testTranslation: t('nav.home')
+    })
+  }, [ready, i18n.language, t])
+  
   // Safe translation function with fallback
   const safeT = (key, fallback) => {
     try {
-      if (!ready || !t) return fallback || key
+      if (!ready || !t || !i18n.isInitialized) {
+        return fallback || key
+      }
       const translation = t(key)
-      // If translation returns the key itself, use fallback
-      if (translation === key || !translation) {
+      // If translation is missing or same as key, use fallback
+      if (!translation || translation === key || translation.startsWith('common.')) {
         return fallback || key
       }
       return translation
     } catch (error) {
+      console.warn(`Translation error for ${key}:`, error)
       return fallback || key
     }
   }
@@ -111,12 +124,17 @@ export default function Layout({ children }) {
     router.push('/')
   }
 
-  const changeLanguage = (lng) => {
+  const changeLanguage = async (lng) => {
     if (lng === i18n.language) return
     
-    // Simple direct navigation - most reliable approach
-    const currentPath = router.asPath === '/' ? '' : router.asPath
-    window.location.href = `/${lng}${currentPath}`
+    try {
+      // Use Next.js router with locale
+      await router.push(router.asPath, router.asPath, { locale: lng })
+    } catch (error) {
+      // Fallback to direct navigation
+      const currentPath = router.asPath === '/' ? '' : router.asPath
+      window.location.href = `/${lng}${currentPath}`
+    }
   }
 
   const isAdmin = user?.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL
@@ -242,13 +260,17 @@ export default function Layout({ children }) {
                     onChange={(e) => changeLanguage(e.target.value)}
                     className="bg-transparent border-none text-gray-700 font-semibold focus:outline-none appearance-none cursor-pointer"
                   >
-                    <option value="en">{safeT('languages.english', 'English')}</option>
-                    <option value="ku">{safeT('languages.kurdish', 'Kurdish')}</option>
-                    <option value="ar">{safeT('languages.arabic', 'Arabic')}</option>
+                    <option value="en">English</option>
+                    <option value="ku">Kurdish</option>
+                    <option value="ar">Arabic</option>
                   </select>
                   <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
+                </div>
+                {/* Debug info */}
+                <div className="absolute top-full left-0 mt-1 text-xs text-gray-500 bg-white px-2 py-1 rounded shadow">
+                  Lang: {i18n.language} | Ready: {ready ? 'Yes' : 'No'}
                 </div>
               </div>
               
