@@ -1,8 +1,10 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/router'
+import { useTranslation } from '../contexts/TranslationContext'
 
 export default function PostSuccess() {
   const router = useRouter()
+  const { t } = useTranslation()
 
   // Removed auto-redirect
 
@@ -16,21 +18,20 @@ export default function PostSuccess() {
           </div>
           
           <h1 className="text-3xl font-bold text-gray-900 mb-4">
-            🎉 Listing Submitted Successfully!
+            🎉 {t('listingSubmittedSuccessfully')}
           </h1>
           
           <p className="text-gray-600 mb-6 leading-relaxed">
-            Thank you for posting your property on Bashfield! Your listing has been submitted and is now under review by our admin team. 
-            Once approved, it will be visible to thousands of potential renters across Iraq.
+            {t('thankYouPosting')}
           </p>
           
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-            <h3 className="font-semibold text-blue-900 mb-2">What happens next?</h3>
+            <h3 className="font-semibold text-blue-900 mb-2">{t('whatHappensNext')}</h3>
             <ul className="text-sm text-blue-800 space-y-1 text-left">
-              <li>• Our team reviews your listing (usually within 24 hours)</li>
-              <li>• You'll get an email when it's approved</li>
-              <li>• Your property will appear on the main page</li>
-              <li>• Interested renters can contact you directly</li>
+              <li>• {t('teamReviews')}</li>
+              <li>• {t('emailWhenApproved')}</li>
+              <li>• {t('propertyWillAppear')}</li>
+              <li>• {t('interestedRenters')}</li>
             </ul>
           </div>
           
@@ -39,21 +40,21 @@ export default function PostSuccess() {
               onClick={() => router.push('/profile?tab=listings')}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
             >
-              📊 View My Listings
+              📊 {t('viewMyListings')}
             </button>
             
             <button 
               onClick={() => router.push('/post')}
               className="w-full bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-6 rounded-lg transition-colors"
             >
-              🏠 Post Another Property
+              🏠 {t('postAnotherProperty')}
             </button>
             
             <button 
               onClick={() => router.push('/')}
               className="w-full text-gray-600 hover:text-gray-800 py-2 transition-colors"
             >
-              🏡 Back to Homepage
+              🏡 {t('backToHomepage')}
             </button>
           </div>
           

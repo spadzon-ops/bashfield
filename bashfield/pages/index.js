@@ -6,10 +6,12 @@ import MapView from '../components/MapView'
 import ModeSwitcher from '../components/ModeSwitcher'
 import InlineModeSwitcher from '../components/InlineModeSwitcher'
 import { useMode } from '../contexts/ModeContext'
+import { useTranslation } from '../contexts/TranslationContext'
 
 export default function Home() {
   const router = useRouter()
   const { mode, config } = useMode()
+  const { t } = useTranslation()
   const [prevMode, setPrevMode] = useState(mode)
   const [listings, setListings] = useState([])
   const [displayedListings, setDisplayedListings] = useState([])
@@ -433,7 +435,7 @@ export default function Home() {
                     onChange={(e) => setFilters(prev => ({ ...prev, propertyType: e.target.value }))}
                     className="w-full px-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-gray-900 font-medium"
                   >
-                    <option value="">All Types</option>
+                    <option value="">{t('allTypes')}</option>
                     {PROPERTY_TYPES.map(type => (
                       <option key={type.value} value={type.value}>{type.icon} {type.label}</option>
                     ))}
@@ -444,7 +446,7 @@ export default function Home() {
                     onChange={(e) => setFilters(prev => ({ ...prev, city: e.target.value }))}
                     className="w-full px-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-gray-900 font-medium"
                   >
-                    <option value="">All Cities</option>
+                    <option value="">{t('allCities')}</option>
                     {CITIES.map(city => (
                       <option key={city} value={city}>{city.charAt(0).toUpperCase() + city.slice(1)}</option>
                     ))}
@@ -455,9 +457,9 @@ export default function Home() {
                     onChange={(e) => setFilters(prev => ({ ...prev, rooms: e.target.value }))}
                     className="w-full px-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-gray-900 font-medium"
                   >
-                    <option value="">Any Rooms</option>
-                    <option value="1">1+ Room</option>
-                    <option value="2">2+ Rooms</option>
+                    <option value="">{t('anyRooms')}</option>
+                    <option value="1">{t('onePlusRoom')}</option>
+                    <option value="2">{t('twoPlusRooms')}</option>
                     <option value="3">3+ Rooms</option>
                     <option value="4">4+ Rooms</option>
                     <option value="5">5+ Rooms</option>
@@ -465,7 +467,7 @@ export default function Home() {
                   
                   <input
                     type="number"
-                    placeholder="Min Size (m²)"
+                    placeholder={t('minSizePlaceholder')}
                     value={filters.minSize || ''}
                     onChange={(e) => {
                       const value = e.target.value
@@ -476,7 +478,7 @@ export default function Home() {
                   
                   <input
                     type="number"
-                    placeholder="Min Price"
+                    placeholder={t('minPricePlaceholder')}
                     value={filters.minPrice || ''}
                     onChange={(e) => {
                       const value = e.target.value
@@ -487,7 +489,7 @@ export default function Home() {
                   
                   <input
                     type="number"
-                    placeholder="Max Price"
+                    placeholder={t('maxPricePlaceholder')}
                     value={filters.maxPrice || ''}
                     onChange={(e) => {
                       const value = e.target.value
@@ -514,8 +516,8 @@ export default function Home() {
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                     </svg>
-                    <span>Post Your Property</span>
-                    <span className="text-xs bg-white/20 px-2 py-1 rounded-full">FREE</span>
+                    <span>{t('postYourProperty')}</span>
+                    <span className="text-xs bg-white/20 px-2 py-1 rounded-full">{t('free')}</span>
                   </button>
                 </div>
               </div>
@@ -530,19 +532,19 @@ export default function Home() {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-xl p-4 text-center border border-blue-200/50">
               <div className="text-2xl font-bold text-blue-600">{statsData.totalListings}+</div>
-              <div className="text-sm text-gray-700">{mode === 'rent' ? 'Rentals' : 'For Sale'}</div>
+              <div className="text-sm text-gray-700">{mode === 'rent' ? t('rentals') : t('forSale')}</div>
             </div>
             <div className="bg-gradient-to-br from-green-50 to-emerald-100 rounded-xl p-4 text-center border border-green-200/50">
               <div className="text-2xl font-bold text-green-600">{statsData.totalCities}</div>
-              <div className="text-sm text-gray-700">Cities</div>
+              <div className="text-sm text-gray-700">{t('cities')}</div>
             </div>
             <div className="bg-gradient-to-br from-purple-50 to-violet-100 rounded-xl p-4 text-center border border-purple-200/50">
               <div className="text-2xl font-bold text-purple-600">★★★★★</div>
-              <div className="text-sm text-gray-700">Quality</div>
+              <div className="text-sm text-gray-700">{t('quality')}</div>
             </div>
             <div className="bg-gradient-to-br from-orange-50 to-red-100 rounded-xl p-4 text-center border border-orange-200/50">
               <div className="text-2xl font-bold text-orange-600">24/7</div>
-              <div className="text-sm text-gray-700">Support</div>
+              <div className="text-sm text-gray-700">{t('support')}</div>
             </div>
           </div>
         </div>
@@ -662,7 +664,7 @@ export default function Home() {
           {/* Active Filters */}
           {hasActiveFilters && (
             <div className="mb-6 flex flex-wrap items-center gap-2 justify-center">
-              <span className="text-sm text-gray-600">Active filters:</span>
+              <span className="text-sm text-gray-600">{t('activeFilters')}</span>
               {filters.propertyType && (
                 <span className="bg-indigo-100 text-indigo-800 px-3 py-1 rounded-full text-sm">
                   {PROPERTY_TYPES.find(t => t.value === filters.propertyType)?.icon} {PROPERTY_TYPES.find(t => t.value === filters.propertyType)?.label}
@@ -675,7 +677,7 @@ export default function Home() {
               )}
               {filters.rooms && (
                 <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm">
-                  🛏️ {filters.rooms}+ rooms
+                  🛏️ {filters.rooms}+ {t('rooms')}
                 </span>
               )}
               {filters.minSize && (
@@ -692,7 +694,7 @@ export default function Home() {
                 onClick={clearFilters}
                 className="text-red-600 hover:text-red-800 text-sm underline ml-2"
               >
-                Clear all
+                {t('clearAll')}
               </button>
             </div>
           )}
@@ -701,14 +703,14 @@ export default function Home() {
             <div className="flex justify-center py-20">
               <div className="text-center">
                 <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                <p className="text-gray-600">Loading properties...</p>
+                <p className="text-gray-600">{t('loadingProperties')}</p>
               </div>
             </div>
           ) : switchingMode ? (
             <div className="flex justify-center py-20">
               <div className="text-center">
                 <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                <p className="text-gray-600">Switching modes...</p>
+                <p className="text-gray-600">{t('switchingModes')}</p>
               </div>
             </div>
           ) : (!loading && !switchingMode && hasInitialData && filteredListings.length === 0 && listings.length === 0) ? (
@@ -716,20 +718,20 @@ export default function Home() {
               <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
                 <span className="text-4xl">🏠</span>
               </div>
-              <h3 className="text-2xl font-bold text-gray-900 mb-4">No {mode === 'rent' ? 'rentals' : 'properties'} found</h3>
-              <p className="text-gray-600 mb-6">Try adjusting your filters or be the first to list your property {mode === 'rent' ? 'for rent' : 'for sale'}!</p>
+              <h3 className="text-2xl font-bold text-gray-900 mb-4">{mode === 'rent' ? t('noRentalsFound') : t('noPropertiesFound')}</h3>
+              <p className="text-gray-600 mb-6">{t('tryAdjustingFilters')} {mode === 'rent' ? t('forRent') : t('forSale')}!</p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <button 
                   onClick={clearFilters}
                   className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-lg transition-colors"
                 >
-                  Clear Filters
+                  {t('clearFilters')}
                 </button>
                 <button 
                   onClick={() => window.location.href = '/post'}
                   className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors"
                 >
-                  {mode === 'rent' ? 'List for Rent' : 'List for Sale'}
+                  {mode === 'rent' ? t('listForRent') : t('listForSale')}
                 </button>
               </div>
             </div>
@@ -737,8 +739,8 @@ export default function Home() {
             <>
               <div className="mb-6 text-center">
                 <p className="text-gray-600">
-                  Showing <span className="font-semibold">{displayedListings.length}</span> of <span className="font-semibold">{totalFilteredCount}</span> {mode === 'rent' ? 'rentals' : 'properties'}
-                  {viewMode === 'list' && <span className="ml-2">in list view</span>}
+                  {t('showingResults')} <span className="font-semibold">{displayedListings.length}</span> {t('of')} <span className="font-semibold">{totalFilteredCount}</span> {mode === 'rent' ? t('rentals') : t('properties')}
+                  {viewMode === 'list' && <span className="ml-2">{t('inListView')}</span>}
                 </p>
               </div>
               
@@ -810,9 +812,9 @@ export default function Home() {
                       <svg className="w-8 h-8" fill="currentColor" viewBox="0 0 24 24">
                         <path fillRule="evenodd" d="M12 1.586l-4 4v12.828l4-4V1.586zM3.707 3.293A1 1 0 002 4v10a1 1 0 00.293.707L6 18.414V5.586L3.707 3.293zM17.707 5.293L14 1.586v12.828l2.293 2.293A1 1 0 0018 16V6a1 1 0 00-.293-.707z" clipRule="evenodd" />
                       </svg>
-                      <h3 className="text-2xl font-bold">Rental Map</h3>
+                      <h3 className="text-2xl font-bold">{t('rentalMap')}</h3>
                     </div>
-                    <p className="text-blue-100">Explore {totalFilteredCount > 0 ? totalFilteredCount : filteredListings.length} {mode === 'rent' ? 'rentals' : 'properties'} by location</p>
+                    <p className="text-blue-100">{t('exploreByLocation')} {totalFilteredCount > 0 ? totalFilteredCount : filteredListings.length} {mode === 'rent' ? t('rentals') : t('properties')} {t('byLocation')}</p>
                   </div>
                   <div className="h-[500px]">
                     <MapView 

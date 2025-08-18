@@ -204,10 +204,10 @@ export default function Favorites() {
           <>
             <div className="mb-8 text-center">
               <p className="text-gray-600">
-                You have <span className="font-semibold text-blue-600">{favorites.length}</span> favorite {favorites.length === 1 ? 'property' : 'properties'}
+                {t('youHaveFavorite')} <span className="font-semibold text-blue-600">{favorites.length}</span> {favorites.length === 1 ? t('favoriteProperty') : t('favoriteProperties')}
                 {favorites.length > 12 && (
                   <span className="text-sm text-gray-500 block mt-1">
-                    Showing {Math.min(displayedFavorites, favorites.length)} of {favorites.length}
+                    {t('showing')} {Math.min(displayedFavorites, favorites.length)} {t('of')} {favorites.length}
                   </span>
                 )}
               </p>
@@ -228,7 +228,7 @@ export default function Favorites() {
                 {loadingMore ? (
                   <div className="flex items-center justify-center space-x-2">
                     <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-                    <span className="text-gray-600">Loading more favorites...</span>
+                    <span className="text-gray-600">{t('loadingMoreFavorites')}</span>
                   </div>
                 ) : (
                   <button
@@ -245,7 +245,7 @@ export default function Favorites() {
                     }}
                     className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors font-semibold"
                   >
-                    Load More Favorites
+                    {t('loadMoreFavorites')}
                   </button>
                 )}
               </div>
@@ -253,7 +253,7 @@ export default function Favorites() {
             
             {!hasMoreFavorites && favorites.length > 12 && (
               <div className="text-center mt-8 text-gray-500">
-                You've reached the end of your favorites
+                {t('reachedEndFavorites')}
               </div>
             )}
           </>
