@@ -41,7 +41,34 @@ const translations = {
     fivePlusRooms: "5+ Rooms",
     
     // Filter Units
-    plusSquareMeters: "+ m²"
+    plusSquareMeters: "+ m²",
+    
+    // Mode Config
+    renting: "Renting",
+    buyingSelling: "Buying & Selling",
+    perMonth: "per month",
+    totalPrice: "total price",
+    listForRent: "List for Rent",
+    listForSale: "List for Sale",
+    browseRentals: "Browse Rentals",
+    browseProperties: "Browse Properties",
+    findYourDreamHome: "Find Your Dream Home Today",
+    buyOrSellProperties: "Buy or Sell Properties",
+    findAndListRentals: "Find and list rental properties across major cities with ease.",
+    discoverAndListSales: "Discover and list properties for sale across major cities.",
+    
+    // ListingCard
+    verified: "Verified",
+    whatsapp: "WhatsApp",
+    chat: "Chat",
+    viewDetails: "View Details",
+    message: "Message",
+    room: "Room",
+    rooms: "Rooms",
+    
+    // LoadingScreen
+    loading: "Loading...",
+    pleaseWait: "Please wait a moment..."
   },
   ku: {
     // Navigation
@@ -218,7 +245,34 @@ const translations = {
     fivePlusRooms: "٥+ ژوور",
     
     // Filter Units
-    plusSquareMeters: "+ مەتر چوارگۆشە"
+    plusSquareMeters: "+ مەتر چوارگۆشە",
+    
+    // Mode Config
+    renting: "کرێگرتن",
+    buyingSelling: "کڕین و فرۆشتن",
+    perMonth: "مانگانە",
+    totalPrice: "نرخی گشتی",
+    listForRent: "لیست بۆ کرێ",
+    listForSale: "لیست بۆ فرۆشتن",
+    browseRentals: "گەڕان لە کرێکان",
+    browseProperties: "گەڕان لە ئۆفەرەکان",
+    findYourDreamHome: "ماڵی خەونەکانت بدۆزەوە ئەمڕۆ",
+    buyOrSellProperties: "کڕین یان فرۆشتنی ئۆفەر",
+    findAndListRentals: "دۆزینەوە و تۆمارکردنی ئۆفەرە کرێیەکان لە شارە گەورەکان بە ئاسانی.",
+    discoverAndListSales: "دۆزینەوە و تۆمارکردنی ئۆفەرەکان بۆ فرۆشتن لە شارە گەورەکان.",
+    
+    // ListingCard
+    verified: "پشتڕاستکراوە",
+    whatsapp: "واتساپ",
+    chat: "گفتوگۆ",
+    viewDetails: "بینینی وردەکاری",
+    message: "نامە",
+    room: "ژوور",
+    rooms: "ژوور",
+    
+    // LoadingScreen
+    loading: "بارکردن...",
+    pleaseWait: "تکایە کەمێک چاوەڕێبە..."
   },
   ar: {
     // Navigation
@@ -395,7 +449,34 @@ const translations = {
     fivePlusRooms: "٥+ غرف",
     
     // Filter Units
-    plusSquareMeters: "+ متر مربع"
+    plusSquareMeters: "+ متر مربع",
+    
+    // Mode Config
+    renting: "الإيجار",
+    buyingSelling: "الشراء والبيع",
+    perMonth: "شهرياً",
+    totalPrice: "السعر الإجمالي",
+    listForRent: "قائمة للإيجار",
+    listForSale: "قائمة للبيع",
+    browseRentals: "تصفح الإيجارات",
+    browseProperties: "تصفح العقارات",
+    findYourDreamHome: "اعثر على منزل أحلامك اليوم",
+    buyOrSellProperties: "شراء أو بيع العقارات",
+    findAndListRentals: "العثور على وإدراج العقارات المؤجرة في المدن الكبرى بسهولة.",
+    discoverAndListSales: "اكتشاف وإدراج العقارات للبيع في المدن الكبرى.",
+    
+    // ListingCard
+    verified: "موثق",
+    whatsapp: "واتساب",
+    chat: "محادثة",
+    viewDetails: "عرض التفاصيل",
+    message: "رسالة",
+    room: "غرفة",
+    rooms: "غرف",
+    
+    // LoadingScreen
+    loading: "جاري التحميل...",
+    pleaseWait: "يرجى الانتظار لحظة..."
   }
 }
 

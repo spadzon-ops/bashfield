@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react'
+import { useTranslation } from './TranslationContext'
 
 const ModeContext = createContext()
 
@@ -7,26 +8,26 @@ export const MODES = {
   SALE: 'sale'
 }
 
-export const MODE_CONFIG = {
+export const getModeConfig = (t) => ({
   [MODES.RENT]: {
-    label: 'Renting',
+    label: t('renting'),
     icon: '🏠',
-    priceLabel: 'per month',
-    actionLabel: 'List for Rent',
-    searchLabel: 'Browse Rentals',
-    heroTitle: 'Find Your Dream Home Today',
-    heroSubtitle: 'Find and list rental properties across major cities with ease.'
+    priceLabel: t('perMonth'),
+    actionLabel: t('listForRent'),
+    searchLabel: t('browseRentals'),
+    heroTitle: t('findYourDreamHome'),
+    heroSubtitle: t('findAndListRentals')
   },
   [MODES.SALE]: {
-    label: 'Buying & Selling',
+    label: t('buyingSelling'),
     icon: '🏡',
-    priceLabel: 'total price',
-    actionLabel: 'List for Sale',
-    searchLabel: 'Browse Properties',
-    heroTitle: 'Buy or Sell Properties',
-    heroSubtitle: 'Discover and list properties for sale across major cities.'
+    priceLabel: t('totalPrice'),
+    actionLabel: t('listForSale'),
+    searchLabel: t('browseProperties'),
+    heroTitle: t('buyOrSellProperties'),
+    heroSubtitle: t('discoverAndListSales')
   }
-}
+})
 
 export function ModeProvider({ children }) {
   const [mode, setMode] = useState(MODES.RENT)
@@ -44,7 +45,7 @@ export function ModeProvider({ children }) {
   }
 
   return (
-    <ModeContext.Provider value={{ mode, switchMode, config: MODE_CONFIG[mode] }}>
+    <ModeContext.Provider value={{ mode, switchMode }}>
       {children}
     </ModeContext.Provider>
   )
@@ -52,8 +53,10 @@ export function ModeProvider({ children }) {
 
 export function useMode() {
   const context = useContext(ModeContext)
+  const { t } = useTranslation()
   if (!context) {
     throw new Error('useMode must be used within a ModeProvider')
   }
-  return context
+  const config = getModeConfig(t)[context.mode]
+  return { ...context, config }
 }

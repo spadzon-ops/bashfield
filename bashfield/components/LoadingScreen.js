@@ -1,4 +1,8 @@
-export default function LoadingScreen({ message = "Loading..." }) {
+import { useTranslation } from '../contexts/TranslationContext'
+
+export default function LoadingScreen({ message }) {
+  const { t } = useTranslation()
+  const displayMessage = message || t('loading')
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
       <div className="text-center">
@@ -13,8 +17,8 @@ export default function LoadingScreen({ message = "Loading..." }) {
           <div className="w-3 h-3 bg-blue-600 rounded-full animate-bounce delay-100"></div>
           <div className="w-3 h-3 bg-blue-600 rounded-full animate-bounce delay-200"></div>
         </div>
-        <p className="text-xl font-semibold text-gray-700 mb-2">{message}</p>
-        <p className="text-gray-500">Please wait a moment...</p>
+        <p className="text-xl font-semibold text-gray-700 mb-2">{displayMessage}</p>
+        <p className="text-gray-500">{t('pleaseWait')}</p>
       </div>
     </div>
   )
