@@ -1,7 +1,10 @@
-import { useMode, MODES, MODE_CONFIG } from '../contexts/ModeContext'
+import { useMode, MODES, getModeConfig } from '../contexts/ModeContext'
+import { useTranslation } from '../contexts/TranslationContext'
 
 export default function ModeSwitcher({ onModeChange }) {
   const { mode, switchMode } = useMode()
+  const { t } = useTranslation()
+  const modeConfig = getModeConfig(t)
 
   const handleModeSwitch = (newMode) => {
     switchMode(newMode)
@@ -22,8 +25,8 @@ export default function ModeSwitcher({ onModeChange }) {
               : 'text-white/90 hover:text-white hover:bg-white/20 hover:scale-105'
           }`}
         >
-          <span className="text-xl">{MODE_CONFIG[value].icon}</span>
-          <span>{MODE_CONFIG[value].label}</span>
+          <span className="text-xl">{modeConfig[value].icon}</span>
+          <span>{modeConfig[value].label}</span>
         </button>
       ))}
     </div>

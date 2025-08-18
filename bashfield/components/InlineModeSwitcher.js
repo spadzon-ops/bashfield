@@ -1,7 +1,10 @@
-import { useMode, MODES, MODE_CONFIG } from '../contexts/ModeContext'
+import { useMode, MODES, getModeConfig } from '../contexts/ModeContext'
+import { useTranslation } from '../contexts/TranslationContext'
 
 export default function InlineModeSwitcher({ onModeChange }) {
   const { mode, switchMode } = useMode()
+  const { t } = useTranslation()
+  const modeConfig = getModeConfig(t)
 
   const handleModeSwitch = (newMode) => {
     switchMode(newMode)
@@ -23,8 +26,8 @@ export default function InlineModeSwitcher({ onModeChange }) {
                 : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
             }`}
           >
-            <span>{MODE_CONFIG[value].icon}</span>
-            <span>{value === 'rent' ? 'Rental' : 'Sale'} Properties</span>
+            <span>{modeConfig[value].icon}</span>
+            <span>{value === 'rent' ? t('rentals') : t('properties')}</span>
           </button>
         ))}
       </div>

@@ -1,7 +1,10 @@
-import { useMode, MODES, MODE_CONFIG } from '../contexts/ModeContext'
+import { useMode, MODES, getModeConfig } from '../contexts/ModeContext'
+import { useTranslation } from '../contexts/TranslationContext'
 
 export default function PostModeSwitcher() {
   const { mode, switchMode } = useMode()
+  const { t } = useTranslation()
+  const modeConfig = getModeConfig(t)
 
   return (
     <div className="flex justify-center">
@@ -16,8 +19,8 @@ export default function PostModeSwitcher() {
                 : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50'
             }`}
           >
-            <span className="text-xl">{MODE_CONFIG[value].icon}</span>
-            <span>{MODE_CONFIG[value].label}</span>
+            <span className="text-xl">{modeConfig[value].icon}</span>
+            <span>{modeConfig[value].label}</span>
           </button>
         ))}
       </div>

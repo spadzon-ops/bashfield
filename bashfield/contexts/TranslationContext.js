@@ -498,6 +498,10 @@ export function TranslationProvider({ children }) {
   }
 
   const t = (key) => {
+    if (typeof window === 'undefined') {
+      // Server-side rendering fallback
+      return translations.en[key] || key
+    }
     return translations[language][key] || translations.en[key] || key
   }
 
