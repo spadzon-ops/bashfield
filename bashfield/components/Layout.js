@@ -9,7 +9,7 @@ export default function Layout({ children }) {
   
   // Safe translation function with fallback
   const safeT = (key, fallback) => {
-    if (!ready) return fallback || key
+    if (!ready || !i18n.isInitialized) return fallback || key
     try {
       const translation = t(key)
       return translation === key ? (fallback || key) : translation
@@ -108,8 +108,18 @@ export default function Layout({ children }) {
     router.push('/')
   }
 
-  const changeLanguage = (lng) => {
-    router.push(router.asPath, router.asPath, { locale: lng })
+  const changeLanguage = async (lng) => {
+    if (lng === i18n.language) return
+    
+    try {
+      await router.push(router.asPath, router.asPath, { locale: lng })
+      // Force reload to ensure translations are properly loaded
+      window.location.reload()
+    } catch (error) {
+      console.error('Language change error:', error)
+      // Fallback: direct navigation
+      window.location.href = `/${lng}${router.asPath === '/' ? '' : router.asPath}`
+    }
   }
 
   const isAdmin = user?.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL
