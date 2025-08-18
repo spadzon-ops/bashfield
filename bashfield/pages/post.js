@@ -1,6 +1,4 @@
 import { useState, useEffect } from 'react'
-import { serverSideTranslations } from 'next-i18next/serverSideTranslations'
-import { useTranslation } from 'next-i18next'
 import { supabase, CITIES, PROPERTY_TYPES } from '../lib/supabase'
 import MapPicker from '../components/MapPicker'
 import AuthGuard from '../components/AuthGuard'
@@ -8,7 +6,6 @@ import PostModeSwitcher from '../components/PostModeSwitcher'
 import { useMode } from '../contexts/ModeContext'
 
 export default function Post() {
-  const { t } = useTranslation('common')
   const { mode, config } = useMode()
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -554,10 +551,4 @@ export default function Post() {
   )
 }
 
-export async function getStaticProps({ locale }) {
-  return {
-    props: {
-      ...(await serverSideTranslations(locale, ['common'])),
-    },
-  }
-}
+
