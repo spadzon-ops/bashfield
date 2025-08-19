@@ -132,9 +132,9 @@ export default function Favorites() {
         .from('user_profiles')
         .select('user_id, display_name, profile_picture')
 
-      // Sort listings by favorite creation order (newest added first)
-      const favoriteOrder = favoriteIds.reduce((acc, fav, index) => {
-        acc[fav.listing_id] = index
+      // Create a map of listing_id to favorite creation time for sorting
+      const favoriteTimeMap = favoriteIds.reduce((acc, fav) => {
+        acc[fav.listing_id] = new Date(fav.created_at).getTime()
         return acc
       }, {})
       
@@ -144,10 +144,10 @@ export default function Favorites() {
           return {
             ...listing,
             user_profiles: profile || null,
-            favoriteOrder: favoriteOrder[listing.id] || 999
+            favoriteTime: favoriteTimeMap[listing.id] || 0
           }
         })
-        .sort((a, b) => a.favoriteOrder - b.favoriteOrder)
+        .sort((a, b) => b.favoriteTime - a.favoriteTime) // Sort by newest favorite first
 
       console.log('Final favorites:', listingsWithProfiles)
       setFavorites(listingsWithProfiles)
