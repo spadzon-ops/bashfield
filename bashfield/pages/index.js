@@ -433,7 +433,7 @@ export default function Home() {
                   <select
                     value={filters.propertyType}
                     onChange={(e) => setFilters(prev => ({ ...prev, propertyType: e.target.value }))}
-                    className="w-full px-2 sm:px-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-gray-900 font-medium text-xs sm:text-sm md:text-base"
+                    className="w-full px-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-gray-900 font-medium text-sm md:text-xs lg:text-sm"
                   >
                     <option value="">{t('allTypes')}</option>
                     {PROPERTY_TYPES.map(type => (
@@ -444,7 +444,7 @@ export default function Home() {
                   <select
                     value={filters.city}
                     onChange={(e) => setFilters(prev => ({ ...prev, city: e.target.value }))}
-                    className="w-full px-2 sm:px-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-gray-900 font-medium text-xs sm:text-sm md:text-base"
+                    className="w-full px-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-gray-900 font-medium text-sm md:text-xs lg:text-sm"
                   >
                     <option value="">{t('allCities')}</option>
                     {CITIES.map(city => (
@@ -455,7 +455,7 @@ export default function Home() {
                   <select
                     value={filters.rooms}
                     onChange={(e) => setFilters(prev => ({ ...prev, rooms: e.target.value }))}
-                    className="w-full px-2 sm:px-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-gray-900 font-medium text-xs sm:text-sm md:text-base"
+                    className="w-full px-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-gray-900 font-medium text-sm md:text-xs lg:text-sm"
                   >
                     <option value="">{t('anyRooms')}</option>
                     <option value="1">{t('onePlusRoom')}</option>
@@ -474,7 +474,7 @@ export default function Home() {
                       const value = Math.max(0, parseInt(e.target.value) || 0)
                       setFilters(prev => ({ ...prev, minSize: value || '' }))
                     }}
-                    className="w-full px-2 sm:px-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-gray-900 font-medium text-xs sm:text-sm md:text-base placeholder:text-xs sm:placeholder:text-sm md:placeholder:text-base"
+                    className="w-full px-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-gray-900 font-medium text-sm md:text-xs lg:text-sm placeholder:text-sm md:placeholder:text-xs lg:placeholder:text-sm"
                   />
                   
                   <input
@@ -486,7 +486,7 @@ export default function Home() {
                       const value = Math.max(0, parseInt(e.target.value) || 0)
                       setFilters(prev => ({ ...prev, minPrice: value || '' }))
                     }}
-                    className="w-full px-2 sm:px-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-gray-900 font-medium text-xs sm:text-sm md:text-base placeholder:text-xs sm:placeholder:text-sm md:placeholder:text-base"
+                    className="w-full px-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-gray-900 font-medium text-sm md:text-xs lg:text-sm placeholder:text-sm md:placeholder:text-xs lg:placeholder:text-sm"
                   />
                   
                   <input
@@ -498,7 +498,7 @@ export default function Home() {
                       const value = Math.max(0, parseInt(e.target.value) || 0)
                       setFilters(prev => ({ ...prev, maxPrice: value || '' }))
                     }}
-                    className="w-full px-2 sm:px-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-gray-900 font-medium text-xs sm:text-sm md:text-base placeholder:text-xs sm:placeholder:text-sm md:placeholder:text-base"
+                    className="w-full px-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-gray-900 font-medium text-sm md:text-xs lg:text-sm placeholder:text-sm md:placeholder:text-xs lg:placeholder:text-sm"
                   />
                 </div>
                 
