@@ -53,6 +53,11 @@ const translations = {
     whatsappPlaceholder: "+964 750 123 4567",
     sizePlaceholder: "e.g., 120",
     
+    // Additional missing keys
+    searchLabel: "Search Properties",
+    postYourProperty: "Post Your Property",
+    free: "Free",
+    
     // Mode Config
     renting: "Renting",
     buyingSelling: "Buying & Selling",
@@ -630,8 +635,18 @@ export function TranslationProvider({ children }) {
       // Server-side rendering fallback
       return translations.en[key] || key
     }
-    const translation = translations[language]?.[key] || translations.en[key]
-    return translation || key
+    
+    // Ensure we have a valid language
+    const currentLang = language && translations[language] ? language : 'en'
+    const translation = translations[currentLang]?.[key] || translations.en[key]
+    
+    // If translation is still missing, return a readable version of the key
+    if (!translation || translation === key) {
+      // Convert camelCase to readable text
+      return key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())
+    }
+    
+    return translation
   }
 
   return (
