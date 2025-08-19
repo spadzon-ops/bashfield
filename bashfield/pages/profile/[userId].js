@@ -81,6 +81,21 @@ export default function UserProfile({ profile: initialProfile, listings: initial
     }
   }
 
+  const setUserWarning = async (level, reason = '') => {
+    if (!isAdmin) return
+    const { error } = await supabase
+      .from('user_profiles')
+      .update({ warning_level: level, warning_reason: reason })
+      .eq('user_id', userId)
+
+    if (!error) {
+      setProfile({ ...profile, warning_level: level, warning_reason: reason })
+      alert(`Warning ${level === 'none' ? 'removed' : 'set'} successfully!`)
+    } else {
+      alert('Error updating warning status')
+    }
+  }
+
   const startConversation = async () => {
     if (!currentUser) {
       alert('Please sign in to send messages')
@@ -184,6 +199,12 @@ export default function UserProfile({ profile: initialProfile, listings: initial
                 </div>
               )}
               <div className="absolute bottom-2 right-2 w-8 h-8 bg-green-500 border-4 border-white rounded-full"></div>
+              {isAdmin && profile.warning_level === 'yellow' && (
+                <div className="absolute -top-2 -right-2 w-8 h-8 bg-yellow-500 rounded-full border-4 border-white" title={`Yellow Warning: ${profile.warning_reason}`}></div>
+              )}
+              {isAdmin && profile.warning_level === 'red' && (
+                <div className="absolute -top-2 -right-2 w-8 h-8 bg-red-500 rounded-full border-4 border-white" title={`Red Warning: ${profile.warning_reason}`}></div>
+              )}
             </div>
             
             <div className="text-center sm:text-left flex-1">
@@ -215,16 +236,51 @@ export default function UserProfile({ profile: initialProfile, listings: initial
                   <p className="text-sm text-red-700 mb-3 font-mono bg-red-100 px-2 py-1 rounded">
                     📧 {profile.email}
                   </p>
-                  <button
-                    onClick={toggleVerification}
-                    className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
-                      profile.is_verified 
-                        ? 'bg-red-600 text-white hover:bg-red-700'
-                        : 'bg-green-600 text-white hover:bg-green-700'
-                    }`}
-                  >
-                    {profile.is_verified ? '❌ Remove Verification' : '✅ Verify User'}
-                  </button>
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    <button
+                      onClick={toggleVerification}
+                      className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                        profile.is_verified 
+                          ? 'bg-red-600 text-white hover:bg-red-700'
+                          : 'bg-green-600 text-white hover:bg-green-700'
+                      }`}
+                    >
+                      {profile.is_verified ? '❌ Remove Verification' : '✅ Verify User'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        const reason = prompt('Yellow warning reason:')
+                        if (reason !== null) setUserWarning('yellow', reason)
+                      }}
+                      className="px-4 py-2 bg-yellow-500 text-white rounded-lg text-sm font-semibold hover:bg-yellow-600 transition-colors"
+                    >
+                      🟡 Yellow Warning
+                    </button>
+                    <button
+                      onClick={() => {
+                        const reason = prompt('Red warning reason:')
+                        if (reason !== null) setUserWarning('red', reason)
+                      }}
+                      className="px-4 py-2 bg-red-500 text-white rounded-lg text-sm font-semibold hover:bg-red-600 transition-colors"
+                    >
+                      🔴 Red Warning
+                    </button>
+                    {profile.warning_level && profile.warning_level !== 'none' && (
+                      <button
+                        onClick={() => setUserWarning('none')}
+                        className="px-4 py-2 bg-gray-500 text-white rounded-lg text-sm font-semibold hover:bg-gray-600 transition-colors"
+                      >
+                        ❌ Remove Warning
+                      </button>
+                    )}
+                  </div>
+                  {profile.warning_level && profile.warning_level !== 'none' && (
+                    <div className={`p-2 rounded text-sm ${
+                      profile.warning_level === 'yellow' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
+                    }`}>
+                      <strong>Current Warning ({profile.warning_level}):</strong> {profile.warning_reason || 'No reason provided'}
+                    </div>
+                  )}
                 </div>
               )}
               
@@ -336,7 +392,7 @@ export async function getServerSideProps({ params }) {
     // Get user profile
     const { data: profileData, error: profileError } = await supabase
       .from('user_profiles')
-      .select('user_id, display_name, profile_picture, created_at, is_verified, email, bio')
+      .select('user_id, display_name, profile_picture, created_at, is_verified, email, bio, warning_level, warning_reason')
       .eq('user_id', userId)
       .single()
 
