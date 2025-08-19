@@ -166,7 +166,7 @@ export default function ListingCard({
 
   if (viewMode === 'list') {
     return (
-      <div data-listing-card className="bg-white rounded-3xl shadow-lg overflow-hidden group hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-1 border border-gray-100/50 backdrop-blur-sm">
+      <div data-listing-card className="bg-white rounded-3xl shadow-lg overflow-hidden group hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100/50 backdrop-blur-sm" style={{ willChange: 'transform', transform: 'translate3d(0,0,0)', contain: 'layout style paint' }}>
         <div className={`flex flex-col md:flex-row ${!showActions ? 'cursor-pointer' : ''}`} onClick={!showActions ? () => {
         sessionStorage.setItem('homeScrollPosition', window.scrollY.toString())
         sessionStorage.setItem('homeItemCount', document.querySelectorAll('[data-listing-card]').length.toString())
@@ -369,7 +369,7 @@ export default function ListingCard({
   }
   
   return (
-    <div data-listing-card className="bg-white rounded-3xl shadow-lg overflow-hidden group hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100/50 backdrop-blur-sm flex flex-col h-full">
+    <div data-listing-card className="bg-white rounded-3xl shadow-lg overflow-hidden group hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100/50 backdrop-blur-sm flex flex-col h-full" style={{ willChange: 'transform', transform: 'translate3d(0,0,0)', contain: 'layout style paint' }}>
       <div className={`flex flex-col h-full ${!showActions ? 'cursor-pointer' : ''}`} onClick={!showActions ? handleCardClick : undefined}>
         {/* Enhanced Image Carousel */}
         <div
