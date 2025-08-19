@@ -146,7 +146,14 @@ export default function UserProfile({ profile: initialProfile, listings: initial
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Profile Not Found</h1>
           <p className="text-gray-600 mb-6">This user profile doesn't exist or has been removed.</p>
           <button 
-            onClick={() => router.push('/')}
+            onClick={() => {
+              const savedPosition = sessionStorage.getItem('homeScrollPosition')
+              if (savedPosition) {
+                router.push('/')
+              } else {
+                router.back()
+              }
+            }}
             className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors"
           >
             ← Back to Homepage
