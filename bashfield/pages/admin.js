@@ -93,7 +93,7 @@ export default function AdminPage() {
     return () => window.removeEventListener('scroll', handleScroll)
   }, [activeTab, loadingMoreListings, hasMoreListings, listings, displayedListings])
 
-  const buildQuery = (q = query, status = statusFilter, active = activeFilter, age = ageFilter, mode = modeFilter) => {
+  const buildQuery = async (q = query, status = statusFilter, active = activeFilter, age = ageFilter, mode = modeFilter) => {
     let r = supabase.from('listings').select('*').order('created_at', { ascending: false })
 
     if (status !== 'all') r = r.eq('status', status)
@@ -104,7 +104,7 @@ export default function AdminPage() {
     if (age !== 'any') {
       const map = { '1m': 1, '3m': 3, '6m': 6, '12m': 12 }
       const iso = ageThreshold(map[age])
-      r = r.lte('created_at', iso) // older than threshold
+      r = r.lte('created_at', iso)
     }
 
     const trimmed = (q || '').trim()
@@ -113,14 +113,26 @@ export default function AdminPage() {
       if (/^BF-[A-Z0-9-]{4,}$/.test(upper)) {
         r = r.eq('reference_code', upper)
       } else {
-        r = r.or(`reference_code.ilike.%${upper}%,title.ilike.%${trimmed}%`)
+        // Check if searching by email/username
+        const { data: userProfiles } = await supabase
+          .from('user_profiles')
+          .select('user_id')
+          .or(`email.ilike.%${trimmed}%,display_name.ilike.%${trimmed}%`)
+        
+        if (userProfiles && userProfiles.length > 0) {
+          const userIds = userProfiles.map(p => p.user_id)
+          r = r.in('user_id', userIds)
+        } else {
+          r = r.or(`reference_code.ilike.%${upper}%,title.ilike.%${trimmed}%`)
+        }
       }
     }
     return r
   }
 
   const loadListings = async (q = query, s = statusFilter, a = activeFilter, g = ageFilter, m = modeFilter) => {
-    const { data } = await buildQuery(q, s, a, g, m)
+    const queryBuilder = await buildQuery(q, s, a, g, m)
+    const { data } = await queryBuilder
     const rows = data || []
     setListings(rows)
     setDisplayedListings(12)
@@ -131,7 +143,7 @@ export default function AdminPage() {
     if (userIds.length) {
       const { data: profs } = await supabase
         .from('user_profiles')
-        .select('user_id, display_name, profile_picture, is_verified')
+        .select('user_id, display_name, profile_picture, is_verified, warning_level')
         .in('user_id', userIds)
       const map = new Map()
       ;(profs || []).forEach(p => map.set(p.user_id, p))
@@ -230,7 +242,7 @@ export default function AdminPage() {
   const loadUsers = async () => {
     const { data } = await supabase
       .from('user_profiles')
-      .select('user_id, email, display_name, profile_picture, is_verified, created_at, updated_at')
+      .select('user_id, email, display_name, profile_picture, is_verified, warning_level, warning_reason, created_at, updated_at')
       .order('created_at', { ascending: false })
     
     setUsers(data || [])
@@ -276,6 +288,19 @@ export default function AdminPage() {
     if (!error) {
       await loadUsers()
       alert(`User ${!currentStatus ? 'verified' : 'unverified'} successfully!`)
+    }
+  }
+
+  const setUserWarning = async (userId, level, reason = '') => {
+    const { error } = await supabase
+      .from('user_profiles')
+      .update({ warning_level: level, warning_reason: reason })
+      .eq('user_id', userId)
+    
+    if (!error) {
+      await loadUsers()
+      await loadListings()
+      alert(`Warning ${level === 'none' ? 'removed' : 'set'} successfully!`)
     }
   }
 
@@ -370,12 +395,12 @@ export default function AdminPage() {
               {/* Search & Filters */}
           <div className="grid grid-cols-1 md:grid-cols-6 gap-3">
             <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 mb-1">Search by Property Code or Title</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Search by Code, Title, Username, or Email</label>
               <input
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && loadListings(e.target.value, statusFilter, activeFilter, ageFilter, modeFilter)}
-                placeholder="e.g. BF-9A3C71"
+                placeholder="e.g. BF-9A3C71, john@email.com, or username"
                 className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
               />
             </div>
@@ -497,19 +522,27 @@ export default function AdminPage() {
                 {filteredUsers.slice(0, displayedUsers).map((user) => (
                   <div key={user.user_id} className="bg-gray-50 rounded-xl p-4 flex items-center justify-between">
                     <div className="flex items-center space-x-4">
-                      {user.profile_picture ? (
-                        <img
-                          src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/house-images/${user.profile_picture}`}
-                          alt="Profile"
-                          className="w-12 h-12 rounded-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                          <span className="text-blue-700 font-semibold">
-                            {user.display_name?.[0]?.toUpperCase() || '?'}
-                          </span>
-                        </div>
-                      )}
+                      <div className="relative">
+                        {user.profile_picture ? (
+                          <img
+                            src={`${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/house-images/${user.profile_picture}`}
+                            alt="Profile"
+                            className="w-12 h-12 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                            <span className="text-blue-700 font-semibold">
+                              {user.display_name?.[0]?.toUpperCase() || '?'}
+                            </span>
+                          </div>
+                        )}
+                        {user.warning_level === 'yellow' && (
+                          <div className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-500 rounded-full border-2 border-white" title={`Yellow Warning: ${user.warning_reason}`}></div>
+                        )}
+                        {user.warning_level === 'red' && (
+                          <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full border-2 border-white" title={`Red Warning: ${user.warning_reason}`}></div>
+                        )}
+                      </div>
                       <div>
                         <div className="flex items-center gap-2">
                           <h3 className="font-semibold text-gray-900">{user.display_name}</h3>
@@ -527,7 +560,7 @@ export default function AdminPage() {
                     </div>
                     <div className="flex items-center space-x-2">
                       <Link
-                        href={`/profile/${user.user_id}`}
+                        href={`/profile/${user.user_id}?admin=true`}
                         className="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg text-sm hover:bg-blue-200 transition-colors"
                       >
                         View Profile
@@ -542,6 +575,37 @@ export default function AdminPage() {
                       >
                         {user.is_verified ? '❌ Unverify' : '✅ Verify'}
                       </button>
+                      <div className="flex items-center space-x-1">
+                        <button
+                          onClick={() => {
+                            const reason = prompt('Yellow warning reason:')
+                            if (reason !== null) setUserWarning(user.user_id, 'yellow', reason)
+                          }}
+                          className="px-2 py-2 bg-yellow-100 text-yellow-700 rounded-lg text-sm hover:bg-yellow-200 transition-colors"
+                          title="Give Yellow Warning"
+                        >
+                          🟡
+                        </button>
+                        <button
+                          onClick={() => {
+                            const reason = prompt('Red warning reason:')
+                            if (reason !== null) setUserWarning(user.user_id, 'red', reason)
+                          }}
+                          className="px-2 py-2 bg-red-100 text-red-700 rounded-lg text-sm hover:bg-red-200 transition-colors"
+                          title="Give Red Warning"
+                        >
+                          🔴
+                        </button>
+                        {user.warning_level !== 'none' && (
+                          <button
+                            onClick={() => setUserWarning(user.user_id, 'none')}
+                            className="px-2 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200 transition-colors"
+                            title="Remove Warning"
+                          >
+                            ❌
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -610,13 +674,21 @@ export default function AdminPage() {
 
                     {/* Posted by (clickable) */}
                     <Link href={poster ? `/profile/${poster.user_id}` : '#'} className="flex items-center gap-2 group w-fit">
-                      {avatar ? (
-                        <img src={avatar} className="w-7 h-7 rounded-full object-cover" alt="Posted by" />
-                      ) : (
-                        <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-sm">
-                          {(poster?.display_name?.[0] || '?').toUpperCase()}
-                        </div>
-                      )}
+                      <div className="relative">
+                        {avatar ? (
+                          <img src={avatar} className="w-7 h-7 rounded-full object-cover" alt="Posted by" />
+                        ) : (
+                          <div className="w-7 h-7 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-sm">
+                            {(poster?.display_name?.[0] || '?').toUpperCase()}
+                          </div>
+                        )}
+                        {poster?.warning_level === 'yellow' && (
+                          <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-500 rounded-full border border-white" title="Yellow Warning"></div>
+                        )}
+                        {poster?.warning_level === 'red' && (
+                          <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border border-white" title="Red Warning"></div>
+                        )}
+                      </div>
                       <span className="text-sm text-gray-700 group-hover:underline flex items-center gap-2">
                         {poster?.display_name || 'Unknown User'}
                         {poster?.is_verified && (
