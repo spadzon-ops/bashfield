@@ -42,7 +42,7 @@ export default function MapView({ listings, onListingSelect }) {
     try {
       if (!window.google) {
         const script = document.createElement('script')
-        script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dO_X0Q&libraries=geometry'
+        script.src = 'https://maps.googleapis.com/maps/api/js?libraries=geometry'
         script.onload = initializeMap
         script.onerror = () => setMapError('Failed to load map library')
         document.head.appendChild(script)
@@ -159,15 +159,20 @@ export default function MapView({ listings, onListingSelect }) {
         const currencySymbol = listing.currency === 'USD' ? '$' : listing.currency
         const formattedPrice = listing.price.toLocaleString()
         
-        const markerDiv = document.createElement('div')
-        markerDiv.className = 'bg-white border-2 border-blue-500 rounded-lg px-2 py-1 shadow-lg text-xs font-bold text-blue-600 whitespace-nowrap'
-        markerDiv.innerHTML = `${currencySymbol}${formattedPrice}`
-        markerDiv.style.cssText = 'position: relative; background: white; border: 2px solid #3b82f6; border-radius: 8px; padding: 4px 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); font-size: 12px; font-weight: bold; color: #2563eb; white-space: nowrap;'
-
-        const marker = new window.google.maps.marker.AdvancedMarkerElement({
+        const marker = new window.google.maps.Marker({
           position: { lat: cluster.lat, lng: cluster.lng },
           map: map,
-          content: markerDiv
+          title: `${currencySymbol}${formattedPrice}`,
+          icon: {
+            url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+              <svg xmlns="http://www.w3.org/2000/svg" width="80" height="30" viewBox="0 0 80 30">
+                <rect x="2" y="2" width="76" height="26" rx="8" fill="white" stroke="#3b82f6" stroke-width="2"/>
+                <text x="40" y="20" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#2563eb">${currencySymbol}${formattedPrice}</text>
+              </svg>
+            `),
+            scaledSize: new window.google.maps.Size(80, 30),
+            anchor: new window.google.maps.Point(40, 30)
+          }
         })
 
         marker.addListener('click', () => {
@@ -184,15 +189,20 @@ export default function MapView({ listings, onListingSelect }) {
         const minFormatted = minPrice.toLocaleString()
         const maxFormatted = maxPrice.toLocaleString()
 
-        const clusterDiv = document.createElement('div')
-        clusterDiv.className = 'bg-blue-500 border-2 border-blue-600 rounded-full w-12 h-12 flex items-center justify-center shadow-lg text-white font-bold text-sm'
-        clusterDiv.innerHTML = cluster.listings.length
-        clusterDiv.style.cssText = 'width: 48px; height: 48px; background: #3b82f6; border: 2px solid #2563eb; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); color: white; font-weight: bold; font-size: 14px;'
-
-        const marker = new window.google.maps.marker.AdvancedMarkerElement({
+        const marker = new window.google.maps.Marker({
           position: { lat: cluster.lat, lng: cluster.lng },
           map: map,
-          content: clusterDiv
+          title: `${cluster.listings.length} properties`,
+          icon: {
+            url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
+              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
+                <circle cx="24" cy="24" r="22" fill="#3b82f6" stroke="#2563eb" stroke-width="2"/>
+                <text x="24" y="30" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="white">${cluster.listings.length}</text>
+              </svg>
+            `),
+            scaledSize: new window.google.maps.Size(48, 48),
+            anchor: new window.google.maps.Point(24, 24)
+          }
         })
 
         marker.addListener('click', () => {

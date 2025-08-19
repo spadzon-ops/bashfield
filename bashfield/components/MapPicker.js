@@ -49,7 +49,7 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
   const loadGoogleMap = () => {
     if (!window.google) {
       const script = document.createElement('script')
-      script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dO_X0Q&libraries=geometry'
+      script.src = 'https://maps.googleapis.com/maps/api/js?libraries=geometry'
       script.onload = () => {
         initializeMap()
       }
