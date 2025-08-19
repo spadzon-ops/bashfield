@@ -166,7 +166,7 @@ export default function ListingCard({
 
   if (viewMode === 'list') {
     return (
-      <div data-listing-card className="bg-white rounded-3xl shadow-lg overflow-hidden group hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100/50 backdrop-blur-sm" style={{ willChange: 'transform', transform: 'translate3d(0,0,0)', contain: 'layout style paint' }}>
+      <div data-listing-card className="bg-white rounded-3xl shadow-lg overflow-hidden group hover:shadow-2xl transition-all duration-150 transform hover:-translate-y-1 border border-gray-100/50 backdrop-blur-sm" style={{ willChange: 'transform', transform: 'translate3d(0,0,0)', contain: 'layout style paint' }}>
         <div className={`flex flex-col md:flex-row ${!showActions ? 'cursor-pointer' : ''}`} onClick={!showActions ? () => {
         sessionStorage.setItem('homeScrollPosition', window.scrollY.toString())
         sessionStorage.setItem('homeItemCount', document.querySelectorAll('[data-listing-card]').length.toString())
@@ -369,7 +369,7 @@ export default function ListingCard({
   }
   
   return (
-    <div data-listing-card className="bg-white rounded-3xl shadow-lg overflow-hidden group hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100/50 backdrop-blur-sm flex flex-col h-full" style={{ willChange: 'transform', transform: 'translate3d(0,0,0)', contain: 'layout style paint' }}>
+    <div data-listing-card className="bg-white rounded-3xl shadow-lg overflow-hidden group hover:shadow-2xl transition-all duration-150 transform hover:-translate-y-1 border border-gray-100/50 backdrop-blur-sm flex flex-col h-full" style={{ willChange: 'transform', transform: 'translate3d(0,0,0)', contain: 'layout style paint' }}>
       <div className={`flex flex-col h-full ${!showActions ? 'cursor-pointer' : ''}`} onClick={!showActions ? handleCardClick : undefined}>
         {/* Enhanced Image Carousel */}
         <div
@@ -554,7 +554,7 @@ export default function ListingCard({
             <div className="flex space-x-3 mt-4">
               <button
                 onClick={(e) => { e.stopPropagation(); openListing() }}
-                className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-4 py-3 rounded-xl text-sm font-bold transition-all duration-300 flex items-center justify-center space-x-2 transform hover:scale-105 shadow-lg hover:shadow-xl"
+                className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-4 py-3 rounded-xl text-sm font-bold transition-all duration-150 flex items-center justify-center space-x-2 transform hover:scale-105 shadow-lg hover:shadow-xl"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -564,7 +564,7 @@ export default function ListingCard({
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); startConversation() }}
-                className="flex-1 bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white px-4 py-3 rounded-xl text-sm font-bold transition-all duration-300 flex items-center justify-center space-x-2 transform hover:scale-105 shadow-lg hover:shadow-xl"
+                className="flex-1 bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white px-4 py-3 rounded-xl text-sm font-bold transition-all duration-150 flex items-center justify-center space-x-2 transform hover:scale-105 shadow-lg hover:shadow-xl"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
