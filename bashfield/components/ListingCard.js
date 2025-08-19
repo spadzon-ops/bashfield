@@ -22,6 +22,8 @@ export default function ListingCard({
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [profileData, setProfileData] = useState(listing.user_profiles)
   const [currentUser, setCurrentUser] = useState(null)
+  const [imageLoaded, setImageLoaded] = useState(false)
+  const [imageError, setImageError] = useState(false)
   const touchStartX = useRef(0)
   const touchEndX = useRef(0)
 
@@ -179,10 +181,18 @@ export default function ListingCard({
           >
             {firstImageUrl ? (
               <>
+                {!imageLoaded && (
+                  <div className="absolute inset-0 bg-gray-200 animate-pulse flex items-center justify-center">
+                    <span className="text-4xl text-gray-400">🏠</span>
+                  </div>
+                )}
                 <img
                   src={firstImageUrl}
                   alt={listing.title}
-                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                  className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ${!imageLoaded ? 'opacity-0' : 'opacity-100'}`}
+                  onLoad={() => setImageLoaded(true)}
+                  onError={() => setImageError(true)}
+                  loading="lazy"
                 />
                 {listing.images.length > 1 && (
                   <>
@@ -370,10 +380,18 @@ export default function ListingCard({
         >
           {firstImageUrl ? (
             <>
+              {!imageLoaded && (
+                <div className="absolute inset-0 bg-gray-200 animate-pulse flex items-center justify-center">
+                  <span className="text-4xl text-gray-400">🏠</span>
+                </div>
+              )}
               <img
                 src={firstImageUrl}
                 alt={listing.title}
-                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ${!imageLoaded ? 'opacity-0' : 'opacity-100'}`}
+                onLoad={() => setImageLoaded(true)}
+                onError={() => setImageError(true)}
+                loading="lazy"
               />
               {listing.images.length > 1 && (
                 <>
