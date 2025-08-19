@@ -587,65 +587,18 @@ export async function getServerSideProps({ params, locale, query }) {
   const { admin } = query
   
   try {
-    // Get listing data
-    const { data: listingData, error: listingError } = await supabase
-      .from('listings')
-      .select('*')
-      .eq('id', id)
-      .single()
-
-    if (listingError || !listingData) {
-      return {
-        props: {
-          listing: null,
-          ...(await serverSideTranslations(locale, ['common'])),
-        },
-      }
-    }
-
-    // Get profile data
-    const { data: profileData } = await supabase
-      .from('user_profiles')
-      .select('display_name, profile_picture')
-      .eq('user_id', listingData.user_id)
-      .single()
-
-    const listing = {
-      ...listingData,
-      user_profiles: profileData || null,
-      owner_name: profileData?.display_name || 'Property Owner'
-    }
-
-    // For admin access, always return the listing
-    if (admin === 'true') {
-      return {
-        props: {
-          listing,
-          ...(await serverSideTranslations(locale, ['common'])),
-        },
-      }
-    }
-
-    // For regular users, only show approved and active listings
-    if (listingData.status === 'approved' && listingData.is_active !== false) {
-      return {
-        props: {
-          listing,
-          ...(await serverSideTranslations(locale, ['common'])),
-        },
-      }
-    }
-
-    // Default: not found for non-approved without admin param
+    // Always return null for client-side rendering to avoid SSR issues
     return {
-      notFound: true,
+      props: {
+        listing: null,
+        ...(await serverSideTranslations(locale || 'en', ['common'])),
+      },
     }
   } catch (error) {
     console.error('Error in getServerSideProps:', error)
     return {
       props: {
         listing: null,
-        ...(await serverSideTranslations(locale, ['common'])),
       },
     }
   }
