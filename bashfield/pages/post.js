@@ -94,8 +94,8 @@ export default function Post() {
     const uploadedImages = []
 
     for (const file of files) {
-      if (file.size > 10 * 1024 * 1024) {
-        alert(`${file.name} is too large (max 10MB)`)
+      if (file.size > 15 * 1024 * 1024) {
+        alert(`${file.name} is too large (max 15MB)`)
         continue
       }
 
@@ -470,7 +470,7 @@ export default function Post() {
                       {imageLoading ? t('uploadingImages') : t('uploadImages')}
                     </h3>
                     <p className="text-gray-600 mb-2">{t('addHighQualityPhotos')}</p>
-                    <p className="text-sm text-blue-600 mb-4">Images will be automatically compressed to 200KB for optimal loading</p>
+                    <p className="text-sm text-blue-600 mb-4">Maximum allowed picture size is 15MB</p>
                     <div className={`px-6 py-2 rounded-lg inline-block transition-colors ${
                       imageLoading 
                         ? 'bg-gray-400 cursor-not-allowed' 
