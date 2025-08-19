@@ -181,9 +181,11 @@ export default function ListingCard({
           >
             {firstImageUrl ? (
               <>
-                <div className="absolute inset-0 bg-gray-200 flex items-center justify-center">
-                  <span className="text-4xl text-gray-400">🏠</span>
-                </div>
+                {!imageLoaded && (
+                  <div className="absolute inset-0 bg-gray-200 flex items-center justify-center">
+                    <span className="text-4xl text-gray-400">🏠</span>
+                  </div>
+                )}
                 <img
                   src={firstImageUrl}
                   alt={listing.title}
@@ -191,7 +193,6 @@ export default function ListingCard({
                   onLoad={() => setImageLoaded(true)}
                   onError={() => setImageError(true)}
                   loading="eager"
-                  style={{ minHeight: '100%', minWidth: '100%' }}
                 />
                 {listing.images.length > 1 && (
                   <>
@@ -379,9 +380,11 @@ export default function ListingCard({
         >
           {firstImageUrl ? (
             <>
-              <div className="absolute inset-0 bg-gray-200 flex items-center justify-center">
-                <span className="text-4xl text-gray-400">🏠</span>
-              </div>
+              {!imageLoaded && (
+                <div className="absolute inset-0 bg-gray-200 flex items-center justify-center">
+                  <span className="text-4xl text-gray-400">🏠</span>
+                </div>
+              )}
               <img
                 src={firstImageUrl}
                 alt={listing.title}
@@ -389,7 +392,6 @@ export default function ListingCard({
                 onLoad={() => setImageLoaded(true)}
                 onError={() => setImageError(true)}
                 loading="eager"
-                style={{ minHeight: '100%', minWidth: '100%' }}
               />
               {listing.images.length > 1 && (
                 <>
