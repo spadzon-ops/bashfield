@@ -11,6 +11,7 @@ export default function MapView({ listings, onListingSelect }) {
   const [selectedCluster, setSelectedCluster] = useState(null)
   const [isMapLoaded, setIsMapLoaded] = useState(false)
   const [mapError, setMapError] = useState(null)
+  const [markers, setMarkers] = useState([])
 
   // City coordinates for Iraq
   const cityCoordinates = {
@@ -39,17 +40,9 @@ export default function MapView({ listings, onListingSelect }) {
 
   const loadMap = async () => {
     try {
-      // Load Leaflet CSS and JS
-      if (!document.querySelector('link[href*="leaflet"]')) {
-        const link = document.createElement('link')
-        link.rel = 'stylesheet'
-        link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
-        document.head.appendChild(link)
-      }
-
-      if (!window.L) {
+      if (!window.google) {
         const script = document.createElement('script')
-        script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
+        script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyBFw0Qbyq9zTFTd-tUY6dO_X0Q&libraries=geometry'
         script.onload = initializeMap
         script.onerror = () => setMapError('Failed to load map library')
         document.head.appendChild(script)
@@ -64,15 +57,21 @@ export default function MapView({ listings, onListingSelect }) {
 
   const initializeMap = () => {
     try {
-      if (!window.L || !document.getElementById('property-map')) return
+      if (!window.google || !document.getElementById('property-map')) return
 
       // Center on Iraq
-      const mapInstance = window.L.map('property-map').setView([33.2232, 43.6793], 6)
-
-      window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors',
-        maxZoom: 18
-      }).addTo(mapInstance)
+      const mapInstance = new window.google.maps.Map(document.getElementById('property-map'), {
+        center: { lat: 33.2232, lng: 43.6793 },
+        zoom: 6,
+        mapTypeId: 'roadmap',
+        styles: [
+          {
+            featureType: 'poi',
+            elementType: 'labels',
+            stylers: [{ visibility: 'off' }]
+          }
+        ]
+      })
 
       setMap(mapInstance)
       setIsMapLoaded(true)
@@ -144,16 +143,14 @@ export default function MapView({ listings, onListingSelect }) {
   }
 
   const addMarkersToMap = () => {
-    if (!map || !window.L) return
+    if (!map || !window.google) return
 
     // Clear existing markers
-    map.eachLayer((layer) => {
-      if (layer instanceof window.L.Marker) {
-        map.removeLayer(layer)
-      }
-    })
+    markers.forEach(marker => marker.setMap(null))
+    setMarkers([])
 
     const clusters = clusterNearbyListings(listings)
+    const newMarkers = []
 
     clusters.forEach((cluster) => {
       if (cluster.listings.length === 1) {
@@ -162,24 +159,22 @@ export default function MapView({ listings, onListingSelect }) {
         const currencySymbol = listing.currency === 'USD' ? '$' : listing.currency
         const formattedPrice = listing.price.toLocaleString()
         
-        const markerHtml = `
-          <div class="bg-white border-2 border-blue-500 rounded-lg px-2 py-1 shadow-lg text-xs font-bold text-blue-600 whitespace-nowrap">
-            ${currencySymbol}${formattedPrice}
-          </div>
-        `
+        const markerDiv = document.createElement('div')
+        markerDiv.className = 'bg-white border-2 border-blue-500 rounded-lg px-2 py-1 shadow-lg text-xs font-bold text-blue-600 whitespace-nowrap'
+        markerDiv.innerHTML = `${currencySymbol}${formattedPrice}`
+        markerDiv.style.cssText = 'position: relative; background: white; border: 2px solid #3b82f6; border-radius: 8px; padding: 4px 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); font-size: 12px; font-weight: bold; color: #2563eb; white-space: nowrap;'
 
-        const customIcon = window.L.divIcon({
-          html: markerHtml,
-          className: 'custom-price-marker',
-          iconSize: [null, null],
-          iconAnchor: [0, 30]
+        const marker = new window.google.maps.marker.AdvancedMarkerElement({
+          position: { lat: cluster.lat, lng: cluster.lng },
+          map: map,
+          content: markerDiv
         })
 
-        const marker = window.L.marker([cluster.lat, cluster.lng], { icon: customIcon })
-          .addTo(map)
-          .on('click', () => {
-            setSelectedCluster({ listings: [listing], isCluster: false })
-          })
+        marker.addListener('click', () => {
+          setSelectedCluster({ listings: [listing], isCluster: false })
+        })
+
+        newMarkers.push(marker)
       } else {
         // Cluster marker
         const minPrice = Math.min(...cluster.listings.map(l => l.price))
@@ -189,30 +184,30 @@ export default function MapView({ listings, onListingSelect }) {
         const minFormatted = minPrice.toLocaleString()
         const maxFormatted = maxPrice.toLocaleString()
 
-        const clusterHtml = `
-          <div class="bg-blue-500 border-2 border-blue-600 rounded-full w-12 h-12 flex items-center justify-center shadow-lg text-white font-bold text-sm">
-            ${cluster.listings.length}
-          </div>
-        `
+        const clusterDiv = document.createElement('div')
+        clusterDiv.className = 'bg-blue-500 border-2 border-blue-600 rounded-full w-12 h-12 flex items-center justify-center shadow-lg text-white font-bold text-sm'
+        clusterDiv.innerHTML = cluster.listings.length
+        clusterDiv.style.cssText = 'width: 48px; height: 48px; background: #3b82f6; border: 2px solid #2563eb; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); color: white; font-weight: bold; font-size: 14px;'
 
-        const clusterIcon = window.L.divIcon({
-          html: clusterHtml,
-          className: 'custom-cluster-marker',
-          iconSize: [40, 40],
-          iconAnchor: [20, 20]
+        const marker = new window.google.maps.marker.AdvancedMarkerElement({
+          position: { lat: cluster.lat, lng: cluster.lng },
+          map: map,
+          content: clusterDiv
         })
 
-        const marker = window.L.marker([cluster.lat, cluster.lng], { icon: clusterIcon })
-          .addTo(map)
-          .on('click', () => {
-            setSelectedCluster({ 
-              listings: cluster.listings, 
-              isCluster: true,
-              priceRange: `${currencySymbol}${minFormatted}-${currencySymbol}${maxFormatted}`
-            })
+        marker.addListener('click', () => {
+          setSelectedCluster({ 
+            listings: cluster.listings, 
+            isCluster: true,
+            priceRange: `${currencySymbol}${minFormatted}-${currencySymbol}${maxFormatted}`
           })
+        })
+
+        newMarkers.push(marker)
       }
     })
+
+    setMarkers(newMarkers)
   }
 
   const handleListingClick = (listing) => {
@@ -352,17 +347,7 @@ export default function MapView({ listings, onListingSelect }) {
         </div>
       )}
 
-      <style jsx>{`
-        .custom-price-marker, .custom-cluster-marker {
-          background: transparent !important;
-          border: none !important;
-        }
-        .custom-price-marker div {
-          text-overflow: ellipsis;
-          overflow: hidden;
-          max-width: 80px;
-        }
-      `}</style>
+
     </div>
   )
 }
