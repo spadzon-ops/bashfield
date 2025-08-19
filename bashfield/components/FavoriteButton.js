@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 
+// Cache for favorite status
+const favoriteCache = new Map()
+let allUserFavorites = new Set()
+
 export default function FavoriteButton({ listingId, className = "" }) {
   const [isFavorited, setIsFavorited] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -12,6 +16,15 @@ export default function FavoriteButton({ listingId, className = "" }) {
 
   useEffect(() => {
     if (user && listingId) {
+      // Check cache first for instant loading
+      const cacheKey = `${user.id}-${listingId}`
+      if (favoriteCache.has(cacheKey)) {
+        setIsFavorited(favoriteCache.get(cacheKey))
+      } else if (allUserFavorites.has(listingId)) {
+        setIsFavorited(true)
+        favoriteCache.set(cacheKey, true)
+      }
+      
       checkFavoriteStatus()
       
       // Listen for realtime changes
@@ -40,8 +53,28 @@ export default function FavoriteButton({ listingId, className = "" }) {
     try {
       const { data: { user } } = await supabase.auth.getUser()
       setUser(user)
+      
+      // Preload all user favorites for faster loading
+      if (user) {
+        loadAllUserFavorites(user.id)
+      }
     } catch (error) {
       console.error('Error getting user:', error)
+    }
+  }
+  
+  const loadAllUserFavorites = async (userId) => {
+    try {
+      const { data } = await supabase
+        .from('favorites')
+        .select('listing_id')
+        .eq('user_id', userId)
+      
+      if (data) {
+        allUserFavorites = new Set(data.map(f => f.listing_id))
+      }
+    } catch (error) {
+      console.error('Error loading user favorites:', error)
     }
   }
 
@@ -49,6 +82,7 @@ export default function FavoriteButton({ listingId, className = "" }) {
     if (!user || !listingId) return
     
     try {
+      const cacheKey = `${user.id}-${listingId}`
       const { data, error } = await supabase
         .from('favorites')
         .select('id')
@@ -61,7 +95,15 @@ export default function FavoriteButton({ listingId, className = "" }) {
         return
       }
       
-      setIsFavorited(!!data)
+      const isFav = !!data
+      setIsFavorited(isFav)
+      favoriteCache.set(cacheKey, isFav)
+      
+      if (isFav) {
+        allUserFavorites.add(listingId)
+      } else {
+        allUserFavorites.delete(listingId)
+      }
     } catch (error) {
       console.error('Error in checkFavoriteStatus:', error)
     }
@@ -80,6 +122,8 @@ export default function FavoriteButton({ listingId, className = "" }) {
     setLoading(true)
     
     try {
+      const cacheKey = `${user.id}-${listingId}`
+      
       if (isFavorited) {
         await supabase
           .from('favorites')
@@ -88,12 +132,16 @@ export default function FavoriteButton({ listingId, className = "" }) {
           .eq('listing_id', listingId)
         
         setIsFavorited(false)
+        favoriteCache.set(cacheKey, false)
+        allUserFavorites.delete(listingId)
       } else {
         await supabase
           .from('favorites')
           .insert({ user_id: user.id, listing_id: listingId })
         
         setIsFavorited(true)
+        favoriteCache.set(cacheKey, true)
+        allUserFavorites.add(listingId)
       }
       
       window.dispatchEvent(new CustomEvent('favoriteUpdated'))
