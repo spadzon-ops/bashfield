@@ -86,7 +86,7 @@ export default function Favorites() {
       
       const { data: favoriteIds, error: favError } = await supabase
         .from('favorites')
-        .select('listing_id')
+        .select('listing_id, created_at')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
 
@@ -132,13 +132,22 @@ export default function Favorites() {
         .from('user_profiles')
         .select('user_id, display_name, profile_picture')
 
-      const listingsWithProfiles = listingsData.map(listing => {
-        const profile = (profilesData || []).find(p => p.user_id === listing.user_id)
-        return {
-          ...listing,
-          user_profiles: profile || null
-        }
-      })
+      // Sort listings by favorite creation order (newest added first)
+      const favoriteOrder = favoriteIds.reduce((acc, fav, index) => {
+        acc[fav.listing_id] = index
+        return acc
+      }, {})
+      
+      const listingsWithProfiles = listingsData
+        .map(listing => {
+          const profile = (profilesData || []).find(p => p.user_id === listing.user_id)
+          return {
+            ...listing,
+            user_profiles: profile || null,
+            favoriteOrder: favoriteOrder[listing.id] || 999
+          }
+        })
+        .sort((a, b) => a.favoriteOrder - b.favoriteOrder)
 
       console.log('Final favorites:', listingsWithProfiles)
       setFavorites(listingsWithProfiles)
