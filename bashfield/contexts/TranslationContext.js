@@ -342,7 +342,7 @@ const translations = {
     
     // ListingCard
     verified: "پشتڕاستکراوە",
-    whatsapp: "واتساپ",
+    whatsapp: "واتسئەپ",
     chat: "گفتوگۆ",
     viewDetails: "بینینی وردەکاری",
     message: "نامە",
