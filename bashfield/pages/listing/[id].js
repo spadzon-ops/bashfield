@@ -437,7 +437,7 @@ export default function ListingDetail({ listing: initialListing }) {
                       </div>
                       <div className="w-full h-64 rounded-lg overflow-hidden border border-gray-200">
                         <iframe
-                          src={`https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d1000!2d${parseFloat(listing.longitude)}!3d${parseFloat(listing.latitude)}!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e0!3m2!1sen!2s!4v1234567890123`}
+                          src={`https://www.openstreetmap.org/export/embed.html?bbox=${parseFloat(listing.longitude)-0.01},${parseFloat(listing.latitude)-0.01},${parseFloat(listing.longitude)+0.01},${parseFloat(listing.latitude)+0.01}&layer=mapnik&marker=${parseFloat(listing.latitude)},${parseFloat(listing.longitude)}`}
                           width="100%"
                           height="100%"
                           style={{ border: 0 }}

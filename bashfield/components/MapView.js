@@ -11,7 +11,6 @@ export default function MapView({ listings, onListingSelect }) {
   const [selectedCluster, setSelectedCluster] = useState(null)
   const [isMapLoaded, setIsMapLoaded] = useState(false)
   const [mapError, setMapError] = useState(null)
-  const [markers, setMarkers] = useState([])
 
   // City coordinates for Iraq
   const cityCoordinates = {
@@ -40,9 +39,17 @@ export default function MapView({ listings, onListingSelect }) {
 
   const loadMap = async () => {
     try {
-      if (!window.google) {
+      // Load Leaflet CSS and JS
+      if (!document.querySelector('link[href*="leaflet"]')) {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
+        document.head.appendChild(link)
+      }
+
+      if (!window.L) {
         const script = document.createElement('script')
-        script.src = 'https://maps.googleapis.com/maps/api/js?libraries=geometry'
+        script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
         script.onload = initializeMap
         script.onerror = () => setMapError('Failed to load map library')
         document.head.appendChild(script)
@@ -57,21 +64,15 @@ export default function MapView({ listings, onListingSelect }) {
 
   const initializeMap = () => {
     try {
-      if (!window.google || !document.getElementById('property-map')) return
+      if (!window.L || !document.getElementById('property-map')) return
 
       // Center on Iraq
-      const mapInstance = new window.google.maps.Map(document.getElementById('property-map'), {
-        center: { lat: 33.2232, lng: 43.6793 },
-        zoom: 6,
-        mapTypeId: 'roadmap',
-        styles: [
-          {
-            featureType: 'poi',
-            elementType: 'labels',
-            stylers: [{ visibility: 'off' }]
-          }
-        ]
-      })
+      const mapInstance = window.L.map('property-map').setView([33.2232, 43.6793], 6)
+
+      window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors',
+        maxZoom: 18
+      }).addTo(mapInstance)
 
       setMap(mapInstance)
       setIsMapLoaded(true)
@@ -143,14 +144,16 @@ export default function MapView({ listings, onListingSelect }) {
   }
 
   const addMarkersToMap = () => {
-    if (!map || !window.google) return
+    if (!map || !window.L) return
 
     // Clear existing markers
-    markers.forEach(marker => marker.setMap(null))
-    setMarkers([])
+    map.eachLayer((layer) => {
+      if (layer instanceof window.L.Marker) {
+        map.removeLayer(layer)
+      }
+    })
 
     const clusters = clusterNearbyListings(listings)
-    const newMarkers = []
 
     clusters.forEach((cluster) => {
       if (cluster.listings.length === 1) {
@@ -159,27 +162,24 @@ export default function MapView({ listings, onListingSelect }) {
         const currencySymbol = listing.currency === 'USD' ? '$' : listing.currency
         const formattedPrice = listing.price.toLocaleString()
         
-        const marker = new window.google.maps.Marker({
-          position: { lat: cluster.lat, lng: cluster.lng },
-          map: map,
-          title: `${currencySymbol}${formattedPrice}`,
-          icon: {
-            url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-              <svg xmlns="http://www.w3.org/2000/svg" width="80" height="30" viewBox="0 0 80 30">
-                <rect x="2" y="2" width="76" height="26" rx="8" fill="white" stroke="#3b82f6" stroke-width="2"/>
-                <text x="40" y="20" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#2563eb">${currencySymbol}${formattedPrice}</text>
-              </svg>
-            `),
-            scaledSize: new window.google.maps.Size(80, 30),
-            anchor: new window.google.maps.Point(40, 30)
-          }
+        const markerHtml = `
+          <div class="bg-white border-2 border-blue-500 rounded-lg px-2 py-1 shadow-lg text-xs font-bold text-blue-600 whitespace-nowrap">
+            ${currencySymbol}${formattedPrice}
+          </div>
+        `
+
+        const customIcon = window.L.divIcon({
+          html: markerHtml,
+          className: 'custom-price-marker',
+          iconSize: [null, null],
+          iconAnchor: [0, 30]
         })
 
-        marker.addListener('click', () => {
-          setSelectedCluster({ listings: [listing], isCluster: false })
-        })
-
-        newMarkers.push(marker)
+        const marker = window.L.marker([cluster.lat, cluster.lng], { icon: customIcon })
+          .addTo(map)
+          .on('click', () => {
+            setSelectedCluster({ listings: [listing], isCluster: false })
+          })
       } else {
         // Cluster marker
         const minPrice = Math.min(...cluster.listings.map(l => l.price))
@@ -189,35 +189,30 @@ export default function MapView({ listings, onListingSelect }) {
         const minFormatted = minPrice.toLocaleString()
         const maxFormatted = maxPrice.toLocaleString()
 
-        const marker = new window.google.maps.Marker({
-          position: { lat: cluster.lat, lng: cluster.lng },
-          map: map,
-          title: `${cluster.listings.length} properties`,
-          icon: {
-            url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
-              <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48">
-                <circle cx="24" cy="24" r="22" fill="#3b82f6" stroke="#2563eb" stroke-width="2"/>
-                <text x="24" y="30" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="white">${cluster.listings.length}</text>
-              </svg>
-            `),
-            scaledSize: new window.google.maps.Size(48, 48),
-            anchor: new window.google.maps.Point(24, 24)
-          }
+        const clusterHtml = `
+          <div class="bg-blue-500 border-2 border-blue-600 rounded-full w-12 h-12 flex items-center justify-center shadow-lg text-white font-bold text-sm">
+            ${cluster.listings.length}
+          </div>
+        `
+
+        const clusterIcon = window.L.divIcon({
+          html: clusterHtml,
+          className: 'custom-cluster-marker',
+          iconSize: [40, 40],
+          iconAnchor: [20, 20]
         })
 
-        marker.addListener('click', () => {
-          setSelectedCluster({ 
-            listings: cluster.listings, 
-            isCluster: true,
-            priceRange: `${currencySymbol}${minFormatted}-${currencySymbol}${maxFormatted}`
+        const marker = window.L.marker([cluster.lat, cluster.lng], { icon: clusterIcon })
+          .addTo(map)
+          .on('click', () => {
+            setSelectedCluster({ 
+              listings: cluster.listings, 
+              isCluster: true,
+              priceRange: `${currencySymbol}${minFormatted}-${currencySymbol}${maxFormatted}`
+            })
           })
-        })
-
-        newMarkers.push(marker)
       }
     })
-
-    setMarkers(newMarkers)
   }
 
   const handleListingClick = (listing) => {
@@ -357,7 +352,17 @@ export default function MapView({ listings, onListingSelect }) {
         </div>
       )}
 
-
+      <style jsx>{`
+        .custom-price-marker, .custom-cluster-marker {
+          background: transparent !important;
+          border: none !important;
+        }
+        .custom-price-marker div {
+          text-overflow: ellipsis;
+          overflow: hidden;
+          max-width: 80px;
+        }
+      `}</style>
     </div>
   )
 }

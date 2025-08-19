@@ -7,6 +7,7 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
   const [mapLoaded, setMapLoaded] = useState(false)
   const [currentLayer, setCurrentLayer] = useState('street')
   const mapInstanceRef = useRef(null)
+  const layersRef = useRef({})
   const markerRef = useRef(null)
 
   // City coordinates
@@ -29,10 +30,10 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
   useEffect(() => {
     if (isOpen) {
       if (!mapLoaded) {
-        loadGoogleMap()
+        loadLeafletMap()
       } else if (mapInstanceRef.current) {
         setTimeout(() => {
-          window.google.maps.event.trigger(mapInstanceRef.current, 'resize')
+          mapInstanceRef.current.invalidateSize()
         }, 100)
       }
     }
@@ -42,14 +43,22 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
     if (!isOpen && mapInstanceRef.current) {
       setMapLoaded(false)
       mapInstanceRef.current = null
+      layersRef.current = {}
       markerRef.current = null
     }
   }, [isOpen])
 
-  const loadGoogleMap = () => {
-    if (!window.google) {
+  const loadLeafletMap = () => {
+    if (!document.querySelector('link[href*="leaflet"]')) {
+      const link = document.createElement('link')
+      link.rel = 'stylesheet'
+      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css'
+      document.head.appendChild(link)
+    }
+
+    if (!window.L) {
       const script = document.createElement('script')
-      script.src = 'https://maps.googleapis.com/maps/api/js?libraries=geometry'
+      script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
       script.onload = () => {
         initializeMap()
       }
@@ -60,21 +69,38 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
   }
 
   const initializeMap = () => {
-    if (!mapRef.current || !window.google) return
+    if (!mapRef.current || !window.L) return
 
     const center = getCityCenter()
-    const map = new window.google.maps.Map(mapRef.current, {
-      center: { lat: center[0], lng: center[1] },
-      zoom: 13,
-      mapTypeId: currentLayer === 'street' ? 'roadmap' : 'satellite'
-    })
+    const map = window.L.map(mapRef.current).setView(center, 13)
     mapInstanceRef.current = map
 
-    const marker = new window.google.maps.Marker({
-      position: { lat: center[0], lng: center[1] },
-      map: map,
-      draggable: true
+    const streetLayer = window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors',
+      maxZoom: 19
     })
+
+    const satelliteLayer = window.L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      attribution: '© Esri, Maxar, Earthstar Geographics',
+      maxZoom: 19
+    })
+
+    const satelliteLabelsLayer = window.L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+      attribution: '© Esri',
+      maxZoom: 19
+    })
+
+    layersRef.current = {
+      street: streetLayer,
+      satellite: satelliteLayer,
+      satelliteLabels: satelliteLabelsLayer
+    }
+
+    streetLayer.addTo(map)
+
+    const marker = window.L.marker(center, {
+      draggable: true
+    }).addTo(map)
     markerRef.current = marker
 
     const updateLocation = (lat, lng) => {
@@ -82,16 +108,15 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
       setAddress(`${lat.toFixed(6)}, ${lng.toFixed(6)}`)
     }
 
-    marker.addListener('dragend', function() {
-      const position = marker.getPosition()
-      updateLocation(position.lat(), position.lng())
+    marker.on('dragend', function(e) {
+      const position = e.target.getLatLng()
+      updateLocation(position.lat, position.lng)
     })
 
-    map.addListener('click', function(e) {
-      const lat = e.latLng.lat()
-      const lng = e.latLng.lng()
+    map.on('click', function(e) {
+      const { lat, lng } = e.latlng
       if (markerRef.current) {
-        markerRef.current.setPosition({ lat, lng })
+        markerRef.current.setLatLng([lat, lng])
         updateLocation(lat, lng)
       }
     })
@@ -101,14 +126,19 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
   }
 
   const switchMapLayer = (layerType) => {
-    if (!mapInstanceRef.current) return
+    if (!mapInstanceRef.current || !layersRef.current) return
 
     const map = mapInstanceRef.current
     
+    Object.values(layersRef.current).forEach(layer => {
+      map.removeLayer(layer)
+    })
+
     if (layerType === 'street') {
-      map.setMapTypeId('roadmap')
+      layersRef.current.street.addTo(map)
     } else if (layerType === 'satellite') {
-      map.setMapTypeId('satellite')
+      layersRef.current.satellite.addTo(map)
+      layersRef.current.satelliteLabels.addTo(map)
     }
 
     setCurrentLayer(layerType)
