@@ -594,12 +594,20 @@ const translations = {
 }
 
 export function TranslationProvider({ children }) {
-  const [language, setLanguage] = useState('en')
+  const [language, setLanguage] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const savedLanguage = localStorage.getItem('bashfield-language')
+      return (savedLanguage && translations[savedLanguage]) ? savedLanguage : 'en'
+    }
+    return 'en'
+  })
 
   useEffect(() => {
-    const savedLanguage = localStorage.getItem('bashfield-language')
-    if (savedLanguage && translations[savedLanguage]) {
-      setLanguage(savedLanguage)
+    if (typeof window !== 'undefined') {
+      const savedLanguage = localStorage.getItem('bashfield-language')
+      if (savedLanguage && translations[savedLanguage] && savedLanguage !== language) {
+        setLanguage(savedLanguage)
+      }
     }
   }, [])
 

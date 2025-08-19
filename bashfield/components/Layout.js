@@ -609,14 +609,7 @@ export default function Layout({ children }) {
             <span className="text-2xl font-bold">+</span>
           </button>
         )}
-        {/* Scroll to Top Button */}
-        <button
-          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-          className="fixed bottom-6 left-6 w-12 h-12 bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white rounded-full shadow-xl hover:shadow-2xl transition-all duration-300 transform hover:scale-110 z-40 flex items-center justify-center opacity-80 hover:opacity-100"
-          title={t('scrollToTop')}
-        >
-          <span className="text-xl">↑</span>
-        </button>
+
       </main>
       
       {!router.pathname.startsWith('/chat') && !router.pathname.startsWith('/messages') && router.pathname !== '/' && (

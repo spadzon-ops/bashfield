@@ -314,8 +314,8 @@ export default function ListingDetail({ listing: initialListing }) {
                   {listing.title}
                 </h1>
                 <div className="flex items-center justify-between">
-                  <div className="text-4xl sm:text-5xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
-                    {listing?.price?.toLocaleString()} {listing?.currency}
+                  <div className="text-4xl sm:text-5xl font-bold text-green-600">
+                    ${listing?.price?.toLocaleString()}
                     <span className="text-lg text-gray-500 font-normal ml-2">{config?.priceLabel || 'per month'}</span>
                   </div>
                 </div>
@@ -362,7 +362,7 @@ export default function ListingDetail({ listing: initialListing }) {
                         <div className="text-sm text-gray-600">Size</div>
                         <div className="font-semibold text-gray-900">{listing.size_sqm} m²</div>
                         {listing.price && listing.size_sqm && (
-                          <div className="text-xs text-gray-500">{(listing.price / listing.size_sqm).toFixed(1)} {listing.currency}/m²</div>
+                          <div className="text-xs text-gray-500">${(listing.price / listing.size_sqm).toFixed(1)}/m²</div>
                         )}
                       </div>
                     </div>
@@ -542,10 +542,7 @@ export default function ListingDetail({ listing: initialListing }) {
                     <span className="text-gray-600 font-medium">City</span>
                     <span className="font-semibold text-gray-900">{listing.city.charAt(0).toUpperCase() + listing.city.slice(1)}</span>
                   </div>
-                  <div className="flex justify-between items-center py-2 border-b border-gray-200/50">
-                    <span className="text-gray-600 font-medium">Currency</span>
-                    <span className="font-semibold text-gray-900">{listing.currency}</span>
-                  </div>
+
                   {(listing.latitude && listing.longitude) && (
                     <div className="flex justify-between items-start py-2">
                       <span className="text-gray-600 font-medium">Address</span>

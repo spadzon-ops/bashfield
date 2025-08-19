@@ -286,8 +286,8 @@ export default function ListingCard({
               </h3>
               <div className="flex items-center justify-between">
                 <div className="text-right">
-                  <div className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent">
-                    {listing.price.toLocaleString()} {listing.currency} <span className="text-sm text-gray-500 font-normal">{config?.priceLabel || 'per month'}</span>
+                  <div className="text-2xl md:text-3xl font-bold text-green-600">
+                    ${listing.price.toLocaleString()} <span className="text-sm text-gray-500 font-normal">{config?.priceLabel || 'per month'}</span>
                   </div>
                 </div>
               </div>
@@ -478,8 +478,8 @@ export default function ListingCard({
             </h3>
             <div className="flex items-center justify-between">
               <div className="text-right">
-                <div className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-700 bg-clip-text text-transparent">
-                  {listing.price.toLocaleString()} {listing.currency} <span className="text-xs text-gray-500 font-normal">{config?.priceLabel || 'per month'}</span>
+                <div className="text-xl sm:text-2xl font-bold text-green-600">
+                  ${listing.price.toLocaleString()} <span className="text-xs text-gray-500 font-normal">{config?.priceLabel || 'per month'}</span>
                 </div>
               </div>
             </div>
