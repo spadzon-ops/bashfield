@@ -181,18 +181,17 @@ export default function ListingCard({
           >
             {firstImageUrl ? (
               <>
-                {!imageLoaded && (
-                  <div className="absolute inset-0 bg-gray-200 animate-pulse flex items-center justify-center">
-                    <span className="text-4xl text-gray-400">🏠</span>
-                  </div>
-                )}
+                <div className="absolute inset-0 bg-gray-200 flex items-center justify-center">
+                  <span className="text-4xl text-gray-400">🏠</span>
+                </div>
                 <img
                   src={firstImageUrl}
                   alt={listing.title}
-                  className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ${!imageLoaded ? 'opacity-0' : 'opacity-100'}`}
+                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                   onLoad={() => setImageLoaded(true)}
                   onError={() => setImageError(true)}
-                  loading="lazy"
+                  loading="eager"
+                  style={{ minHeight: '100%', minWidth: '100%' }}
                 />
                 {listing.images.length > 1 && (
                   <>
@@ -369,29 +368,28 @@ export default function ListingCard({
   }
   
   return (
-    <div data-listing-card className="bg-white rounded-3xl shadow-lg overflow-hidden group hover:shadow-2xl transition-all duration-500 transform hover:-translate-y-3 hover:scale-105 border border-gray-100/50 backdrop-blur-sm flex flex-col h-full">
+    <div data-listing-card className="bg-white rounded-3xl shadow-lg overflow-hidden group hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 border border-gray-100/50 backdrop-blur-sm flex flex-col h-full">
       <div className={`flex flex-col h-full ${!showActions ? 'cursor-pointer' : ''}`} onClick={!showActions ? handleCardClick : undefined}>
         {/* Enhanced Image Carousel */}
         <div
-          className="relative h-48 sm:h-52 bg-gradient-to-br from-gray-100 to-gray-200 overflow-hidden"
+          className="relative h-48 sm:h-52 bg-gray-200 overflow-hidden"
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
         >
           {firstImageUrl ? (
             <>
-              {!imageLoaded && (
-                <div className="absolute inset-0 bg-gray-200 animate-pulse flex items-center justify-center">
-                  <span className="text-4xl text-gray-400">🏠</span>
-                </div>
-              )}
+              <div className="absolute inset-0 bg-gray-200 flex items-center justify-center">
+                <span className="text-4xl text-gray-400">🏠</span>
+              </div>
               <img
                 src={firstImageUrl}
                 alt={listing.title}
-                className={`w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 ${!imageLoaded ? 'opacity-0' : 'opacity-100'}`}
+                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                 onLoad={() => setImageLoaded(true)}
                 onError={() => setImageError(true)}
-                loading="lazy"
+                loading="eager"
+                style={{ minHeight: '100%', minWidth: '100%' }}
               />
               {listing.images.length > 1 && (
                 <>
