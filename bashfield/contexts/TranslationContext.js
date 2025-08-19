@@ -45,6 +45,13 @@ const translations = {
     
     // Filter Units
     plusSquareMeters: "+ m²",
+    minSizePlaceholder: "Min size (m²)",
+    minPricePlaceholder: "Min price",
+    maxPricePlaceholder: "Max price",
+    propertyTitlePlaceholder: "e.g., Modern 2-bedroom apartment in central Erbil",
+    descriptionPlaceholder: "Describe your property, amenities, and nearby services...",
+    whatsappPlaceholder: "+964 750 123 4567",
+    sizePlaceholder: "e.g., 120",
     
     // Mode Config
     renting: "Renting",
@@ -623,7 +630,8 @@ export function TranslationProvider({ children }) {
       // Server-side rendering fallback
       return translations.en[key] || key
     }
-    return translations[language][key] || translations.en[key] || key
+    const translation = translations[language]?.[key] || translations.en[key]
+    return translation || key
   }
 
   return (
