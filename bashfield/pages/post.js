@@ -38,6 +38,51 @@ export default function Post() {
     getUser()
   }, [])
 
+  const compressImage = (file, maxSizeKB = 200) => {
+    return new Promise((resolve) => {
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
+      const img = new Image()
+      
+      img.onload = () => {
+        const maxWidth = 1200
+        const maxHeight = 800
+        let { width, height } = img
+        
+        if (width > height) {
+          if (width > maxWidth) {
+            height = (height * maxWidth) / width
+            width = maxWidth
+          }
+        } else {
+          if (height > maxHeight) {
+            width = (width * maxHeight) / height
+            height = maxHeight
+          }
+        }
+        
+        canvas.width = width
+        canvas.height = height
+        ctx.drawImage(img, 0, 0, width, height)
+        
+        let quality = 0.8
+        const compress = () => {
+          canvas.toBlob((blob) => {
+            if (blob.size <= maxSizeKB * 1024 || quality <= 0.1) {
+              resolve(blob)
+            } else {
+              quality -= 0.1
+              compress()
+            }
+          }, 'image/jpeg', quality)
+        }
+        compress()
+      }
+      
+      img.src = URL.createObjectURL(file)
+    })
+  }
+
   const handleImageUpload = async (e) => {
     const files = Array.from(e.target.files)
     if (files.length > 10) {
@@ -49,18 +94,25 @@ export default function Post() {
     const uploadedImages = []
 
     for (const file of files) {
-      if (file.size > 5 * 1024 * 1024) {
-        alert(`${file.name} ${t('imageTooLarge')}`)
+      if (file.size > 10 * 1024 * 1024) {
+        alert(`${file.name} is too large (max 10MB)`)
         continue
       }
 
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}-${file.name}`
-      const { data, error } = await supabase.storage
-        .from('house-images')
-        .upload(fileName, file)
+      try {
+        const compressedBlob = await compressImage(file, 200)
+        const compressedFile = new File([compressedBlob], file.name, { type: 'image/jpeg' })
+        
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}-${file.name.replace(/\.[^/.]+$/, '')}.jpg`
+        const { data, error } = await supabase.storage
+          .from('house-images')
+          .upload(fileName, compressedFile)
 
-      if (!error) {
-        uploadedImages.push(fileName)
+        if (!error) {
+          uploadedImages.push(fileName)
+        }
+      } catch (err) {
+        console.error('Error compressing image:', err)
       }
     }
 
@@ -417,7 +469,8 @@ export default function Post() {
                     <h3 className="text-lg font-semibold text-gray-900 mb-2">
                       {imageLoading ? t('uploadingImages') : t('uploadImages')}
                     </h3>
-                    <p className="text-gray-600 mb-4">{t('addHighQualityPhotos')}</p>
+                    <p className="text-gray-600 mb-2">{t('addHighQualityPhotos')}</p>
+                    <p className="text-sm text-blue-600 mb-4">Images will be automatically compressed to 200KB for optimal loading</p>
                     <div className={`px-6 py-2 rounded-lg inline-block transition-colors ${
                       imageLoading 
                         ? 'bg-gray-400 cursor-not-allowed' 
