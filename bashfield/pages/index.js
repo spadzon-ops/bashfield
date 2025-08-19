@@ -433,7 +433,7 @@ export default function Home() {
                   <select
                     value={filters.propertyType}
                     onChange={(e) => setFilters(prev => ({ ...prev, propertyType: e.target.value }))}
-                    className="w-full px-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-gray-900 font-medium"
+                    className="w-full px-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-gray-900 font-medium text-xs sm:text-sm"
                   >
                     <option value="">{t('allTypes')}</option>
                     {PROPERTY_TYPES.map(type => (
@@ -444,7 +444,7 @@ export default function Home() {
                   <select
                     value={filters.city}
                     onChange={(e) => setFilters(prev => ({ ...prev, city: e.target.value }))}
-                    className="w-full px-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-gray-900 font-medium"
+                    className="w-full px-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-gray-900 font-medium text-xs sm:text-sm"
                   >
                     <option value="">{t('allCities')}</option>
                     {CITIES.map(city => (
@@ -455,7 +455,7 @@ export default function Home() {
                   <select
                     value={filters.rooms}
                     onChange={(e) => setFilters(prev => ({ ...prev, rooms: e.target.value }))}
-                    className="w-full px-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-gray-900 font-medium"
+                    className="w-full px-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-gray-900 font-medium text-xs sm:text-sm"
                   >
                     <option value="">{t('anyRooms')}</option>
                     <option value="1">{t('onePlusRoom')}</option>
@@ -467,35 +467,38 @@ export default function Home() {
                   
                   <input
                     type="number"
+                    min="0"
                     placeholder={t('minSizePlaceholder')}
                     value={filters.minSize || ''}
                     onChange={(e) => {
-                      const value = e.target.value
-                      setFilters(prev => ({ ...prev, minSize: value }))
+                      const value = Math.max(0, parseInt(e.target.value) || 0)
+                      setFilters(prev => ({ ...prev, minSize: value || '' }))
                     }}
-                    className="w-full px-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-gray-900 font-medium"
+                    className="w-full px-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-gray-900 font-medium placeholder:text-xs sm:placeholder:text-sm"
                   />
                   
                   <input
                     type="number"
+                    min="0"
                     placeholder={t('minPricePlaceholder')}
                     value={filters.minPrice || ''}
                     onChange={(e) => {
-                      const value = e.target.value
-                      setFilters(prev => ({ ...prev, minPrice: value }))
+                      const value = Math.max(0, parseInt(e.target.value) || 0)
+                      setFilters(prev => ({ ...prev, minPrice: value || '' }))
                     }}
-                    className="w-full px-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-gray-900 font-medium"
+                    className="w-full px-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-gray-900 font-medium placeholder:text-xs sm:placeholder:text-sm"
                   />
                   
                   <input
                     type="number"
+                    min="0"
                     placeholder={t('maxPricePlaceholder')}
                     value={filters.maxPrice || ''}
                     onChange={(e) => {
-                      const value = e.target.value
-                      setFilters(prev => ({ ...prev, maxPrice: value }))
+                      const value = Math.max(0, parseInt(e.target.value) || 0)
+                      setFilters(prev => ({ ...prev, maxPrice: value || '' }))
                     }}
-                    className="w-full px-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-gray-900 font-medium"
+                    className="w-full px-4 py-3 rounded-xl bg-gray-50 border-2 border-gray-200 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 transition-all text-gray-900 font-medium placeholder:text-xs sm:placeholder:text-sm"
                   />
                 </div>
                 
