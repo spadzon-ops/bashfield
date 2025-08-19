@@ -595,34 +595,29 @@ export async function getServerSideProps({ params, locale, query }) {
       .single()
 
     if (listingError || !listingData) {
-        // If admin param is present, let client-side handle it
-      if (admin === 'true') {
-        return {
-          props: {
-            listing: null,
-            ...(await serverSideTranslations(locale, ['common'])),
-          },
-        }
-      }
       return {
-        notFound: true,
+        props: {
+          listing: null,
+          ...(await serverSideTranslations(locale, ['common'])),
+        },
       }
     }
 
-    // For approved and active listings, always allow access
-    if (listingData.status === 'approved' && listingData.is_active !== false) {
-      const { data: profileData } = await supabase
-        .from('user_profiles')
-        .select('display_name, profile_picture')
-        .eq('user_id', listingData.user_id)
-        .single()
+    // Get profile data
+    const { data: profileData } = await supabase
+      .from('user_profiles')
+      .select('display_name, profile_picture')
+      .eq('user_id', listingData.user_id)
+      .single()
 
-      const listing = {
-        ...listingData,
-        user_profiles: profileData || null,
-        owner_name: profileData?.display_name || listingData.user_email?.split('@')[0] || 'Property Owner'
-      }
+    const listing = {
+      ...listingData,
+      user_profiles: profileData || null,
+      owner_name: profileData?.display_name || listingData.user_email?.split('@')[0] || 'Property Owner'
+    }
 
+    // For admin access, always return the listing
+    if (admin === 'true') {
       return {
         props: {
           listing,
@@ -631,20 +626,8 @@ export async function getServerSideProps({ params, locale, query }) {
       }
     }
 
-    // For non-approved listings, only allow if admin param is present
-    if (admin === 'true') {
-      const { data: profileData } = await supabase
-        .from('user_profiles')
-        .select('display_name, profile_picture')
-        .eq('user_id', listingData.user_id)
-        .single()
-
-      const listing = {
-        ...listingData,
-        user_profiles: profileData || null,
-        owner_name: profileData?.display_name || listingData.user_email?.split('@')[0] || 'Property Owner'
-      }
-
+    // For regular users, only show approved and active listings
+    if (listingData.status === 'approved' && listingData.is_active !== false) {
       return {
         props: {
           listing,
@@ -659,17 +642,11 @@ export async function getServerSideProps({ params, locale, query }) {
     }
   } catch (error) {
     console.error('Error in getServerSideProps:', error)
-    // If admin param is present, let client-side handle it
-    if (admin === 'true') {
-      return {
-        props: {
-          listing: null,
-          ...(await serverSideTranslations(locale, ['common'])),
-        },
-      }
-    }
     return {
-      notFound: true,
+      props: {
+        listing: null,
+        ...(await serverSideTranslations(locale, ['common'])),
+      },
     }
   }
 }

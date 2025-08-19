@@ -609,7 +609,7 @@ export default function AdminPage() {
                     </div>
 
                     {/* Posted by (clickable) */}
-                    <Link href={poster ? `/admin/profile/${poster.user_id}` : '#'} className="flex items-center gap-2 group w-fit">
+                    <Link href={poster ? `/profile/${poster.user_id}` : '#'} className="flex items-center gap-2 group w-fit">
                       {avatar ? (
                         <img src={avatar} className="w-7 h-7 rounded-full object-cover" alt="Posted by" />
                       ) : (
