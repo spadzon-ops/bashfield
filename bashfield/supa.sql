@@ -25,6 +25,10 @@ alter table public.user_profiles add column if not exists bio text default '';
 -- Add verification column if it doesn't exist
 alter table public.user_profiles add column if not exists is_verified boolean default false;
 
+-- Add warning system columns (admin only)
+alter table public.user_profiles add column if not exists warning_level text default 'none' check (warning_level in ('none', 'yellow', 'red'));
+alter table public.user_profiles add column if not exists warning_reason text default '';
+
 alter table public.user_profiles enable row level security;
 
 -- Drop any old/new policy names (idempotent)
