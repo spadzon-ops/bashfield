@@ -47,8 +47,8 @@ export default function ListingDetail({ listing: initialListing }) {
   }
 
   useEffect(() => {
-    // If no initial listing and we have admin param, fetch client-side
-    if (!initialListing && router.query.admin === 'true' && router.query.id) {
+    // If no initial listing, fetch client-side
+    if (!initialListing && router.query.id) {
       fetchListingClientSide()
     }
   }, [router.query, initialListing])
@@ -77,7 +77,7 @@ export default function ListingDetail({ listing: initialListing }) {
       const fullListing = {
         ...listingData,
         user_profiles: profileData || null,
-        owner_name: profileData?.display_name || listingData.user_email?.split('@')[0] || 'Property Owner'
+        owner_name: profileData?.display_name || 'Property Owner'
       }
 
       setListing(fullListing)
@@ -613,7 +613,7 @@ export async function getServerSideProps({ params, locale, query }) {
     const listing = {
       ...listingData,
       user_profiles: profileData || null,
-      owner_name: profileData?.display_name || listingData.user_email?.split('@')[0] || 'Property Owner'
+      owner_name: profileData?.display_name || 'Property Owner'
     }
 
     // For admin access, always return the listing
