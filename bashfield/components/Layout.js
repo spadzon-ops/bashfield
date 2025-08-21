@@ -35,32 +35,55 @@ export default function Layout({ children }) {
 
   // Scroll behavior
   useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 1024)
+    let ticking = false
     
-    const handleScroll = () => {
-      if (window.innerWidth >= 1024) return
-      
+    const updateNavVisibility = () => {
       const currentScrollY = window.scrollY
+      const isMobileView = window.innerWidth < 1024
       
-      if (currentScrollY < 10) {
+      if (!isMobileView) {
         setNavVisible(true)
-      } else if (currentScrollY > lastScrollY.current && currentScrollY > 100) {
+        setIsMobile(false)
+        return
+      }
+      
+      setIsMobile(true)
+      
+      if (currentScrollY <= 50) {
+        setNavVisible(true)
+      } else if (currentScrollY > lastScrollY.current + 5) {
+        // Scrolling down
         setNavVisible(false)
         setMobileMenuOpen(false)
-      } else if (currentScrollY < lastScrollY.current) {
+      } else if (currentScrollY < lastScrollY.current - 5) {
+        // Scrolling up
         setNavVisible(true)
       }
       
       lastScrollY.current = currentScrollY
+      ticking = false
     }
     
-    checkMobile()
-    window.addEventListener('resize', checkMobile)
+    const handleScroll = () => {
+      if (!ticking) {
+        requestAnimationFrame(updateNavVisibility)
+        ticking = true
+      }
+    }
+    
+    const handleResize = () => {
+      updateNavVisibility()
+    }
+    
+    // Initial setup
+    updateNavVisibility()
+    
     window.addEventListener('scroll', handleScroll, { passive: true })
+    window.addEventListener('resize', handleResize)
     
     return () => {
-      window.removeEventListener('resize', checkMobile)
       window.removeEventListener('scroll', handleScroll)
+      window.removeEventListener('resize', handleResize)
     }
   }, [])
 
