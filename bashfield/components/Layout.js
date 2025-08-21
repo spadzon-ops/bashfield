@@ -35,56 +35,29 @@ export default function Layout({ children }) {
 
   // Scroll behavior
   useEffect(() => {
-    let ticking = false
-    
-    const updateNavVisibility = () => {
+    const handleScroll = () => {
       const currentScrollY = window.scrollY
       const isMobileView = window.innerWidth < 1024
       
       if (!isMobileView) {
         setNavVisible(true)
-        setIsMobile(false)
         return
       }
       
-      setIsMobile(true)
-      
-      if (currentScrollY <= 50) {
+      if (currentScrollY <= 10) {
         setNavVisible(true)
-      } else if (currentScrollY > lastScrollY.current + 5) {
-        // Scrolling down
+      } else if (currentScrollY > lastScrollY.current && currentScrollY > 80) {
         setNavVisible(false)
         setMobileMenuOpen(false)
-      } else if (currentScrollY < lastScrollY.current - 5) {
-        // Scrolling up
+      } else if (currentScrollY < lastScrollY.current) {
         setNavVisible(true)
       }
       
       lastScrollY.current = currentScrollY
-      ticking = false
     }
-    
-    const handleScroll = () => {
-      if (!ticking) {
-        requestAnimationFrame(updateNavVisibility)
-        ticking = true
-      }
-    }
-    
-    const handleResize = () => {
-      updateNavVisibility()
-    }
-    
-    // Initial setup
-    updateNavVisibility()
     
     window.addEventListener('scroll', handleScroll, { passive: true })
-    window.addEventListener('resize', handleResize)
-    
-    return () => {
-      window.removeEventListener('scroll', handleScroll)
-      window.removeEventListener('resize', handleResize)
-    }
+    return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
   const getUser = async () => {
@@ -273,10 +246,10 @@ export default function Layout({ children }) {
   const isAdmin = user?.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className={`bg-white/95 backdrop-blur-lg shadow-xl border-b border-gray-200/50 fixed top-0 left-0 right-0 z-50 transition-transform duration-300 ${!navVisible && isMobile ? '-translate-y-full' : 'translate-y-0'}`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-18">
+    <div className="min-h-screen bg-gray-50" style={{ paddingTop: '72px' }}>
+      <nav className={`bg-white/95 backdrop-blur-lg shadow-xl border-b border-gray-200/50 fixed top-0 left-0 right-0 z-50 transition-transform duration-300 ease-in-out ${navVisible ? 'translate-y-0' : '-translate-y-full'}`} style={{ height: '72px' }}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full">
+          <div className="flex justify-between items-center h-full">
             <div className="flex items-center">
               <div className="flex items-center space-x-4 cursor-pointer group" onClick={() => router.push('/')}>
                 <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl flex items-center justify-center shadow-xl group-hover:shadow-2xl transition-all duration-300 group-hover:scale-110 relative overflow-hidden">
@@ -654,7 +627,7 @@ export default function Layout({ children }) {
         </div>
       </nav>
       
-      <main className="relative pt-[72px]">
+      <main className="relative">
         {children}
         {/* Floating Action Buttons */}
         {user && router.pathname === '/' && (
