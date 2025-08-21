@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/router'
 import { useTranslation } from '../contexts/TranslationContext'
 import { supabase } from '../lib/supabase'
@@ -13,8 +13,40 @@ export default function Layout({ children }) {
   const [initialLoad, setInitialLoad] = useState(true)
   const [unreadCount, setUnreadCount] = useState(0)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [navVisible, setNavVisible] = useState(true)
+  const lastScrollY = useRef(0)
+  const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
+    // Check if mobile
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 1024)
+    }
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    
+    // Smart navigation scroll behavior
+    const handleScroll = () => {
+      if (window.innerWidth >= 1024) return // Desktop - always visible
+      
+      const currentScrollY = window.scrollY
+      
+      if (currentScrollY < 10) {
+        setNavVisible(true)
+      } else if (currentScrollY > lastScrollY.current && currentScrollY > 100) {
+        // Scrolling down & past threshold
+        setNavVisible(false)
+        setMobileMenuOpen(false)
+      } else if (currentScrollY < lastScrollY.current) {
+        // Scrolling up
+        setNavVisible(true)
+      }
+      
+      lastScrollY.current = currentScrollY
+    }
+    
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    
     getUser()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -27,7 +59,11 @@ export default function Layout({ children }) {
       }
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      subscription.unsubscribe()
+      window.removeEventListener('resize', checkMobile)
+      window.removeEventListener('scroll', handleScroll)
+    }
   }, [])
 
   const getUser = async () => {
@@ -217,7 +253,7 @@ export default function Layout({ children }) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white/95 backdrop-blur-lg shadow-xl border-b border-gray-200/50 sticky top-0 z-50">
+      <nav className={`bg-white/95 backdrop-blur-lg shadow-xl border-b border-gray-200/50 sticky top-0 z-50 transition-transform duration-300 ${!navVisible && isMobile ? '-translate-y-full' : 'translate-y-0'}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-18">
             <div className="flex items-center">
