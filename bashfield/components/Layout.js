@@ -18,35 +18,6 @@ export default function Layout({ children }) {
   const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
-    // Check if mobile
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 1024)
-    }
-    checkMobile()
-    window.addEventListener('resize', checkMobile)
-    
-    // Smart navigation scroll behavior
-    const handleScroll = () => {
-      if (window.innerWidth >= 1024) return // Desktop - always visible
-      
-      const currentScrollY = window.scrollY
-      
-      if (currentScrollY < 10) {
-        setNavVisible(true)
-      } else if (currentScrollY > lastScrollY.current && currentScrollY > 100) {
-        // Scrolling down & past threshold
-        setNavVisible(false)
-        setMobileMenuOpen(false)
-      } else if (currentScrollY < lastScrollY.current) {
-        // Scrolling up
-        setNavVisible(true)
-      }
-      
-      lastScrollY.current = currentScrollY
-    }
-    
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    
     getUser()
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -59,8 +30,35 @@ export default function Layout({ children }) {
       }
     })
 
+    return () => subscription.unsubscribe()
+  }, [])
+
+  // Scroll behavior
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 1024)
+    
+    const handleScroll = () => {
+      if (window.innerWidth >= 1024) return
+      
+      const currentScrollY = window.scrollY
+      
+      if (currentScrollY < 10) {
+        setNavVisible(true)
+      } else if (currentScrollY > lastScrollY.current && currentScrollY > 100) {
+        setNavVisible(false)
+        setMobileMenuOpen(false)
+      } else if (currentScrollY < lastScrollY.current) {
+        setNavVisible(true)
+      }
+      
+      lastScrollY.current = currentScrollY
+    }
+    
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    
     return () => {
-      subscription.unsubscribe()
       window.removeEventListener('resize', checkMobile)
       window.removeEventListener('scroll', handleScroll)
     }
