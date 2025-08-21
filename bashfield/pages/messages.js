@@ -177,7 +177,11 @@ export default function Messages() {
     const prev = activeConversationRef.current
     if (prev) await markAsRead(prev.id)
     setActiveConversation(null)
-    router.replace(`/messages`, undefined, { shallow: true })
+    if (window.innerWidth < 768) {
+      window.history.replaceState(null, '', '/messages')
+    } else {
+      router.replace(`/messages`, undefined, { shallow: true })
+    }
   }
 
   // global flag for Section 1/2 muting
@@ -203,6 +207,26 @@ export default function Messages() {
     router.events.on('routeChangeStart', handleRouteChange)
     return () => router.events.off('routeChangeStart', handleRouteChange)
   }, [router.events])
+
+  // Handle browser back button on mobile
+  useEffect(() => {
+    const handlePopState = (e) => {
+      if (activeConversation && window.innerWidth < 768) {
+        e.preventDefault()
+        leaveActiveConversation()
+        window.history.pushState(null, '', '/messages')
+      }
+    }
+    
+    if (activeConversation && window.innerWidth < 768) {
+      window.history.pushState(null, '', window.location.href)
+      window.addEventListener('popstate', handlePopState)
+    }
+    
+    return () => {
+      window.removeEventListener('popstate', handlePopState)
+    }
+  }, [activeConversation])
 
   // Deep-link bootstrap (runs once)
   useEffect(() => {
@@ -243,19 +267,7 @@ export default function Messages() {
         } catch {}
       }
 
-      if (!bootstrappedRef.current && !activeConversationRef.current && conversations.length > 0) {
-        const now = Date.now()
-        const candidate = conversations.find((c) => {
-          const lastAt = c.last_message?.created_at ? new Date(c.last_message.created_at).getTime() : 0
-          const updatedAt = c.updated_at ? new Date(c.updated_at).getTime() : 0
-          return (now - Math.max(lastAt, updatedAt) < 2 * 60 * 1000) || (updatedAt >= mountedAtRef.current)
-        })
-        if (candidate) {
-          await selectConversation(candidate)
-          bootstrappedRef.current = true
-          return
-        }
-      }
+      // Don't auto-select any conversation by default
       bootstrappedRef.current = true
     })()
   }, [router.isReady, conversations]) // eslint-disable-line
@@ -535,7 +547,11 @@ export default function Messages() {
                   <div className="p-6 border-b border-gray-200/50 bg-gradient-to-r from-white to-gray-50 flex-none">
                     <div className="flex items-center space-x-4">
                       <button 
-                        onClick={leaveActiveConversation} 
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          leaveActiveConversation()
+                        }} 
                         className="md:hidden text-gray-600 hover:text-blue-600 p-2 rounded-xl hover:bg-blue-50 transition-all duration-300"
                       >
                         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
