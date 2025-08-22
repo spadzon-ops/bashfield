@@ -597,7 +597,7 @@ export default function Layout({ children }) {
         </div>
       </nav>
       
-      <main className="relative pt-20">
+      <main className="relative">
         {children}
         {/* Floating Action Buttons */}
         {user && router.pathname === '/' && (
