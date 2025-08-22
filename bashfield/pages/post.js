@@ -165,7 +165,7 @@ export default function Post() {
         size_sqm: parseInt(formData.size_sqm) || null,
         property_type: formData.property_type,
         listing_mode: mode,
-        has_installments: mode === 'buy' ? formData.has_installments : false
+        has_installments: (mode === 'buy' || mode === 'sale') ? formData.has_installments : false
       }
 
       const { error } = await supabase
@@ -312,7 +312,7 @@ export default function Post() {
                   )}
                 </div>
 
-                {mode === 'buy' && (
+                {(mode === 'buy' || mode === 'sale') && (
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                     <div className="flex items-start space-x-3">
                       <input
@@ -560,7 +560,7 @@ export default function Post() {
                     <div><strong>{t('size')}</strong> {formData.size_sqm ? `${formData.size_sqm} m²` : t('notSpecified')}</div>
                     <div><strong>{t('city')}</strong> {formData.city.charAt(0).toUpperCase() + formData.city.slice(1)}</div>
                     <div><strong>{t('whatsapp')}</strong> {formData.phone}</div>
-                    {mode === 'buy' && formData.has_installments && (
+                    {(mode === 'buy' || mode === 'sale') && formData.has_installments && (
                       <div><strong>Installments:</strong> Available</div>
                     )}
                     <div><strong>{t('imagesLabel')}</strong> {formData.images.length} {t('uploaded')}</div>
