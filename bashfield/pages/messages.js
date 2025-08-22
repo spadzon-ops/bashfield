@@ -455,7 +455,7 @@ export default function Messages() {
 
   return (
     <div className="h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-1">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl h-[calc(100vh-80px)] min-h-0 border border-gray-200/50 overflow-hidden">
           <div className="flex h-full min-h-0">
             {/* Enhanced Conversations List */}
