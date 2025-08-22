@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { useTranslation } from '../contexts/TranslationContext'
 import { supabase } from '../lib/supabase'
@@ -13,8 +13,7 @@ export default function Layout({ children }) {
   const [initialLoad, setInitialLoad] = useState(true)
   const [unreadCount, setUnreadCount] = useState(0)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [navVisible, setNavVisible] = useState(true)
-  const lastScrollY = useRef(0)
+  const [scrolled, setScrolled] = useState(false)
 
   useEffect(() => {
     getUser()
@@ -32,26 +31,30 @@ export default function Layout({ children }) {
     return () => subscription.unsubscribe()
   }, [])
 
-  // Scroll behavior for mobile only
   useEffect(() => {
+    let lastScroll = 0
+    
     const handleScroll = () => {
-      if (window.innerWidth >= 1024) return // Desktop - always visible
+      const currentScroll = window.pageYOffset
       
-      const currentScrollY = window.scrollY
-      
-      if (currentScrollY < 20) {
-        setNavVisible(true)
-      } else if (currentScrollY > lastScrollY.current && currentScrollY > 100) {
-        setNavVisible(false)
-        setMobileMenuOpen(false)
-      } else if (currentScrollY < lastScrollY.current - 20) {
-        setNavVisible(true)
+      if (currentScroll <= 0) {
+        setScrolled(false)
+        return
       }
       
-      lastScrollY.current = currentScrollY
+      if (currentScroll > lastScroll && currentScroll > 80) {
+        // Scrolling down
+        setScrolled(true)
+        setMobileMenuOpen(false)
+      } else if (currentScroll < lastScroll) {
+        // Scrolling up
+        setScrolled(false)
+      }
+      
+      lastScroll = currentScroll
     }
     
-    window.addEventListener('scroll', handleScroll, { passive: true })
+    window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
@@ -242,7 +245,7 @@ export default function Layout({ children }) {
 
   return (
     <div className="min-h-screen bg-gray-50" style={{ paddingTop: '72px' }}>
-      <nav className={`bg-white/95 backdrop-blur-lg shadow-xl border-b border-gray-200/50 fixed top-0 left-0 right-0 z-50 transition-transform duration-300 ease-in-out ${navVisible ? 'translate-y-0' : '-translate-y-full lg:translate-y-0'}`} style={{ height: '72px' }}>
+      <nav className={`navbar ${scrolled ? 'navbar-hidden' : ''}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full">
           <div className="flex justify-between items-center h-full">
             <div className="flex items-center">
