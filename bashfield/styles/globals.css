@@ -205,13 +205,11 @@ img {
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
 }
 
-/* Fixed header navigation */
-nav[class*="sticky"] {
-  position: fixed !important;
+/* Header stays at top but takes natural space */
+nav {
+  position: sticky !important;
   top: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  z-index: 9999 !important;
+  z-index: 50 !important;
 }
 
 
