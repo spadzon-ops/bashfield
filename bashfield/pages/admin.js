@@ -45,6 +45,14 @@ export default function AdminPage() {
   const [reportReasonFilter, setReportReasonFilter] = useState('all')
   const [reportGroupBy, setReportGroupBy] = useState('none')
   const [reportSearch, setReportSearch] = useState('')
+  const [notifications, setNotifications] = useState([])
+  const [notificationModal, setNotificationModal] = useState(false)
+  const [customNotification, setCustomNotification] = useState({
+    recipient: 'all',
+    title: '',
+    message: '',
+    type: 'info'
+  })
   const [displayedListings, setDisplayedListings] = useState(12)
   const [loadingMoreListings, setLoadingMoreListings] = useState(false)
   const [hasMoreListings, setHasMoreListings] = useState(true)
@@ -76,6 +84,7 @@ export default function AdminPage() {
       await loadStats()
       await loadUsers()
       await loadReports()
+      await loadNotifications()
       setLoading(false)
       
       // Set up real-time subscription for reports
@@ -186,7 +195,26 @@ export default function AdminPage() {
     await loadListings()
   }
   const onReject = async (id) => {
+    const listing = listings.find(l => l.id === id)
+    if (!listing) return
+    
+    const sendNotification = confirm('Send rejection notification to user?')
+    let customMessage = null
+    
+    if (sendNotification) {
+      const useCustom = confirm('Use custom message? (Cancel for default message)')
+      if (useCustom) {
+        customMessage = prompt('Enter custom rejection message:')
+        if (customMessage === null) return // User cancelled
+      }
+    }
+    
     await supabase.from('listings').update({ status: 'rejected' }).eq('id', id)
+    
+    if (sendNotification) {
+      await sendRejectionNotification(id, listing.user_id, customMessage)
+    }
+    
     await loadListings()
   }
   const onDelete = async (id) => {
@@ -411,6 +439,79 @@ export default function AdminPage() {
     }
   }
 
+  const loadNotifications = async () => {
+    const { data } = await supabase
+      .from('notifications')
+      .select(`
+        *,
+        user_profiles!inner(display_name, email)
+      `)
+      .eq('user_profiles.user_id', supabase.raw('notifications.user_id'))
+      .order('created_at', { ascending: false })
+      .limit(100)
+    
+    setNotifications(data || [])
+  }
+
+  const sendCustomNotification = async () => {
+    if (!customNotification.title.trim() || !customNotification.message.trim()) {
+      alert('Please fill in title and message')
+      return
+    }
+
+    try {
+      if (customNotification.recipient === 'all') {
+        // Send to all users
+        const { data: allUsers } = await supabase
+          .from('user_profiles')
+          .select('user_id')
+        
+        if (allUsers) {
+          for (const user of allUsers) {
+            await supabase.rpc('create_notification', {
+              p_user_id: user.user_id,
+              p_title: customNotification.title,
+              p_message: customNotification.message,
+              p_type: customNotification.type
+            })
+          }
+        }
+      } else {
+        // Send to specific user
+        await supabase.rpc('create_notification', {
+          p_user_id: customNotification.recipient,
+          p_title: customNotification.title,
+          p_message: customNotification.message,
+          p_type: customNotification.type
+        })
+      }
+      
+      alert('Notification sent successfully!')
+      setNotificationModal(false)
+      setCustomNotification({ recipient: 'all', title: '', message: '', type: 'info' })
+      await loadNotifications()
+    } catch (error) {
+      console.error('Error sending notification:', error)
+      alert('Error sending notification')
+    }
+  }
+
+  const sendRejectionNotification = async (listingId, userId, customMessage = null) => {
+    const message = customMessage || 'Your property listing has been rejected. Please review our guidelines and resubmit with the necessary corrections.'
+    
+    try {
+      await supabase.rpc('create_notification', {
+        p_user_id: userId,
+        p_title: 'Property Listing Rejected',
+        p_message: message,
+        p_type: 'listing_rejected',
+        p_listing_id: listingId
+      })
+    } catch (error) {
+      console.error('Error sending rejection notification:', error)
+    }
+  }
+
   const filteredUsers = useMemo(() => {
     let filtered = users
     
@@ -569,6 +670,16 @@ export default function AdminPage() {
                 }`}
               >
                 🚨 Reports Management
+              </button>
+              <button
+                onClick={() => setActiveTab('notifications')}
+                className={`py-4 px-2 border-b-3 font-semibold text-sm transition-all duration-300 ${
+                  activeTab === 'notifications'
+                    ? 'border-blue-600 text-blue-700'
+                    : 'border-transparent text-gray-600 hover:text-blue-600'
+                }`}
+              >
+                🔔 Notifications
               </button>
             </nav>
           </div>
@@ -1084,6 +1195,122 @@ export default function AdminPage() {
               )}
             </div>
           )}
+
+          {activeTab === 'notifications' && (
+            <div className="p-8">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Notifications Management</h3>
+                  <p className="text-sm text-gray-600">Send notifications to users and view notification history</p>
+                </div>
+                <button
+                  onClick={() => setNotificationModal(true)}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center space-x-2 shadow-lg hover:shadow-xl"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                  </svg>
+                  <span>Send Notification</span>
+                </button>
+              </div>
+
+              {/* Quick Actions */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+                <button
+                  onClick={() => {
+                    setCustomNotification({
+                      recipient: 'all',
+                      title: 'Platform Maintenance',
+                      message: 'We will be performing scheduled maintenance on our platform. During this time, some features may be temporarily unavailable. We apologize for any inconvenience.',
+                      type: 'warning'
+                    })
+                    setNotificationModal(true)
+                  }}
+                  className="p-4 bg-orange-50 border border-orange-200 rounded-xl hover:bg-orange-100 transition-colors text-left"
+                >
+                  <div className="text-orange-600 font-semibold mb-1">Maintenance Notice</div>
+                  <div className="text-sm text-orange-700">Notify all users about maintenance</div>
+                </button>
+                
+                <button
+                  onClick={() => {
+                    setCustomNotification({
+                      recipient: 'all',
+                      title: 'New Features Available! 🎉',
+                      message: 'We\'ve added exciting new features to improve your experience on Bashfield. Check out the latest updates and discover what\'s new!',
+                      type: 'success'
+                    })
+                    setNotificationModal(true)
+                  }}
+                  className="p-4 bg-green-50 border border-green-200 rounded-xl hover:bg-green-100 transition-colors text-left"
+                >
+                  <div className="text-green-600 font-semibold mb-1">Feature Announcement</div>
+                  <div className="text-sm text-green-700">Announce new features to users</div>
+                </button>
+                
+                <button
+                  onClick={() => {
+                    setCustomNotification({
+                      recipient: 'all',
+                      title: 'Important Security Update',
+                      message: 'For your security, please review and update your account settings. We recommend using strong passwords and enabling two-factor authentication.',
+                      type: 'error'
+                    })
+                    setNotificationModal(true)
+                  }}
+                  className="p-4 bg-red-50 border border-red-200 rounded-xl hover:bg-red-100 transition-colors text-left"
+                >
+                  <div className="text-red-600 font-semibold mb-1">Security Alert</div>
+                  <div className="text-sm text-red-700">Send security notifications</div>
+                </button>
+              </div>
+
+              {/* Notifications History */}
+              <div className="bg-gray-50 rounded-xl p-6">
+                <h4 className="font-semibold text-gray-900 mb-4">Recent Notifications ({notifications.length})</h4>
+                
+                {notifications.length === 0 ? (
+                  <div className="text-center py-8 text-gray-500">
+                    No notifications sent yet.
+                  </div>
+                ) : (
+                  <div className="space-y-3 max-h-96 overflow-y-auto">
+                    {notifications.slice(0, 50).map((notification) => (
+                      <div key={notification.id} className="bg-white rounded-lg p-4 border border-gray-200">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-3 mb-2">
+                              <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                notification.type === 'success' ? 'bg-green-100 text-green-800' :
+                                notification.type === 'warning' ? 'bg-yellow-100 text-yellow-800' :
+                                notification.type === 'error' ? 'bg-red-100 text-red-800' :
+                                notification.type === 'listing_approved' ? 'bg-green-100 text-green-800' :
+                                notification.type === 'listing_rejected' ? 'bg-red-100 text-red-800' :
+                                'bg-blue-100 text-blue-800'
+                              }`}>
+                                {notification.type.replace('_', ' ').toUpperCase()}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                {new Date(notification.created_at).toLocaleString()}
+                              </span>
+                              <span className={`w-2 h-2 rounded-full ${
+                                notification.read ? 'bg-gray-300' : 'bg-blue-500'
+                              }`}></span>
+                            </div>
+                            <h5 className="font-semibold text-gray-900 mb-1">{notification.title}</h5>
+                            <p className="text-sm text-gray-600 mb-2">{notification.message}</p>
+                            <p className="text-xs text-gray-500">
+                              To: {notification.user_profiles?.display_name} ({notification.user_profiles?.email})
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {activeTab === 'listings' && (
@@ -1368,6 +1595,115 @@ export default function AdminPage() {
                   className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
                 >
                   Save Translations
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Custom Notification Modal */}
+        {notificationModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-2xl font-bold text-gray-900 flex items-center space-x-2">
+                    <svg className="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM11 17H6l5 5v-5zM7 7h10l-5-5L7 7z" />
+                    </svg>
+                    <span>Send Notification</span>
+                  </h2>
+                  <button
+                    onClick={() => setNotificationModal(false)}
+                    className="text-gray-500 hover:text-gray-700 text-2xl"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+              
+              <div className="p-6 space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Recipient</label>
+                    <select
+                      value={customNotification.recipient}
+                      onChange={(e) => setCustomNotification(prev => ({ ...prev, recipient: e.target.value }))}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="all">All Users</option>
+                      {users.map(user => (
+                        <option key={user.user_id} value={user.user_id}>
+                          {user.display_name} ({user.email})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
+                    <select
+                      value={customNotification.type}
+                      onChange={(e) => setCustomNotification(prev => ({ ...prev, type: e.target.value }))}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="info">Info</option>
+                      <option value="success">Success</option>
+                      <option value="warning">Warning</option>
+                      <option value="error">Error</option>
+                    </select>
+                  </div>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
+                  <input
+                    type="text"
+                    value={customNotification.title}
+                    onChange={(e) => setCustomNotification(prev => ({ ...prev, title: e.target.value }))}
+                    placeholder="Notification title..."
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Message</label>
+                  <textarea
+                    rows={4}
+                    value={customNotification.message}
+                    onChange={(e) => setCustomNotification(prev => ({ ...prev, message: e.target.value }))}
+                    placeholder="Notification message..."
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  />
+                </div>
+                
+                {/* Preview */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h4 className="font-medium text-gray-900 mb-2">Preview</h4>
+                  <div className={`p-3 rounded-lg border-l-4 ${
+                    customNotification.type === 'success' ? 'bg-green-50 border-green-400' :
+                    customNotification.type === 'warning' ? 'bg-yellow-50 border-yellow-400' :
+                    customNotification.type === 'error' ? 'bg-red-50 border-red-400' :
+                    'bg-blue-50 border-blue-400'
+                  }`}>
+                    <h5 className="font-semibold text-gray-900">{customNotification.title || 'Notification Title'}</h5>
+                    <p className="text-sm text-gray-600 mt-1">{customNotification.message || 'Notification message will appear here...'}</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">
+                <button
+                  onClick={() => setNotificationModal(false)}
+                  className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={sendCustomNotification}
+                  className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                >
+                  Send Notification
                 </button>
               </div>
             </div>

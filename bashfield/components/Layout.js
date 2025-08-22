@@ -13,6 +13,7 @@ export default function Layout({ children }) {
   const [initialLoad, setInitialLoad] = useState(true)
   const [unreadCount, setUnreadCount] = useState(0)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [notificationCount, setNotificationCount] = useState(0)
 
   useEffect(() => {
     getUser()
@@ -36,6 +37,7 @@ export default function Layout({ children }) {
       setUser(user)
       await getUserProfile(user)
       await getUnreadCount(user)
+      await getNotificationCount(user)
     }
     setLoading(false)
     setAuthChecked(true)
@@ -61,6 +63,18 @@ export default function Layout({ children }) {
       
       const newCount = uniqueConversations.length
       setUnreadCount(newCount)
+    }
+  }
+
+  const getNotificationCount = async (user) => {
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('read', false)
+    
+    if (data && !error) {
+      setNotificationCount(data.length)
     }
   }
 
@@ -325,6 +339,26 @@ export default function Layout({ children }) {
                   {unreadCount > 0 && (
                     <span className="absolute -top-1 -right-1 bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-bold shadow-lg animate-pulse">
                       {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
+                </button>
+              )}
+              {user && (
+                <button 
+                  onClick={() => router.push('/notifications')} 
+                  className={`px-4 py-2 rounded-xl font-semibold transition-all duration-300 flex items-center space-x-2 relative ${
+                    router.pathname === '/notifications' 
+                      ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg transform scale-105' 
+                      : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50'
+                  }`}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM11 17H6l5 5v-5zM7 7h10l-5-5L7 7z" />
+                  </svg>
+                  <span>Notifications</span>
+                  {notificationCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs rounded-full w-6 h-6 flex items-center justify-center font-bold shadow-lg animate-pulse">
+                      {notificationCount > 9 ? '9+' : notificationCount}
                     </span>
                   )}
                 </button>
