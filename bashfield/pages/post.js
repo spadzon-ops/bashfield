@@ -201,7 +201,6 @@ export default function Post() {
   const validateStep1 = () => {
     const newErrors = {}
     if (!formData.title?.trim()) newErrors.title = true
-    if (!formData.description?.trim()) newErrors.description = true
     if (!formData.price?.trim()) newErrors.price = true
     if (!formData.phone?.trim()) newErrors.phone = true
     if (!formData.property_type?.trim()) newErrors.property_type = true
@@ -323,7 +322,7 @@ export default function Post() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {t('description')}{language === 'en' ? ' *' : ''}
+                    {t('description')}
                   </label>
                   <textarea
                     required
@@ -334,12 +333,9 @@ export default function Post() {
                     onChange={(e) => {
                       if (e.target.value.length <= 4500) {
                         setFormData(prev => ({ ...prev, description: e.target.value }))
-                        if (errors.description) setErrors(prev => ({ ...prev, description: false }))
                       }
                     }}
-                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none ${
-                      errors.description ? 'border-red-500 bg-red-50' : 'border-gray-300'
-                    }`}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                   />
                   <div className="text-xs text-gray-500 mt-1">{formData.description.length}/4500</div>
                   {formData.has_installments && (
@@ -504,7 +500,7 @@ export default function Post() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {t('propertyLocation')} *
+                    {t('propertyLocation')}
                   </label>
                   <button
                     type="button"
