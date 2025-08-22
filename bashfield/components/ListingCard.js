@@ -543,6 +543,12 @@ export default function ListingCard({
                   {listing.city?.charAt(0).toUpperCase() + listing.city?.slice(1)}
                 </span>
               </div>
+              {listing.listing_mode === 'buy' && listing.has_installments && (
+                <div className="flex items-center space-x-2 bg-yellow-50 rounded-xl px-3 py-2">
+                  <span className="text-yellow-500">💳</span>
+                  <span className="text-sm font-semibold text-gray-700">{t('installments')}</span>
+                </div>
+              )}
             </div>
           </div>
 
