@@ -52,7 +52,6 @@
 
 html {
   @apply bg-slate-50 text-slate-900;
-  scroll-behavior: smooth;
 }
 
 body {
@@ -215,10 +214,7 @@ nav[class*="sticky"] {
   z-index: 9999 !important;
 }
 
-/* Add margin to main content instead of body padding */
-main {
-  margin-top: 72px !important;
-}
+
 
 /* Mobile optimizations */
 @media (max-width: 640px) {
