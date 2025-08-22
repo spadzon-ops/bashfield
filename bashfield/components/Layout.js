@@ -13,7 +13,6 @@ export default function Layout({ children }) {
   const [initialLoad, setInitialLoad] = useState(true)
   const [unreadCount, setUnreadCount] = useState(0)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [scrolled, setScrolled] = useState(false)
 
   useEffect(() => {
     getUser()
@@ -29,33 +28,6 @@ export default function Layout({ children }) {
     })
 
     return () => subscription.unsubscribe()
-  }, [])
-
-  useEffect(() => {
-    let lastScroll = 0
-    
-    const handleScroll = () => {
-      const currentScroll = window.pageYOffset
-      
-      if (currentScroll <= 0) {
-        setScrolled(false)
-        return
-      }
-      
-      if (currentScroll > lastScroll && currentScroll > 80) {
-        // Scrolling down
-        setScrolled(true)
-        setMobileMenuOpen(false)
-      } else if (currentScroll < lastScroll) {
-        // Scrolling up
-        setScrolled(false)
-      }
-      
-      lastScroll = currentScroll
-    }
-    
-    window.addEventListener('scroll', handleScroll)
-    return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
   const getUser = async () => {
@@ -244,10 +216,10 @@ export default function Layout({ children }) {
   const isAdmin = user?.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL
 
   return (
-    <div className="min-h-screen bg-gray-50" style={{ paddingTop: '72px' }}>
-      <nav className={`navbar ${scrolled ? 'navbar-hidden' : ''}`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full">
-          <div className="flex justify-between items-center h-full">
+    <div className="min-h-screen bg-gray-50">
+      <nav className="bg-white/95 backdrop-blur-lg shadow-xl border-b border-gray-200/50 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between h-18">
             <div className="flex items-center">
               <div className="flex items-center space-x-4 cursor-pointer group" onClick={() => router.push('/')}>
                 <div className="w-12 h-12 bg-gradient-to-r from-blue-600 to-blue-700 rounded-2xl flex items-center justify-center shadow-xl group-hover:shadow-2xl transition-all duration-300 group-hover:scale-110 relative overflow-hidden">
