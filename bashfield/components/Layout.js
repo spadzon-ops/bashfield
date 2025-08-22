@@ -273,9 +273,10 @@ export default function Layout({ children }) {
         )
         .subscribe()
 
-      // Also poll for unread count every 3 seconds
+      // Poll for both unread messages and notifications every 3 seconds
       const pollInterval = setInterval(() => {
         getUnreadCount(user)
+        getNotificationCount(user)
       }, 3000)
 
       return () => {
