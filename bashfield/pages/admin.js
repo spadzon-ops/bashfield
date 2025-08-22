@@ -54,6 +54,9 @@ export default function AdminPage() {
     message: '',
     type: 'info'
   })
+  const [notificationSearch, setNotificationSearch] = useState('')
+  const [notificationTypeFilter, setNotificationTypeFilter] = useState('all')
+  const [notificationStatusFilter, setNotificationStatusFilter] = useState('all')
   const [displayedListings, setDisplayedListings] = useState(12)
   const [loadingMoreListings, setLoadingMoreListings] = useState(false)
   const [hasMoreListings, setHasMoreListings] = useState(true)
@@ -476,6 +479,54 @@ export default function AdminPage() {
       setNotifications([])
     }
   }
+
+  const deleteNotification = async (notificationId) => {
+    if (!confirm('Delete this notification? This will remove it for all users.')) return
+    
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('id', notificationId)
+      
+      if (!error) {
+        await loadNotifications()
+        alert('Notification deleted successfully!')
+      }
+    } catch (error) {
+      console.error('Error deleting notification:', error)
+      alert('Error deleting notification')
+    }
+  }
+
+  const filteredNotifications = useMemo(() => {
+    let filtered = notifications
+    
+    // Type filter
+    if (notificationTypeFilter !== 'all') {
+      filtered = filtered.filter(n => n.type === notificationTypeFilter)
+    }
+    
+    // Status filter
+    if (notificationStatusFilter === 'read') {
+      filtered = filtered.filter(n => n.read === true)
+    } else if (notificationStatusFilter === 'unread') {
+      filtered = filtered.filter(n => n.read === false)
+    }
+    
+    // Search filter
+    if (notificationSearch.trim()) {
+      const search = notificationSearch.toLowerCase()
+      filtered = filtered.filter(n => 
+        n.title?.toLowerCase().includes(search) ||
+        n.message?.toLowerCase().includes(search) ||
+        n.user_profiles?.display_name?.toLowerCase().includes(search) ||
+        n.user_profiles?.email?.toLowerCase().includes(search)
+      )
+    }
+    
+    return filtered
+  }, [notifications, notificationTypeFilter, notificationStatusFilter, notificationSearch])
 
   const sendCustomNotification = async () => {
     if (!customNotification.title.trim() || !customNotification.message.trim()) {
@@ -1289,17 +1340,75 @@ export default function AdminPage() {
                 </button>
               </div>
 
+              {/* Notifications Filters */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
+                  <input
+                    value={notificationSearch}
+                    onChange={(e) => setNotificationSearch(e.target.value)}
+                    placeholder="Search notifications..."
+                    className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                  <select
+                    value={notificationTypeFilter}
+                    onChange={(e) => setNotificationTypeFilter(e.target.value)}
+                    className="w-full border border-gray-300 rounded-xl px-4 py-3 transition-all duration-200 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="all">All Types</option>
+                    <option value="info">Info</option>
+                    <option value="success">Success</option>
+                    <option value="warning">Warning</option>
+                    <option value="error">Error</option>
+                    <option value="listing_approved">Listing Approved</option>
+                    <option value="listing_rejected">Listing Rejected</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                  <select
+                    value={notificationStatusFilter}
+                    onChange={(e) => setNotificationStatusFilter(e.target.value)}
+                    className="w-full border border-gray-300 rounded-xl px-4 py-3 transition-all duration-200 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="all">All Status</option>
+                    <option value="read">Read</option>
+                    <option value="unread">Unread</option>
+                  </select>
+                </div>
+                <div className="flex items-end">
+                  <button
+                    onClick={() => {
+                      setNotificationSearch('')
+                      setNotificationTypeFilter('all')
+                      setNotificationStatusFilter('all')
+                    }}
+                    className="w-full bg-gray-600 hover:bg-gray-700 text-white px-4 py-3 rounded-xl transition-colors font-semibold"
+                  >
+                    Clear Filters
+                  </button>
+                </div>
+              </div>
+
               {/* Notifications History */}
               <div className="bg-gray-50 rounded-xl p-6">
-                <h4 className="font-semibold text-gray-900 mb-4">Recent Notifications ({notifications.length})</h4>
+                <div className="flex items-center justify-between mb-4">
+                  <h4 className="font-semibold text-gray-900">Notifications ({filteredNotifications.length})</h4>
+                  <div className="text-sm text-gray-600">
+                    {notifications.length !== filteredNotifications.length && `Filtered from ${notifications.length} total`}
+                  </div>
+                </div>
                 
-                {notifications.length === 0 ? (
+                {filteredNotifications.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">
-                    No notifications sent yet.
+                    {notifications.length === 0 ? 'No notifications sent yet.' : 'No notifications match your filters.'}
                   </div>
                 ) : (
                   <div className="space-y-3 max-h-96 overflow-y-auto">
-                    {notifications.slice(0, 50).map((notification) => (
+                    {filteredNotifications.slice(0, 50).map((notification) => (
                       <div key={notification.id} className="bg-white rounded-lg p-4 border border-gray-200">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
@@ -1326,6 +1435,14 @@ export default function AdminPage() {
                             <p className="text-xs text-gray-500">
                               To: {notification.user_profiles?.display_name} ({notification.user_profiles?.email})
                             </p>
+                          </div>
+                          <div className="flex items-center space-x-2 ml-4">
+                            <button
+                              onClick={() => deleteNotification(notification.id)}
+                              className="px-3 py-1 bg-red-100 text-red-700 rounded-lg text-xs hover:bg-red-200 transition-colors"
+                            >
+                              Delete
+                            </button>
                           </div>
                         </div>
                       </div>
@@ -1650,18 +1767,28 @@ export default function AdminPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Recipient</label>
-                    <select
-                      value={customNotification.recipient}
-                      onChange={(e) => setCustomNotification(prev => ({ ...prev, recipient: e.target.value }))}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="all">All Users</option>
-                      {users.map(user => (
-                        <option key={user.user_id} value={user.user_id}>
-                          {user.display_name} ({user.email})
-                        </option>
-                      ))}
-                    </select>
+                    <div className="relative">
+                      <select
+                        value={customNotification.recipient}
+                        onChange={(e) => setCustomNotification(prev => ({ ...prev, recipient: e.target.value }))}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      >
+                        <option value="all">All Users ({users.length} users)</option>
+                        {users.slice(0, 100).map(user => (
+                          <option key={user.user_id} value={user.user_id}>
+                            {user.display_name} ({user.email})
+                          </option>
+                        ))}
+                        {users.length > 100 && (
+                          <option disabled>... and {users.length - 100} more users</option>
+                        )}
+                      </select>
+                      {users.length > 100 && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          Showing first 100 users. Use "All Users" to send to everyone.
+                        </p>
+                      )}
+                    </div>
                   </div>
                   
                   <div>
