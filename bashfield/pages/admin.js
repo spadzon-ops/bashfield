@@ -1,3 +1,4 @@
+// Fixed supabase.raw() error - v2
 import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
@@ -440,17 +441,40 @@ export default function AdminPage() {
   }
 
   const loadNotifications = async () => {
-    const { data } = await supabase
-      .from('notifications')
-      .select(`
-        *,
-        user_profiles!inner(display_name, email)
-      `)
-      .eq('user_profiles.user_id', supabase.raw('notifications.user_id'))
-      .order('created_at', { ascending: false })
-      .limit(100)
-    
-    setNotifications(data || [])
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(100)
+      
+      if (error) {
+        console.error('Error loading notifications:', error)
+        setNotifications([])
+        return
+      }
+      
+      // Get user profiles for each notification
+      const notificationsWithProfiles = await Promise.all(
+        (data || []).map(async (notification) => {
+          const { data: profileData } = await supabase
+            .from('user_profiles')
+            .select('display_name, email')
+            .eq('user_id', notification.user_id)
+            .single()
+          
+          return {
+            ...notification,
+            user_profiles: profileData
+          }
+        })
+      )
+      
+      setNotifications(notificationsWithProfiles)
+    } catch (error) {
+      console.error('Error in loadNotifications:', error)
+      setNotifications([])
+    }
   }
 
   const sendCustomNotification = async () => {
