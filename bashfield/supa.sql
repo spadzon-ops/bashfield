@@ -150,6 +150,7 @@ alter table public.listings add column if not exists size_sqm integer;
 
 alter table public.listings add column if not exists property_type text default 'apartment' check (property_type in ('apartment', 'house', 'villa', 'studio', 'office', 'shop', 'warehouse', 'land'));
 alter table public.listings add column if not exists listing_mode text default 'rent' check (listing_mode in ('rent', 'sale'));
+alter table public.listings add column if not exists has_installments boolean default false;
 
 
 -- Update existing listings to have default property type and listing mode
