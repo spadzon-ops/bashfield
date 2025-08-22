@@ -41,6 +41,10 @@ export default function AdminPage() {
   const [displayedUsers, setDisplayedUsers] = useState(20)
   const [reports, setReports] = useState([])
   const [warningFilter, setWarningFilter] = useState('all')
+  const [reportStatusFilter, setReportStatusFilter] = useState('all')
+  const [reportReasonFilter, setReportReasonFilter] = useState('all')
+  const [reportGroupBy, setReportGroupBy] = useState('none')
+  const [reportSearch, setReportSearch] = useState('')
   const [displayedListings, setDisplayedListings] = useState(12)
   const [loadingMoreListings, setLoadingMoreListings] = useState(false)
   const [hasMoreListings, setHasMoreListings] = useState(true)
@@ -344,6 +348,53 @@ export default function AdminPage() {
       setReports([])
     }
   }
+
+  const filteredReports = useMemo(() => {
+    let filtered = reports
+    
+    // Status filter
+    if (reportStatusFilter !== 'all') {
+      filtered = filtered.filter(r => r.status === reportStatusFilter)
+    }
+    
+    // Reason filter
+    if (reportReasonFilter !== 'all') {
+      filtered = filtered.filter(r => r.reason === reportReasonFilter)
+    }
+    
+    // Search filter
+    if (reportSearch.trim()) {
+      const search = reportSearch.toLowerCase()
+      filtered = filtered.filter(r => 
+        r.listings?.title?.toLowerCase().includes(search) ||
+        r.listings?.reference_code?.toLowerCase().includes(search) ||
+        r.user_profiles?.display_name?.toLowerCase().includes(search) ||
+        r.description?.toLowerCase().includes(search)
+      )
+    }
+    
+    return filtered
+  }, [reports, reportStatusFilter, reportReasonFilter, reportSearch])
+
+  const groupedReports = useMemo(() => {
+    if (reportGroupBy === 'property') {
+      const grouped = {}
+      filteredReports.forEach(report => {
+        const key = report.listing_id
+        if (!grouped[key]) {
+          grouped[key] = {
+            listing: report.listings,
+            reports: [],
+            count: 0
+          }
+        }
+        grouped[key].reports.push(report)
+        grouped[key].count++
+      })
+      return Object.values(grouped).sort((a, b) => b.count - a.count)
+    }
+    return null
+  }, [filteredReports, reportGroupBy])
 
   const updateReportStatus = async (reportId, status, adminNotes = '') => {
     const { error } = await supabase
@@ -772,18 +823,184 @@ export default function AdminPage() {
             <div className="p-8">
               <div className="mb-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">Reports Management</h3>
-                <div className="text-sm text-gray-600 mb-4">
-                  Total Reports: {reports.length}
+                
+                {/* Filters */}
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Search</label>
+                    <input
+                      value={reportSearch}
+                      onChange={(e) => setReportSearch(e.target.value)}
+                      placeholder="Search reports..."
+                      className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                    <select
+                      value={reportStatusFilter}
+                      onChange={(e) => setReportStatusFilter(e.target.value)}
+                      className="w-full border border-gray-300 rounded-xl px-4 py-3 transition-all duration-200 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="all">All Status</option>
+                      <option value="pending">Pending</option>
+                      <option value="reviewed">Reviewed</option>
+                      <option value="resolved">Resolved</option>
+                      <option value="dismissed">Dismissed</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Reason</label>
+                    <select
+                      value={reportReasonFilter}
+                      onChange={(e) => setReportReasonFilter(e.target.value)}
+                      className="w-full border border-gray-300 rounded-xl px-4 py-3 transition-all duration-200 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="all">All Reasons</option>
+                      <option value="scam">Scam/Fraud</option>
+                      <option value="fake">Fake Listing</option>
+                      <option value="inappropriate">Inappropriate</option>
+                      <option value="wrong_info">Wrong Info</option>
+                      <option value="duplicate">Duplicate</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Group By</label>
+                    <select
+                      value={reportGroupBy}
+                      onChange={(e) => setReportGroupBy(e.target.value)}
+                      className="w-full border border-gray-300 rounded-xl px-4 py-3 transition-all duration-200 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="none">No Grouping</option>
+                      <option value="property">By Property</option>
+                    </select>
+                  </div>
+                  <div className="flex items-end">
+                    <button
+                      onClick={() => {
+                        setReportSearch('')
+                        setReportStatusFilter('all')
+                        setReportReasonFilter('all')
+                        setReportGroupBy('none')
+                      }}
+                      className="w-full bg-gray-600 hover:bg-gray-700 text-white px-4 py-3 rounded-xl transition-colors font-semibold"
+                    >
+                      Clear Filters
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="flex items-center justify-between mb-4">
+                  <div className="text-sm text-gray-600">
+                    Showing {reportGroupBy === 'property' ? (groupedReports?.length || 0) + ' properties with reports' : filteredReports.length + ' reports'} 
+                    {reports.length !== filteredReports.length && ` (filtered from ${reports.length} total)`}
+                  </div>
+                  <div className="flex space-x-4 text-sm">
+                    <span className="text-yellow-600">Pending: {reports.filter(r => r.status === 'pending').length}</span>
+                    <span className="text-blue-600">Reviewed: {reports.filter(r => r.status === 'reviewed').length}</span>
+                    <span className="text-green-600">Resolved: {reports.filter(r => r.status === 'resolved').length}</span>
+                    <span className="text-gray-600">Dismissed: {reports.filter(r => r.status === 'dismissed').length}</span>
+                  </div>
                 </div>
               </div>
 
-              {reports.length === 0 ? (
+              {filteredReports.length === 0 ? (
                 <div className="text-center py-8 text-gray-500">
-                  No reports found.
+                  {reports.length === 0 ? 'No reports found.' : 'No reports match your filters.'}
+                </div>
+              ) : reportGroupBy === 'property' ? (
+                <div className="space-y-6">
+                  {groupedReports?.map((group) => (
+                    <div key={group.listing?.reference_code} className="bg-white rounded-xl p-6 border-2 border-gray-200 shadow-lg">
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <h4 className="text-lg font-bold text-gray-900">
+                            {group.listing?.title || 'Unknown Property'}
+                          </h4>
+                          <p className="text-sm text-gray-600">
+                            Property Code: #{group.listing?.reference_code} • {group.count} Report{group.count !== 1 ? 's' : ''}
+                          </p>
+                        </div>
+                        <Link
+                          href={`/listing/${group.reports[0]?.listing_id}?admin=true`}
+                          className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg text-sm hover:bg-blue-200 transition-colors font-semibold"
+                        >
+                          View Property
+                        </Link>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        {group.reports.map((report) => (
+                          <div key={report.id} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center space-x-3 mb-2">
+                                  <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                    report.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                                    report.status === 'reviewed' ? 'bg-blue-100 text-blue-800' :
+                                    report.status === 'resolved' ? 'bg-green-100 text-green-800' :
+                                    'bg-gray-100 text-gray-800'
+                                  }`}>
+                                    {report.status.toUpperCase()}
+                                  </span>
+                                  <span className="text-xs text-gray-500">
+                                    {new Date(report.created_at).toLocaleDateString()}
+                                  </span>
+                                  <span className="text-xs text-gray-600 capitalize">
+                                    {report.reason.replace('_', ' ')}
+                                  </span>
+                                </div>
+                                <p className="text-sm text-gray-600 mb-2">
+                                  By: {report.user_profiles?.display_name} ({report.user_profiles?.email})
+                                </p>
+                                <p className="text-sm text-gray-700">{report.description}</p>
+                                {report.admin_notes && (
+                                  <div className="bg-blue-50 rounded p-2 mt-2">
+                                    <span className="text-xs font-medium text-blue-800">Admin: </span>
+                                    <span className="text-xs text-blue-700">{report.admin_notes}</span>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex space-x-1 ml-4">
+                                <button
+                                  onClick={() => {
+                                    const notes = prompt('Admin notes:')
+                                    updateReportStatus(report.id, 'reviewed', notes || '')
+                                  }}
+                                  className="px-2 py-1 bg-yellow-100 text-yellow-700 rounded text-xs hover:bg-yellow-200"
+                                >
+                                  Review
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    const notes = prompt('Resolution notes:')
+                                    if (notes !== null) updateReportStatus(report.id, 'resolved', notes)
+                                  }}
+                                  className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs hover:bg-green-200"
+                                >
+                                  Resolve
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    const notes = prompt('Dismissal reason:')
+                                    if (notes !== null) updateReportStatus(report.id, 'dismissed', notes)
+                                  }}
+                                  className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs hover:bg-gray-200"
+                                >
+                                  Dismiss
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {reports.map((report) => (
+                  {filteredReports.map((report) => (
                     <div key={report.id} className="bg-gray-50 rounded-xl p-6 border border-gray-200">
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex-1">
