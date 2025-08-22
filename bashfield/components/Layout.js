@@ -32,44 +32,28 @@ export default function Layout({ children }) {
     return () => subscription.unsubscribe()
   }, [])
 
-  // Scroll behavior
+  // Scroll behavior for mobile only
   useEffect(() => {
-    let timeoutId
-    
     const handleScroll = () => {
-      clearTimeout(timeoutId)
-      timeoutId = setTimeout(() => {
-        const currentScrollY = window.scrollY
-        const isMobile = window.innerWidth < 1024
-        
-        console.log('Scroll:', currentScrollY, 'Mobile:', isMobile, 'Last:', lastScrollY.current)
-        
-        if (!isMobile) {
-          if (!navVisible) setNavVisible(true)
-          return
-        }
-        
-        if (currentScrollY < 50) {
-          setNavVisible(true)
-        } else if (currentScrollY > lastScrollY.current + 10) {
-          console.log('Hide nav')
-          setNavVisible(false)
-          setMobileMenuOpen(false)
-        } else if (currentScrollY < lastScrollY.current - 10) {
-          console.log('Show nav')
-          setNavVisible(true)
-        }
-        
-        lastScrollY.current = currentScrollY
-      }, 10)
+      if (window.innerWidth >= 1024) return // Desktop - always visible
+      
+      const currentScrollY = window.scrollY
+      
+      if (currentScrollY < 20) {
+        setNavVisible(true)
+      } else if (currentScrollY > lastScrollY.current && currentScrollY > 100) {
+        setNavVisible(false)
+        setMobileMenuOpen(false)
+      } else if (currentScrollY < lastScrollY.current - 20) {
+        setNavVisible(true)
+      }
+      
+      lastScrollY.current = currentScrollY
     }
     
     window.addEventListener('scroll', handleScroll, { passive: true })
-    return () => {
-      window.removeEventListener('scroll', handleScroll)
-      clearTimeout(timeoutId)
-    }
-  }, [navVisible])
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
 
   const getUser = async () => {
     const { data: { user } } = await supabase.auth.getUser()
@@ -258,7 +242,7 @@ export default function Layout({ children }) {
 
   return (
     <div className="min-h-screen bg-gray-50" style={{ paddingTop: '72px' }}>
-      <nav className={`bg-white/95 backdrop-blur-lg shadow-xl border-b border-gray-200/50 fixed top-0 left-0 right-0 z-50 transition-transform duration-300 ease-in-out ${navVisible ? 'translate-y-0' : '-translate-y-full'}`} style={{ height: '72px' }}>
+      <nav className={`bg-white/95 backdrop-blur-lg shadow-xl border-b border-gray-200/50 fixed top-0 left-0 right-0 z-50 transition-transform duration-300 ease-in-out ${navVisible ? 'translate-y-0' : '-translate-y-full lg:translate-y-0'}`} style={{ height: '72px' }}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full">
           <div className="flex justify-between items-center h-full">
             <div className="flex items-center">
