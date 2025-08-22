@@ -13,43 +13,42 @@ export default function Layout({ children }) {
   const [initialLoad, setInitialLoad] = useState(true)
   const [unreadCount, setUnreadCount] = useState(0)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [navVisible, setNavVisible] = useState(true)
-  const [isMobile, setIsMobile] = useState(false)
+  const [showNav, setShowNav] = useState(true)
   const lastScrollY = useRef(0)
 
-  // Mobile detection and scroll behavior
+  // Navigation scroll behavior
   useEffect(() => {
-    const updateMobile = () => {
-      const mobile = window.innerWidth < 1024
-      setIsMobile(mobile)
-      if (!mobile) setNavVisible(true) // Always visible on desktop
-    }
+    let ticking = false
     
     const handleScroll = () => {
-      const currentScrollY = window.scrollY
-      const mobile = window.innerWidth < 1024
-      
-      if (!mobile) return // Desktop: do nothing, always visible
-      
-      // Mobile only logic
-      if (currentScrollY < 100) {
-        setNavVisible(true) // Show at top
-      } else {
-        const scrollingDown = currentScrollY > lastScrollY.current
-        setNavVisible(!scrollingDown) // Hide when scrolling down, show when scrolling up
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          const currentScrollY = window.scrollY
+          const isDesktop = window.innerWidth >= 1024
+          
+          if (isDesktop) {
+            // Desktop: ALWAYS show navigation
+            setShowNav(true)
+          } else {
+            // Mobile: Facebook-style behavior
+            if (currentScrollY < 80) {
+              setShowNav(true)
+            } else if (currentScrollY > lastScrollY.current && currentScrollY > 80) {
+              setShowNav(false) // Hide when scrolling down
+            } else if (currentScrollY < lastScrollY.current) {
+              setShowNav(true) // Show when scrolling up
+            }
+          }
+          
+          lastScrollY.current = currentScrollY
+          ticking = false
+        })
+        ticking = true
       }
-      
-      lastScrollY.current = currentScrollY
     }
     
-    updateMobile()
-    window.addEventListener('resize', updateMobile)
     window.addEventListener('scroll', handleScroll, { passive: true })
-    
-    return () => {
-      window.removeEventListener('resize', updateMobile)
-      window.removeEventListener('scroll', handleScroll)
-    }
+    return () => window.removeEventListener('scroll', handleScroll)
   }, [])
 
   useEffect(() => {
@@ -255,8 +254,8 @@ export default function Layout({ children }) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <nav className={`bg-white/95 backdrop-blur-lg shadow-xl border-b border-gray-200/50 fixed top-0 left-0 right-0 z-50 transition-transform duration-300 ease-out ${
-        isMobile && !navVisible ? '-translate-y-full' : 'translate-y-0'
+      <nav className={`bg-white/95 backdrop-blur-lg shadow-xl border-b border-gray-200/50 fixed top-0 left-0 right-0 z-50 transition-transform duration-300 ease-out lg:translate-y-0 ${
+        showNav ? 'translate-y-0' : '-translate-y-full lg:translate-y-0'
       }`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-18">
