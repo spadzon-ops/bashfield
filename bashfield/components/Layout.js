@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/router'
 import { useTranslation } from '../contexts/TranslationContext'
 import { supabase } from '../lib/supabase'
@@ -14,30 +14,36 @@ export default function Layout({ children }) {
   const [unreadCount, setUnreadCount] = useState(0)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [navVisible, setNavVisible] = useState(true)
+  const lastScrollY = useRef(0)
+  const ticking = useRef(false)
 
   // Navigation scroll behavior
   useEffect(() => {
-    let lastScrollY = 0
-    
-    const handleScroll = () => {
+    const updateNav = () => {
       const currentScrollY = window.scrollY
       const isDesktop = window.innerWidth >= 1024
       
       if (isDesktop) {
-        // Desktop: always show
         setNavVisible(true)
       } else {
-        // Mobile: Facebook-style
         if (currentScrollY < 50) {
           setNavVisible(true)
-        } else if (currentScrollY > lastScrollY) {
-          setNavVisible(false) // scrolling down
+        } else if (currentScrollY > lastScrollY.current) {
+          setNavVisible(false)
         } else {
-          setNavVisible(true) // scrolling up
+          setNavVisible(true)
         }
       }
       
-      lastScrollY = currentScrollY
+      lastScrollY.current = currentScrollY
+      ticking.current = false
+    }
+    
+    const handleScroll = () => {
+      if (!ticking.current) {
+        requestAnimationFrame(updateNav)
+        ticking.current = true
+      }
     }
     
     window.addEventListener('scroll', handleScroll, { passive: true })
