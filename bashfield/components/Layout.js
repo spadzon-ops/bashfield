@@ -156,6 +156,38 @@ export default function Layout({ children }) {
       window.addEventListener('messagesRead', handleMessagesRead)
       window.addEventListener('unreadCountUpdate', handleUnreadCountUpdate)
 
+      // Listen for notifications
+      const notificationChannel = supabase
+        .channel('user-notifications')
+        .on('postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${user.id}`
+          },
+          () => {
+            getNotificationCount(user)
+          }
+        )
+        .subscribe()
+
+      // Auto-mark notifications as read when visiting notifications page
+      const handleRouteChange = (url) => {
+        if (url === '/notifications' && notificationCount > 0) {
+          setTimeout(async () => {
+            await supabase
+              .from('notifications')
+              .update({ read: true })
+              .eq('user_id', user.id)
+              .eq('read', false)
+            setNotificationCount(0)
+          }, 1000)
+        }
+      }
+      
+      router.events.on('routeChangeComplete', handleRouteChange)
+
       // Listen for new messages to update unread count
       const messageChannel = supabase
         .channel('global-message-updates')
@@ -203,8 +235,10 @@ export default function Layout({ children }) {
       }, 3000)
 
       return () => {
+        router.events.off('routeChangeComplete', handleRouteChange)
         supabase.removeChannel(channel)
         supabase.removeChannel(messageChannel)
+        supabase.removeChannel(notificationChannel)
         clearInterval(pollInterval)
         window.removeEventListener('profileUpdated', handleProfileUpdate)
         window.removeEventListener('messagesRead', handleMessagesRead)
@@ -553,6 +587,27 @@ export default function Layout({ children }) {
                       {unreadCount > 0 && (
                         <span className="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-1 font-bold">
                           {unreadCount > 9 ? '9+' : unreadCount}
+                        </span>
+                      )}
+                    </button>
+                    <button 
+                      onClick={() => {
+                        router.push('/notifications')
+                        setMobileMenuOpen(false)
+                      }} 
+                      className={`flex items-center space-x-3 w-full text-left px-4 py-3 rounded-xl font-semibold transition-all duration-300 relative ${
+                        router.pathname === '/notifications' 
+                          ? 'bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-lg' 
+                          : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50'
+                      }`}
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM11 17H6l5 5v-5zM7 7h10l-5-5L7 7z" />
+                      </svg>
+                      <span>Notifications</span>
+                      {notificationCount > 0 && (
+                        <span className="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-1 font-bold">
+                          {notificationCount > 9 ? '9+' : notificationCount}
                         </span>
                       )}
                     </button>
