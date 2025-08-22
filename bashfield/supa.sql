@@ -377,6 +377,11 @@ create table if not exists public.reports (
 
 alter table public.reports enable row level security;
 
+-- Drop existing policies
+drop policy if exists "reports_select_admin" on public.reports;
+drop policy if exists "reports_insert_authenticated" on public.reports;
+drop policy if exists "reports_update_admin" on public.reports;
+
 create policy "reports_select_admin" on public.reports
   for select using ((auth.jwt() ->> 'email') in (select email from public.admin_emails));
 
@@ -390,6 +395,98 @@ create policy "reports_update_admin" on public.reports
 create index if not exists idx_reports_listing on public.reports(listing_id);
 create index if not exists idx_reports_status on public.reports(status);
 create index if not exists idx_reports_created on public.reports(created_at desc);
+
+-- ================= NOTIFICATIONS =================
+create table if not exists public.notifications (
+  id uuid default gen_random_uuid() primary key,
+  user_id uuid references auth.users(id) on delete cascade not null,
+  title text not null,
+  message text not null,
+  type text default 'info' check (type in ('info', 'success', 'warning', 'error', 'listing_approved', 'listing_rejected')),
+  read boolean default false,
+  listing_id uuid references public.listings(id) on delete cascade,
+  created_at timestamptz default now()
+);
+
+alter table public.notifications enable row level security;
+
+-- Drop existing policies
+drop policy if exists "notifications_select_own" on public.notifications;
+drop policy if exists "notifications_insert_admin" on public.notifications;
+drop policy if exists "notifications_update_own" on public.notifications;
+drop policy if exists "notifications_delete_own" on public.notifications;
+
+create policy "notifications_select_own" on public.notifications
+  for select using (auth.uid() = user_id);
+
+create policy "notifications_insert_admin" on public.notifications
+  for insert with check ((auth.jwt() ->> 'email') in (select email from public.admin_emails));
+
+create policy "notifications_update_own" on public.notifications
+  for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+
+create policy "notifications_delete_own" on public.notifications
+  for delete using (auth.uid() = user_id);
+
+create index if not exists idx_notifications_user on public.notifications(user_id);
+create index if not exists idx_notifications_read on public.notifications(user_id, read);
+create index if not exists idx_notifications_created on public.notifications(created_at desc);
+
+-- Function to create notification
+create or replace function public.create_notification(
+  p_user_id uuid,
+  p_title text,
+  p_message text,
+  p_type text default 'info',
+  p_listing_id uuid default null
+)
+returns uuid
+language plpgsql
+security definer
+as $$
+declare
+  notification_id uuid;
+begin
+  insert into public.notifications (user_id, title, message, type, listing_id)
+  values (p_user_id, p_title, p_message, p_type, p_listing_id)
+  returning id into notification_id;
+  
+  return notification_id;
+end;
+$$;
+
+-- Function to handle listing status changes
+create or replace function public.handle_listing_status_change()
+returns trigger
+language plpgsql
+security definer
+as $$
+begin
+  -- Only create notification if status actually changed and it's approval (not rejection to avoid duplicates)
+  if OLD.status != NEW.status then
+    if NEW.status = 'approved' then
+      perform public.create_notification(
+        NEW.user_id,
+        'Property Approved! 🎉',
+        'Great news! Your property "' || NEW.title || '" has been approved and is now live on Bashfield. Potential renters can now see and contact you about this property.',
+        'listing_approved',
+        NEW.id
+      );
+    -- Removed automatic rejection notification to prevent duplicates
+    -- Admin will send manual rejection notifications
+    end if;
+  end if;
+  
+  return NEW;
+end;
+$$;
+
+-- Create trigger for listing status changes
+drop trigger if exists listing_status_notification_trigger on public.listings;
+create trigger listing_status_notification_trigger
+  after update on public.listings
+  for each row
+  execute function public.handle_listing_status_change();
 
 -- ================= REALTIME =================
 do $pub$
@@ -408,6 +505,12 @@ begin
 
   begin
     alter publication supabase_realtime add table public.favorites;
+  exception
+    when duplicate_object then null;
+  end;
+
+  begin
+    alter publication supabase_realtime add table public.notifications;
   exception
     when duplicate_object then null;
   end;
