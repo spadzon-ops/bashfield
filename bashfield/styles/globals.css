@@ -53,17 +53,11 @@
 html {
   @apply bg-slate-50 text-slate-900;
   scroll-behavior: smooth;
-  overflow-x: hidden;
 }
 
 body {
   @apply bg-slate-50 text-slate-900 font-sans;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  overflow-x: hidden;
-}
-
-* {
-  scroll-behavior: smooth;
 }
 
 .btn-primary {
@@ -95,22 +89,10 @@ body {
 ::-webkit-scrollbar-thumb {
   background: linear-gradient(to bottom, #2563eb, #0ea5e9);
   border-radius: 4px;
-  transition: background 0.2s ease;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: linear-gradient(to bottom, #1d4ed8, #0284c7);
-}
-
-/* Smooth scrolling for all elements */
-* {
-  -webkit-overflow-scrolling: touch;
-}
-
-/* Optimize scroll performance */
-body, html {
-  will-change: scroll-position;
-  transform: translateZ(0);
 }
 
 /* Glass morphism effect */
@@ -222,6 +204,15 @@ img {
 .slider-thumb:hover::-moz-range-thumb {
   transform: scale(1.1);
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+/* Fixed header navigation */
+nav[class*="sticky"] {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 9999 !important;
 }
 
 /* Mobile optimizations */
