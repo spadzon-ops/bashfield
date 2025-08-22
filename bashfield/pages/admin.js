@@ -73,6 +73,18 @@ export default function AdminPage() {
       await loadUsers()
       await loadReports()
       setLoading(false)
+      
+      // Set up real-time subscription for reports
+      const reportsChannel = supabase
+        .channel('reports-changes')
+        .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'reports'
+        }, () => {
+          setTimeout(() => loadReports(), 500)
+        })
+        .subscribe()
     })()
   }, []) // eslint-disable-line
 
@@ -290,16 +302,47 @@ export default function AdminPage() {
   }
 
   const loadReports = async () => {
-    const { data } = await supabase
-      .from('reports')
-      .select(`
-        *,
-        listings(title, reference_code),
-        user_profiles!reports_reporter_id_fkey(display_name, email)
-      `)
-      .order('created_at', { ascending: false })
-    
-    setReports(data || [])
+    try {
+      const { data, error } = await supabase
+        .from('reports')
+        .select('*')
+        .order('created_at', { ascending: false })
+      
+      if (error) {
+        console.error('Error loading reports:', error)
+        setReports([])
+        return
+      }
+      
+      // Get additional data for each report
+      const reportsWithDetails = await Promise.all(
+        (data || []).map(async (report) => {
+          const [listingResult, profileResult] = await Promise.all([
+            supabase
+              .from('listings')
+              .select('title, reference_code')
+              .eq('id', report.listing_id)
+              .single(),
+            supabase
+              .from('user_profiles')
+              .select('display_name, email')
+              .eq('user_id', report.reporter_id)
+              .single()
+          ])
+          
+          return {
+            ...report,
+            listings: listingResult.data,
+            user_profiles: profileResult.data
+          }
+        })
+      )
+      
+      setReports(reportsWithDetails)
+    } catch (error) {
+      console.error('Error in loadReports:', error)
+      setReports([])
+    }
   }
 
   const updateReportStatus = async (reportId, status, adminNotes = '') => {
@@ -311,6 +354,9 @@ export default function AdminPage() {
     if (!error) {
       await loadReports()
       alert('Report status updated successfully!')
+    } else {
+      console.error('Error updating report:', error)
+      alert('Error updating report status')
     }
   }
 
