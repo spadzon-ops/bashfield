@@ -454,9 +454,9 @@ export default function Messages() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl h-[calc(100vh-100px)] min-h-0 border border-gray-200/50 overflow-hidden">
+    <div className="h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl h-[calc(100vh-80px)] min-h-0 border border-gray-200/50 overflow-hidden">
           <div className="flex h-full min-h-0">
             {/* Enhanced Conversations List */}
             <div className={`${activeConversation ? 'hidden md:flex' : 'flex'} w-full md:w-1/3 border-r border-gray-200/50 flex-col min-h-0 relative z-10 bg-gradient-to-b from-white to-gray-50`}>
