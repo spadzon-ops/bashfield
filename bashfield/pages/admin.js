@@ -57,6 +57,7 @@ export default function AdminPage() {
   const [notificationSearch, setNotificationSearch] = useState('')
   const [notificationTypeFilter, setNotificationTypeFilter] = useState('all')
   const [notificationStatusFilter, setNotificationStatusFilter] = useState('all')
+  const [userSearchModal, setUserSearchModal] = useState('')
   const [displayedListings, setDisplayedListings] = useState(12)
   const [loadingMoreListings, setLoadingMoreListings] = useState(false)
   const [hasMoreListings, setHasMoreListings] = useState(true)
@@ -1767,26 +1768,61 @@ export default function AdminPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Recipient</label>
-                    <div className="relative">
-                      <select
-                        value={customNotification.recipient}
-                        onChange={(e) => setCustomNotification(prev => ({ ...prev, recipient: e.target.value }))}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      >
-                        <option value="all">All Users ({users.length} users)</option>
-                        {users.slice(0, 100).map(user => (
-                          <option key={user.user_id} value={user.user_id}>
-                            {user.display_name} ({user.email})
-                          </option>
-                        ))}
-                        {users.length > 100 && (
-                          <option disabled>... and {users.length - 100} more users</option>
-                        )}
-                      </select>
-                      {users.length > 100 && (
-                        <p className="text-xs text-gray-500 mt-1">
-                          Showing first 100 users. Use "All Users" to send to everyone.
-                        </p>
+                    <div className="space-y-2">
+                      <div className="flex space-x-2">
+                        <select
+                          value={customNotification.recipient === 'all' ? 'all' : 'specific'}
+                          onChange={(e) => {
+                            if (e.target.value === 'all') {
+                              setCustomNotification(prev => ({ ...prev, recipient: 'all' }))
+                            }
+                          }}
+                          className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        >
+                          <option value="all">All Users ({users.length} users)</option>
+                          <option value="specific">Specific User</option>
+                        </select>
+                      </div>
+                      
+                      {customNotification.recipient !== 'all' && (
+                        <div className="space-y-2">
+                          <input
+                            type="text"
+                            value={userSearchModal}
+                            onChange={(e) => setUserSearchModal(e.target.value)}
+                            placeholder="Search users by name or email..."
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                          />
+                          <div className="max-h-32 overflow-y-auto border border-gray-200 rounded-lg">
+                            {users
+                              .filter(user => 
+                                user.display_name?.toLowerCase().includes(userSearchModal.toLowerCase()) ||
+                                user.email?.toLowerCase().includes(userSearchModal.toLowerCase())
+                              )
+                              .slice(0, 20)
+                              .map(user => (
+                                <button
+                                  key={user.user_id}
+                                  type="button"
+                                  onClick={() => {
+                                    setCustomNotification(prev => ({ ...prev, recipient: user.user_id }))
+                                    setUserSearchModal(`${user.display_name} (${user.email})`)
+                                  }}
+                                  className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b border-gray-100 last:border-b-0 text-sm"
+                                >
+                                  <div className="font-medium">{user.display_name}</div>
+                                  <div className="text-gray-500 text-xs">{user.email}</div>
+                                </button>
+                              ))
+                            }
+                            {userSearchModal && users.filter(user => 
+                              user.display_name?.toLowerCase().includes(userSearchModal.toLowerCase()) ||
+                              user.email?.toLowerCase().includes(userSearchModal.toLowerCase())
+                            ).length === 0 && (
+                              <div className="px-3 py-2 text-gray-500 text-sm">No users found</div>
+                            )}
+                          </div>
+                        </div>
                       )}
                     </div>
                   </div>

@@ -216,17 +216,10 @@ export default function Layout({ children }) {
         )
         .subscribe()
 
-      // Auto-mark notifications as read when visiting notifications page
+      // Clear notification count when visiting notifications page (without marking as read)
       const handleRouteChange = (url) => {
-        if (url === '/notifications' && notificationCount > 0) {
-          setTimeout(async () => {
-            await supabase
-              .from('notifications')
-              .update({ read: true })
-              .eq('user_id', user.id)
-              .eq('read', false)
-            setNotificationCount(0)
-          }, 1000)
+        if (url === '/notifications') {
+          setNotificationCount(0)
         }
       }
       
