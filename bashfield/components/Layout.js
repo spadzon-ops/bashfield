@@ -20,29 +20,23 @@ export default function Layout({ children }) {
   // Mobile detection and scroll behavior
   useEffect(() => {
     const updateMobile = () => {
-      setIsMobile(window.innerWidth < 1024)
+      const mobile = window.innerWidth < 1024
+      setIsMobile(mobile)
+      if (!mobile) setNavVisible(true) // Always visible on desktop
     }
     
     const handleScroll = () => {
       const currentScrollY = window.scrollY
-      const isMobileScreen = window.innerWidth < 1024
+      const mobile = window.innerWidth < 1024
       
-      if (!isMobileScreen) {
-        // Desktop: always show
-        setNavVisible(true)
-        return
-      }
+      if (!mobile) return // Desktop: do nothing, always visible
       
-      // Mobile: hide on scroll down, show on scroll up
-      if (currentScrollY < 50) {
-        // Always show at top
-        setNavVisible(true)
-      } else if (currentScrollY > lastScrollY.current) {
-        // Scrolling down - hide
-        setNavVisible(false)
+      // Mobile only logic
+      if (currentScrollY < 100) {
+        setNavVisible(true) // Show at top
       } else {
-        // Scrolling up - show
-        setNavVisible(true)
+        const scrollingDown = currentScrollY > lastScrollY.current
+        setNavVisible(!scrollingDown) // Hide when scrolling down, show when scrolling up
       }
       
       lastScrollY.current = currentScrollY
@@ -261,7 +255,9 @@ export default function Layout({ children }) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <nav className={`navbar ${isMobile && !navVisible ? 'navbar-hidden' : ''}`}>
+      <nav className={`bg-white/95 backdrop-blur-lg shadow-xl border-b border-gray-200/50 fixed top-0 left-0 right-0 z-50 transition-transform duration-300 ease-out ${
+        isMobile && !navVisible ? '-translate-y-full' : 'translate-y-0'
+      }`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-18">
             <div className="flex items-center">
