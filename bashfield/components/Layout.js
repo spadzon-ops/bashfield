@@ -178,6 +178,44 @@ export default function Layout({ children }) {
         )
         .subscribe()
 
+      // Listen for new notifications in real-time
+      const notificationUpdatesChannel = supabase
+        .channel('global-notification-updates')
+        .on('postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${user.id}`
+          },
+          (payload) => {
+            const newNotification = payload.new
+            
+            // Don't show notification alert if user is on notifications page
+            if (router.pathname !== '/notifications') {
+              // Update notification count immediately
+              setTimeout(() => getNotificationCount(user), 500)
+              
+              // Dispatch global event for notification received
+              window.dispatchEvent(new CustomEvent('notificationReceived', {
+                detail: { notification: newNotification }
+              }))
+            }
+          }
+        )
+        .on('postgres_changes',
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${user.id}`
+          },
+          () => {
+            getNotificationCount(user)
+          }
+        )
+        .subscribe()
+
       // Auto-mark notifications as read when visiting notifications page
       const handleRouteChange = (url) => {
         if (url === '/notifications' && notificationCount > 0) {
@@ -245,6 +283,7 @@ export default function Layout({ children }) {
         supabase.removeChannel(channel)
         supabase.removeChannel(messageChannel)
         supabase.removeChannel(notificationChannel)
+        supabase.removeChannel(notificationUpdatesChannel)
         clearInterval(pollInterval)
         window.removeEventListener('profileUpdated', handleProfileUpdate)
         window.removeEventListener('messagesRead', handleMessagesRead)
