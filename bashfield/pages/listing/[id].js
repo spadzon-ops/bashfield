@@ -1,13 +1,12 @@
 import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/router'
-import { serverSideTranslations } from 'next-i18next/serverSideTranslations'
-import { useTranslation } from 'next-i18next'
+import { useTranslation } from '../../contexts/TranslationContext'
 import { supabase } from '../../lib/supabase'
 import { useMode } from '../../contexts/ModeContext'
 import FavoriteButton from '../../components/FavoriteButton'
 
 export default function ListingDetail({ listing: initialListing }) {
-  const { t } = useTranslation('common')
+  const { t, language } = useTranslation()
   const router = useRouter()
   const { config } = useMode()
   const [listing, setListing] = useState(initialListing)
@@ -132,8 +131,26 @@ export default function ListingDetail({ listing: initialListing }) {
     )
   }
 
+  // Get translated content based on current language
+  const getTranslatedTitle = () => {
+    if (language === 'en' && listing.title_en) return listing.title_en
+    if (language === 'ku' && listing.title_ku) return listing.title_ku
+    if (language === 'ar' && listing.title_ar) return listing.title_ar
+    return listing.title // fallback to original
+  }
+
+  const getTranslatedDescription = () => {
+    if (language === 'en' && listing.description_en) return listing.description_en
+    if (language === 'ku' && listing.description_ku) return listing.description_ku
+    if (language === 'ar' && listing.description_ar) return listing.description_ar
+    return listing.description // fallback to original
+  }
+
+  const displayTitle = getTranslatedTitle()
+  const displayDescription = getTranslatedDescription()
+
   const openWhatsApp = () => {
-    const message = `Hi! I'm interested in your property: ${listing.title}`
+    const message = `Hi! I'm interested in your property: ${displayTitle}`
     const whatsappUrl = `https://wa.me/${listing.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(message)}`
     window.open(whatsappUrl, '_blank')
   }
@@ -311,7 +328,7 @@ export default function ListingDetail({ listing: initialListing }) {
             <div className="bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl p-8 lg:p-10 mt-8 border border-gray-200/50">
               <div className="mb-8">
                 <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent mb-4 leading-tight">
-                  {listing.title}
+                  {displayTitle}
                 </h1>
                 <div className="flex items-center justify-between">
                   <div className="text-4xl sm:text-5xl font-bold text-green-600">
@@ -400,7 +417,7 @@ export default function ListingDetail({ listing: initialListing }) {
                 </h3>
                 <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-2xl p-6 border border-gray-200/50">
                   <p className="text-gray-700 leading-relaxed text-lg whitespace-pre-line">
-                    {listing.description}
+                    {displayDescription}
                   </p>
                 </div>
               </div>

@@ -16,7 +16,7 @@ export default function ListingCard({
   isOwner = false,
   viewMode = 'grid'
 }) {
-  const { t } = useTranslation()
+  const { t, language } = useTranslation()
   const router = useRouter()
   const { config } = useMode()
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
@@ -94,7 +94,7 @@ export default function ListingCard({
 
   const openWhatsApp = (e) => {
     e.stopPropagation()
-    const message = `Hi! I'm interested in your property: ${listing.title}`
+    const message = `Hi! I'm interested in your property: ${displayTitle}`
     const whatsappUrl = `https://wa.me/${listing.phone.replace(/[^0-9]/g, '')}?text=${encodeURIComponent(message)}`
     window.open(whatsappUrl, '_blank')
   }
@@ -163,6 +163,24 @@ export default function ListingCard({
   const ownerAvatar = profileData?.profile_picture
     ? `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/house-images/${profileData.profile_picture}`
     : null
+
+  // Get translated content based on current language
+  const getTranslatedTitle = () => {
+    if (language === 'en' && listing.title_en) return listing.title_en
+    if (language === 'ku' && listing.title_ku) return listing.title_ku
+    if (language === 'ar' && listing.title_ar) return listing.title_ar
+    return listing.title // fallback to original
+  }
+
+  const getTranslatedDescription = () => {
+    if (language === 'en' && listing.description_en) return listing.description_en
+    if (language === 'ku' && listing.description_ku) return listing.description_ku
+    if (language === 'ar' && listing.description_ar) return listing.description_ar
+    return listing.description // fallback to original
+  }
+
+  const displayTitle = getTranslatedTitle()
+  const displayDescription = getTranslatedDescription()
 
   if (viewMode === 'list') {
     return (
@@ -300,7 +318,7 @@ export default function ListingCard({
             {/* Title & Price */}
             <div className="mb-4">
               <h3 className="text-xl md:text-2xl font-bold text-gray-900 mb-2 line-clamp-2 group-hover:text-blue-600 transition-colors">
-                {listing.title}
+                {displayTitle}
               </h3>
               <div className="flex items-center justify-between">
                 <div className="text-right">
@@ -313,7 +331,7 @@ export default function ListingCard({
             
             {/* Description */}
             <p className="text-gray-600 text-sm mb-6 line-clamp-3 leading-relaxed">
-              {listing.description}
+              {displayDescription}
             </p>
             
             {/* Property details */}
@@ -508,7 +526,7 @@ export default function ListingCard({
           {/* Enhanced Title & Price */}
           <div className="mb-4">
             <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-3 line-clamp-2 group-hover:text-blue-600 transition-colors leading-tight">
-              {listing.title}
+              {displayTitle}
             </h3>
             <div className="flex items-center justify-between">
               <div className="text-right">
@@ -521,7 +539,7 @@ export default function ListingCard({
 
           {/* Enhanced Description */}
           <p className="text-gray-600 text-sm mb-5 line-clamp-3 leading-relaxed">
-            {listing.description}
+            {displayDescription}
           </p>
 
           {/* Enhanced Property details */}
