@@ -300,14 +300,14 @@ export default function Post() {
                   <textarea
                     required
                     rows={4}
-                    placeholder={formData.has_installments ? t('descriptionWithInstallments') : t('descriptionPlaceholder')}
+                    placeholder={formData.has_installments ? 'Describe your property and include installment terms (down payment, monthly amount, duration, etc.)' : t('descriptionPlaceholder')}
                     value={formData.description}
                     onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                   />
                   {formData.has_installments && (
                     <p className="text-sm text-blue-600 mt-2">
-                      {t('installmentDescriptionNote')}
+                      📝 Please include installment details in your description: down payment amount, monthly payments, duration, and any conditions.
                     </p>
                   )}
                 </div>
@@ -324,10 +324,10 @@ export default function Post() {
                       />
                       <div className="flex-1">
                         <label htmlFor="installments" className="text-sm font-medium text-blue-900 cursor-pointer">
-                          {t('acceptInstallments')}
+                          💳 Accept Installments
                         </label>
                         <p className="text-xs text-blue-700 mt-1">
-                          {t('installmentOptionDesc')}
+                          Check this if you accept installment payments. Add installment details in the description below.
                         </p>
                       </div>
                     </div>
@@ -561,7 +561,7 @@ export default function Post() {
                     <div><strong>{t('city')}</strong> {formData.city.charAt(0).toUpperCase() + formData.city.slice(1)}</div>
                     <div><strong>{t('whatsapp')}</strong> {formData.phone}</div>
                     {mode === 'buy' && formData.has_installments && (
-                      <div><strong>{t('installments')}</strong> {t('available')}</div>
+                      <div><strong>Installments:</strong> Available</div>
                     )}
                     <div><strong>{t('imagesLabel')}</strong> {formData.images.length} {t('uploaded')}</div>
                   </div>
