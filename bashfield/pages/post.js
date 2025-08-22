@@ -26,7 +26,8 @@ export default function Post() {
     address: '',
     images: [],
     size_sqm: '',
-    property_type: 'apartment'
+    property_type: 'apartment',
+    has_installments: false
   })
   const [showMap, setShowMap] = useState(false)
 
@@ -163,7 +164,8 @@ export default function Post() {
         status: 'pending',
         size_sqm: parseInt(formData.size_sqm) || null,
         property_type: formData.property_type,
-        listing_mode: mode
+        listing_mode: mode,
+        has_installments: mode === 'buy' ? formData.has_installments : false
       }
 
       const { error } = await supabase
@@ -298,12 +300,39 @@ export default function Post() {
                   <textarea
                     required
                     rows={4}
-                    placeholder={t('descriptionPlaceholder')}
+                    placeholder={formData.has_installments ? t('descriptionWithInstallments') : t('descriptionPlaceholder')}
                     value={formData.description}
                     onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                   />
+                  {formData.has_installments && (
+                    <p className="text-sm text-blue-600 mt-2">
+                      {t('installmentDescriptionNote')}
+                    </p>
+                  )}
                 </div>
+
+                {mode === 'buy' && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="flex items-start space-x-3">
+                      <input
+                        type="checkbox"
+                        id="installments"
+                        checked={formData.has_installments}
+                        onChange={(e) => setFormData(prev => ({ ...prev, has_installments: e.target.checked }))}
+                        className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                      />
+                      <div className="flex-1">
+                        <label htmlFor="installments" className="text-sm font-medium text-blue-900 cursor-pointer">
+                          {t('acceptInstallments')}
+                        </label>
+                        <p className="text-xs text-blue-700 mt-1">
+                          {t('installmentOptionDesc')}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div>
@@ -531,6 +560,9 @@ export default function Post() {
                     <div><strong>{t('size')}</strong> {formData.size_sqm ? `${formData.size_sqm} m²` : t('notSpecified')}</div>
                     <div><strong>{t('city')}</strong> {formData.city.charAt(0).toUpperCase() + formData.city.slice(1)}</div>
                     <div><strong>{t('whatsapp')}</strong> {formData.phone}</div>
+                    {mode === 'buy' && formData.has_installments && (
+                      <div><strong>{t('installments')}</strong> {t('available')}</div>
+                    )}
                     <div><strong>{t('imagesLabel')}</strong> {formData.images.length} {t('uploaded')}</div>
                   </div>
                 </div>
