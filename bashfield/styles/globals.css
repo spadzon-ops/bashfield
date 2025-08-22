@@ -215,6 +215,11 @@ nav[class*="sticky"] {
   z-index: 9999 !important;
 }
 
+/* Add padding to body to prevent content going under fixed header */
+body {
+  padding-top: 72px !important;
+}
+
 /* Mobile optimizations */
 @media (max-width: 640px) {
   .mobile-padding {
