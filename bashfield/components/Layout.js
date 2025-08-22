@@ -261,9 +261,7 @@ export default function Layout({ children }) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <nav className={`bg-white/95 backdrop-blur-lg shadow-xl border-b border-gray-200/50 fixed top-0 left-0 right-0 z-50 transition-transform duration-300 ease-out ${
-        isMobile && !navVisible ? '-translate-y-full' : 'translate-y-0'
-      }`}>
+      <nav className={`navbar ${isMobile && !navVisible ? 'navbar-hidden' : ''}`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-18">
             <div className="flex items-center">
