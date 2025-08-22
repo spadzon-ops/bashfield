@@ -215,7 +215,7 @@ export default function Favorites() {
           <>
             <div className="mb-8 text-center">
               <p className="text-gray-600">
-                {t('youHaveFavorite')} <span className="font-semibold text-blue-600">{favorites.length}</span> {favorites.length === 1 ? t('favoriteProperty') : t('favoriteProperties')}
+                You have <span className="font-semibold text-blue-600">{favorites.length}</span> favorite {favorites.length === 1 ? 'property' : 'properties'}
               </p>
             </div>
             
