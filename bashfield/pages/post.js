@@ -8,7 +8,7 @@ import { useTranslation } from '../contexts/TranslationContext'
 
 export default function Post() {
   const { mode, config } = useMode()
-  const { t } = useTranslation()
+  const { t, language } = useTranslation()
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(false)
   const [imageLoading, setImageLoading] = useState(false)
