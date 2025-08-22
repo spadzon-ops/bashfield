@@ -53,6 +53,7 @@ const translations = {
     whatsappPlaceholder: "+964 750 123 4567",
     sizePlaceholder: "e.g., 120",
     optionalHelpsFind: "Helps renters find you",
+    propertyLocation: "Property Location *",
     
     // Additional missing keys
     searchLabel: "Search Properties",
@@ -211,7 +212,7 @@ const translations = {
     sizeSquareMeters: "قەبارە (مەترێکی چوارگۆشە)",
     sizePlaceholder: "بۆ نموونە: ١٢٠",
     city: "شار",
-    propertyLocation: "شوێنی ئۆفەر",
+    propertyLocation: "شوێنی ئۆفەر *",
     locationSelected: "شوێن دیاریکرا",
     selectLocationOnMap: "شوێن دیاربکە لەسەر نەخشە",
     optionalHelpsFind: "یارمەتیدەرە بۆ کرێخوازان بۆ دۆزینەوەت",
@@ -432,7 +433,7 @@ const translations = {
     sizeSquareMeters: "المساحة (بالمتر المربع)",
     sizePlaceholder: "مثال: ١٢٠",
     city: "المدينة",
-    propertyLocation: "موقع العقار",
+    propertyLocation: "موقع العقار *",
     locationSelected: "الموقع المحدد",
     selectLocationOnMap: "اختر الموقع على الخريطة",
     optionalHelpsFind: "يساعد المستأجرين في العثور عليك",
