@@ -152,6 +152,13 @@ alter table public.listings add column if not exists property_type text default 
 alter table public.listings add column if not exists listing_mode text default 'rent' check (listing_mode in ('rent', 'sale'));
 alter table public.listings add column if not exists has_installments boolean default false;
 
+-- Add translation columns for admin manual translations
+alter table public.listings add column if not exists title_en text;
+alter table public.listings add column if not exists title_ku text;
+alter table public.listings add column if not exists title_ar text;
+alter table public.listings add column if not exists description_en text;
+alter table public.listings add column if not exists description_ku text;
+alter table public.listings add column if not exists description_ar text;
 
 -- Update existing listings to have default property type and listing mode
 update public.listings set property_type = 'apartment' where property_type is null;
