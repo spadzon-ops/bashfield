@@ -324,10 +324,10 @@ export default function Post() {
                       />
                       <div className="flex-1">
                         <label htmlFor="installments" className="text-sm font-medium text-blue-900 cursor-pointer">
-                          💳 Accept Installments
+                          Accept Installments
                         </label>
                         <p className="text-xs text-blue-700 mt-1">
-                          Check this if you accept installment payments. Add installment details in the description below.
+                          Check this if you accept installment payments. Add installment details in the description above.
                         </p>
                       </div>
                     </div>
@@ -337,7 +337,7 @@ export default function Post() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {mode === 'rent' ? t('monthlyRent') : t('salePrice')} *
+                      {mode === 'rent' ? t('monthlyRent') : 'Total Price (all fees included)'} *
                     </label>
                     <div className="flex">
                       <select

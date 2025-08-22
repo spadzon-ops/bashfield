@@ -543,6 +543,16 @@ export default function ListingDetail({ listing: initialListing }) {
                     <span className="font-semibold text-gray-900">{listing.city.charAt(0).toUpperCase() + listing.city.slice(1)}</span>
                   </div>
 
+                  {(listing.listing_mode === 'buy' || listing.listing_mode === 'sale') && listing.has_installments && (
+                    <div className="flex justify-between items-center py-2 border-b border-gray-200/50">
+                      <span className="text-gray-600 font-medium">Installments</span>
+                      <span className="font-semibold text-orange-600 bg-orange-100 px-3 py-1 rounded-lg flex items-center space-x-1">
+                        <span>💳</span>
+                        <span>Available</span>
+                      </span>
+                    </div>
+                  )}
+
                   {(listing.latitude && listing.longitude) && (
                     <div className="flex justify-between items-start py-2">
                       <span className="text-gray-600 font-medium">Address</span>

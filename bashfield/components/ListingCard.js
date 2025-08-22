@@ -544,9 +544,9 @@ export default function ListingCard({
                 </span>
               </div>
               {(listing.listing_mode === 'buy' || listing.listing_mode === 'sale') && listing.has_installments && (
-                <div className="flex items-center space-x-2 bg-yellow-50 rounded-xl px-3 py-2">
-                  <span className="text-yellow-500">💳</span>
-                  <span className="text-sm font-semibold text-gray-700">Installments</span>
+                <div className="flex items-center space-x-2 bg-orange-100 rounded-xl px-3 py-2">
+                  <span className="text-orange-600">💳</span>
+                  <span className="text-sm font-semibold text-orange-800">Installments</span>
                 </div>
               )}
             </div>
