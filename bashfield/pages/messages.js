@@ -641,12 +641,15 @@ export default function Messages() {
                       const isLastInGroup = index === messages.length - 1 || messages[index + 1]?.sender_id !== m.sender_id
                       
                       return (
-                        <div key={m.id} className={`flex items-end space-x-3 ${isMe ? 'justify-end flex-row-reverse space-x-reverse' : 'justify-start'}`}>
-                          {!isMe && showAvatar && (
-                            <AvatarCircle profile={activeConversation.other_participant} size={32} />
-                          )}
-                          {!isMe && !showAvatar && (
-                            <div className="w-8 h-8"></div>
+                        <div key={m.id} className={`flex items-end space-x-3 ${isMe ? 'justify-end' : 'justify-start'}`}>
+                          {!isMe && (
+                            <div className="flex-shrink-0">
+                              {showAvatar ? (
+                                <AvatarCircle profile={activeConversation.other_participant} size={32} />
+                              ) : (
+                                <div className="w-8 h-8"></div>
+                              )}
+                            </div>
                           )}
                           
                           <div className={`max-w-xs lg:max-w-md ${isLastInGroup ? 'mb-2' : 'mb-1'}`}>
