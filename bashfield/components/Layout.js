@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/router'
 import { useTranslation } from '../contexts/TranslationContext'
 import { supabase } from '../lib/supabase'
@@ -16,59 +16,66 @@ export default function Layout({ children }) {
   const [navVisible, setNavVisible] = useState(true)
   const [isMobile, setIsMobile] = useState(false)
   const lastScrollY = useRef(0)
-  const scrollTimeout = useRef(null)
+  const ticking = useRef(false)
 
+  // Mobile detection with proper initial state
   useEffect(() => {
-    // Check if mobile
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 1024)
+      const mobile = window.innerWidth < 1024
+      setIsMobile(mobile)
+      if (!mobile) {
+        setNavVisible(true) // Always visible on desktop
+      }
     }
     
     checkMobile()
     window.addEventListener('resize', checkMobile)
     
-    // Smart scroll behavior for mobile
-    const handleScroll = () => {
-      if (!isMobile) return
-      
-      const currentScrollY = window.scrollY
-      
-      // Clear existing timeout
-      if (scrollTimeout.current) {
-        clearTimeout(scrollTimeout.current)
-      }
-      
-      // Hide nav when scrolling down, show when scrolling up
-      if (currentScrollY > lastScrollY.current && currentScrollY > 100) {
-        setNavVisible(false)
-      } else if (currentScrollY < lastScrollY.current) {
-        setNavVisible(true)
-      }
-      
-      // Always show nav when at top
-      if (currentScrollY < 50) {
-        setNavVisible(true)
-      }
-      
-      lastScrollY.current = currentScrollY
-      
-      // Show nav after scroll stops
-      scrollTimeout.current = setTimeout(() => {
-        setNavVisible(true)
-      }, 1500)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
+  // Throttled scroll handler
+  const updateNavVisibility = useCallback(() => {
+    if (!isMobile) {
+      setNavVisible(true)
+      return
+    }
+
+    const currentScrollY = window.scrollY
+    const scrollDiff = currentScrollY - lastScrollY.current
+    
+    // Show at top
+    if (currentScrollY < 80) {
+      setNavVisible(true)
+    }
+    // Hide when scrolling down significantly
+    else if (scrollDiff > 5 && currentScrollY > 120) {
+      setNavVisible(false)
+    }
+    // Show when scrolling up
+    else if (scrollDiff < -5) {
+      setNavVisible(true)
     }
     
+    lastScrollY.current = currentScrollY
+    ticking.current = false
+  }, [isMobile])
+
+  const handleScroll = useCallback(() => {
+    if (!ticking.current) {
+      requestAnimationFrame(updateNavVisibility)
+      ticking.current = true
+    }
+  }, [updateNavVisibility])
+
+  // Scroll listener
+  useEffect(() => {
     window.addEventListener('scroll', handleScroll, { passive: true })
-    
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [handleScroll])
+
+  useEffect(() => {
     getUser()
-    
-    return () => {
-      window.removeEventListener('resize', checkMobile)
-      window.removeEventListener('scroll', handleScroll)
-      if (scrollTimeout.current) {
-        clearTimeout(scrollTimeout.current)
-      }
-    }
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
@@ -270,7 +277,7 @@ export default function Layout({ children }) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <nav className={`bg-white/95 backdrop-blur-lg shadow-xl border-b border-gray-200/50 sticky top-0 z-50 transition-transform duration-300 ease-in-out ${
+      <nav className={`bg-white/95 backdrop-blur-lg shadow-xl border-b border-gray-200/50 fixed top-0 left-0 right-0 z-50 transition-transform duration-300 ease-out ${
         isMobile && !navVisible ? '-translate-y-full' : 'translate-y-0'
       }`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -652,7 +659,7 @@ export default function Layout({ children }) {
         </div>
       </nav>
       
-      <main className="relative">
+      <main className="relative pt-[72px]">
         {children}
         {/* Floating Action Buttons */}
         {user && router.pathname === '/' && (
