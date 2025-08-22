@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import { useTranslation } from '../contexts/TranslationContext'
 import { supabase } from '../lib/supabase'
@@ -13,43 +13,6 @@ export default function Layout({ children }) {
   const [initialLoad, setInitialLoad] = useState(true)
   const [unreadCount, setUnreadCount] = useState(0)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
-  const [showNav, setShowNav] = useState(true)
-  const lastScrollY = useRef(0)
-
-  // Navigation scroll behavior
-  useEffect(() => {
-    let ticking = false
-    
-    const handleScroll = () => {
-      if (!ticking) {
-        requestAnimationFrame(() => {
-          const currentScrollY = window.scrollY
-          const isDesktop = window.innerWidth >= 1024
-          
-          if (isDesktop) {
-            // Desktop: ALWAYS show navigation
-            setShowNav(true)
-          } else {
-            // Mobile: Facebook-style behavior
-            if (currentScrollY < 80) {
-              setShowNav(true)
-            } else if (currentScrollY > lastScrollY.current && currentScrollY > 80) {
-              setShowNav(false) // Hide when scrolling down
-            } else if (currentScrollY < lastScrollY.current) {
-              setShowNav(true) // Show when scrolling up
-            }
-          }
-          
-          lastScrollY.current = currentScrollY
-          ticking = false
-        })
-        ticking = true
-      }
-    }
-    
-    window.addEventListener('scroll', handleScroll, { passive: true })
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
 
   useEffect(() => {
     getUser()
@@ -254,9 +217,7 @@ export default function Layout({ children }) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <nav className={`bg-white/95 backdrop-blur-lg shadow-xl border-b border-gray-200/50 fixed top-0 left-0 right-0 z-50 transition-transform duration-300 ease-out lg:translate-y-0 ${
-        showNav ? 'translate-y-0' : '-translate-y-full lg:translate-y-0'
-      }`}>
+      <nav className="bg-white/95 backdrop-blur-lg shadow-xl border-b border-gray-200/50 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-18">
             <div className="flex items-center">
@@ -636,7 +597,7 @@ export default function Layout({ children }) {
         </div>
       </nav>
       
-      <main className="relative pt-[72px]">
+      <main className="relative">
         {children}
         {/* Floating Action Buttons */}
         {user && router.pathname === '/' && (
