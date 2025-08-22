@@ -224,6 +224,18 @@ img {
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
 }
 
+/* Navigation */
+.navbar {
+  @apply bg-white/95 backdrop-blur-lg shadow-xl border-b border-gray-200/50;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 50 !important;
+  height: 72px;
+  transform: translateY(0) !important;
+}
+
 /* Mobile optimizations */
 @media (max-width: 640px) {
   .mobile-padding {
