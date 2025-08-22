@@ -52,6 +52,7 @@ const translations = {
     descriptionPlaceholder: "Describe your property, amenities, and nearby services...",
     whatsappPlaceholder: "+964 750 123 4567",
     sizePlaceholder: "e.g., 120",
+    optionalHelpsFind: "Helps renters find you",
     
     // Additional missing keys
     searchLabel: "Search Properties",
@@ -213,7 +214,7 @@ const translations = {
     propertyLocation: "شوێنی ئۆفەر",
     locationSelected: "شوێن دیاریکرا",
     selectLocationOnMap: "شوێن دیاربکە لەسەر نەخشە",
-    optionalHelpsFind: "ئەرێنی - یارمەتیدەرە بۆ کرێخوازان بۆ دۆزینەوەت",
+    optionalHelpsFind: "یارمەتیدەرە بۆ کرێخوازان بۆ دۆزینەوەت",
     propertyImages: "وێنەکانی ئۆفەر",
     uploadingImages: "بارکردنی وێنەکان...",
     uploadImages: "بارکردنی وێنە",
@@ -434,7 +435,7 @@ const translations = {
     propertyLocation: "موقع العقار",
     locationSelected: "الموقع المحدد",
     selectLocationOnMap: "اختر الموقع على الخريطة",
-    optionalHelpsFind: "اختياري - يساعد المستأجرين في العثور عليك",
+    optionalHelpsFind: "يساعد المستأجرين في العثور عليك",
     propertyImages: "صور العقار",
     uploadingImages: "جاري رفع الصور...",
     uploadImages: "رفع الصور",
