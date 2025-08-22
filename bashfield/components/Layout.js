@@ -10,7 +10,6 @@ export default function Layout({ children }) {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [authChecked, setAuthChecked] = useState(false)
-  const [initialLoad, setInitialLoad] = useState(true)
   const [unreadCount, setUnreadCount] = useState(0)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
@@ -39,7 +38,6 @@ export default function Layout({ children }) {
     }
     setLoading(false)
     setAuthChecked(true)
-    setTimeout(() => setInitialLoad(false), 100)
   }
 
   const getUnreadCount = async (user) => {
@@ -244,7 +242,7 @@ export default function Layout({ children }) {
             </div>
             
             {/* Enhanced Desktop Navigation */}
-            <div className={`hidden md:flex items-center space-x-2 transition-opacity duration-300 ${initialLoad ? 'opacity-0' : 'opacity-100'}`}>
+            <div className="hidden md:flex items-center space-x-2">
               <button 
                 onClick={() => router.push('/')} 
                 className={`px-4 py-2 rounded-xl font-semibold transition-all duration-300 flex items-center space-x-2 ${
@@ -271,7 +269,7 @@ export default function Layout({ children }) {
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                     </svg>
-                    <span>Add Property</span>
+                    <span>List Property</span>
                   </button>
                   <button 
                     onClick={() => router.push('/favorites')} 
@@ -306,7 +304,7 @@ export default function Layout({ children }) {
             </div>
             
             {/* Enhanced Desktop Right Side */}
-            <div className={`hidden lg:flex items-center space-x-2 transition-opacity duration-300 ${initialLoad ? 'opacity-0' : 'opacity-100'}`}>
+            <div className="hidden lg:flex items-center space-x-2">
               {user && (
                 <button 
                   onClick={() => {
@@ -425,12 +423,7 @@ export default function Layout({ children }) {
                 </div>
               </div>
               <button
-                onClick={(e) => {
-                  setMobileMenuOpen(!mobileMenuOpen)
-                  if (mobileMenuOpen) {
-                    e.target.blur()
-                  }
-                }}
+                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 className="text-gray-700 hover:text-blue-600 p-3 relative bg-gray-50 hover:bg-blue-50 rounded-xl transition-all duration-300 shadow-sm"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -485,7 +478,7 @@ export default function Layout({ children }) {
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                       </svg>
-                      <span>Add Property</span>
+                      <span>List Property</span>
                     </button>
                     <button 
                       onClick={() => {
@@ -657,7 +650,7 @@ export default function Layout({ children }) {
                 </li>
                 <li>
                   <button onClick={() => router.push('/post')} className="hover:text-yellow-400 transition-colors duration-200 flex items-center space-x-2">
-                    <span>📝</span><span>Add Property</span>
+                    <span>📝</span><span>List Property</span>
                   </button>
                 </li>
                 {user && (
