@@ -215,9 +215,9 @@ nav[class*="sticky"] {
   z-index: 9999 !important;
 }
 
-/* Add padding to body to prevent content going under fixed header */
-body {
-  padding-top: 72px !important;
+/* Add margin to main content instead of body padding */
+main {
+  margin-top: 72px !important;
 }
 
 /* Mobile optimizations */
