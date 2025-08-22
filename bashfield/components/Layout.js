@@ -15,7 +15,6 @@ export default function Layout({ children }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [navVisible, setNavVisible] = useState(true)
   const lastScrollY = useRef(0)
-  const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
     getUser()
@@ -35,30 +34,42 @@ export default function Layout({ children }) {
 
   // Scroll behavior
   useEffect(() => {
+    let timeoutId
+    
     const handleScroll = () => {
-      const currentScrollY = window.scrollY
-      const isMobileView = window.innerWidth < 1024
-      
-      if (!isMobileView) {
-        setNavVisible(true)
-        return
-      }
-      
-      if (currentScrollY <= 10) {
-        setNavVisible(true)
-      } else if (currentScrollY > lastScrollY.current && currentScrollY > 80) {
-        setNavVisible(false)
-        setMobileMenuOpen(false)
-      } else if (currentScrollY < lastScrollY.current) {
-        setNavVisible(true)
-      }
-      
-      lastScrollY.current = currentScrollY
+      clearTimeout(timeoutId)
+      timeoutId = setTimeout(() => {
+        const currentScrollY = window.scrollY
+        const isMobile = window.innerWidth < 1024
+        
+        console.log('Scroll:', currentScrollY, 'Mobile:', isMobile, 'Last:', lastScrollY.current)
+        
+        if (!isMobile) {
+          if (!navVisible) setNavVisible(true)
+          return
+        }
+        
+        if (currentScrollY < 50) {
+          setNavVisible(true)
+        } else if (currentScrollY > lastScrollY.current + 10) {
+          console.log('Hide nav')
+          setNavVisible(false)
+          setMobileMenuOpen(false)
+        } else if (currentScrollY < lastScrollY.current - 10) {
+          console.log('Show nav')
+          setNavVisible(true)
+        }
+        
+        lastScrollY.current = currentScrollY
+      }, 10)
     }
     
     window.addEventListener('scroll', handleScroll, { passive: true })
-    return () => window.removeEventListener('scroll', handleScroll)
-  }, [])
+    return () => {
+      window.removeEventListener('scroll', handleScroll)
+      clearTimeout(timeoutId)
+    }
+  }, [navVisible])
 
   const getUser = async () => {
     const { data: { user } } = await supabase.auth.getUser()
