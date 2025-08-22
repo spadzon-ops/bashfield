@@ -196,12 +196,30 @@ export default function Post() {
     setShowMap(false)
   }
 
+  const [errors, setErrors] = useState({})
+
+  const validateStep1 = () => {
+    const newErrors = {}
+    if (!formData.title?.trim()) newErrors.title = true
+    if (!formData.description?.trim()) newErrors.description = true
+    if (!formData.price?.trim()) newErrors.price = true
+    if (!formData.phone?.trim()) newErrors.phone = true
+    if (!formData.property_type?.trim()) newErrors.property_type = true
+    if (!formData.rooms) newErrors.rooms = true
+    if (!formData.size_sqm?.trim()) newErrors.size_sqm = true
+    if (!formData.city?.trim()) newErrors.city = true
+    return newErrors
+  }
+
   const nextStep = () => {
     if (currentStep === 1) {
-      if (!formData.title || !formData.description || !formData.price || !formData.phone) {
+      const validationErrors = validateStep1()
+      if (Object.keys(validationErrors).length > 0) {
+        setErrors(validationErrors)
         alert(t('pleaseFillRequired'))
         return
       }
+      setErrors({})
     }
     if (currentStep === 2) {
       if (formData.images.length === 0) {
@@ -281,30 +299,48 @@ export default function Post() {
               <div className="space-y-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {t('propertyTitle')}
+                    {t('propertyTitle')}{language === 'en' ? ' *' : ''}
                   </label>
                   <input
                     type="text"
                     required
+                    maxLength={200}
                     placeholder={t('propertyTitlePlaceholder')}
                     value={formData.title}
-                    onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    onChange={(e) => {
+                      if (e.target.value.length <= 200) {
+                        setFormData(prev => ({ ...prev, title: e.target.value }))
+                        if (errors.title) setErrors(prev => ({ ...prev, title: false }))
+                      }
+                    }}
+                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                      errors.title ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                    }`}
                   />
+                  <div className="text-xs text-gray-500 mt-1">{formData.title.length}/200</div>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {t('description')}
+                    {t('description')}{language === 'en' ? ' *' : ''}
                   </label>
                   <textarea
                     required
                     rows={4}
+                    maxLength={4500}
                     placeholder={formData.has_installments ? 'Describe your property and include installment terms (down payment, monthly amount, duration, etc.)' : t('descriptionPlaceholder')}
                     value={formData.description}
-                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                    onChange={(e) => {
+                      if (e.target.value.length <= 4500) {
+                        setFormData(prev => ({ ...prev, description: e.target.value }))
+                        if (errors.description) setErrors(prev => ({ ...prev, description: false }))
+                      }
+                    }}
+                    className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none ${
+                      errors.description ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                    }`}
                   />
+                  <div className="text-xs text-gray-500 mt-1">{formData.description.length}/4500</div>
                   {formData.has_installments && (
                     <p className="text-sm text-blue-600 mt-2">
                       📝 Please include installment details in your description: down payment amount, monthly payments, duration, and any conditions.
@@ -346,7 +382,6 @@ export default function Post() {
                         className="w-20 px-3 py-3 border border-gray-300 rounded-l-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       >
                         <option value="USD">USD</option>
-                        <option value="IQD">IQD</option>
                       </select>
                       <input
                         type="number"
@@ -354,23 +389,33 @@ export default function Post() {
                         min="1"
                         placeholder={formData.currency === 'USD' ? '500' : '500000'}
                         value={formData.price}
-                        onChange={(e) => setFormData(prev => ({ ...prev, price: e.target.value }))}
-                        className="flex-1 px-4 py-3 border border-l-0 border-gray-300 rounded-r-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        onChange={(e) => {
+                          setFormData(prev => ({ ...prev, price: e.target.value }))
+                          if (errors.price) setErrors(prev => ({ ...prev, price: false }))
+                        }}
+                        className={`flex-1 px-4 py-3 border border-l-0 rounded-r-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                          errors.price ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                        }`}
                       />
                     </div>
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('whatsappNumber')}
+                      {t('whatsappNumber')}{language === 'en' ? ' *' : ''}
                     </label>
                     <input
                       type="tel"
                       required
                       placeholder={t('whatsappPlaceholder')}
                       value={formData.phone}
-                      onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      onChange={(e) => {
+                        setFormData(prev => ({ ...prev, phone: e.target.value }))
+                        if (errors.phone) setErrors(prev => ({ ...prev, phone: false }))
+                      }}
+                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        errors.phone ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                      }`}
                     />
                   </div>
                 </div>
@@ -378,12 +423,17 @@ export default function Post() {
                 <div className="grid grid-cols-1 sm:grid-cols-4 gap-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('propertyType')}
+                      {t('propertyType')}{language === 'en' ? ' *' : ''}
                     </label>
                     <select
                       value={formData.property_type}
-                      onChange={(e) => setFormData(prev => ({ ...prev, property_type: e.target.value }))}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      onChange={(e) => {
+                        setFormData(prev => ({ ...prev, property_type: e.target.value }))
+                        if (errors.property_type) setErrors(prev => ({ ...prev, property_type: false }))
+                      }}
+                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        errors.property_type ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                      }`}
                     >
                       {PROPERTY_TYPES.map(type => (
                         <option key={type.value} value={type.value}>{type.icon} {type.label}</option>
@@ -393,12 +443,17 @@ export default function Post() {
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('numberOfRooms')}
+                      {t('numberOfRooms')} *
                     </label>
                     <select
                       value={formData.rooms}
-                      onChange={(e) => setFormData(prev => ({ ...prev, rooms: parseInt(e.target.value) }))}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      onChange={(e) => {
+                        setFormData(prev => ({ ...prev, rooms: parseInt(e.target.value) }))
+                        if (errors.rooms) setErrors(prev => ({ ...prev, rooms: false }))
+                      }}
+                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        errors.rooms ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                      }`}
                     >
                       {[1,2,3,4,5,6,7,8,9,10].map(num => (
                         <option key={num} value={num}>{num} {num === 1 ? t('room') : t('rooms')}</option>
@@ -408,26 +463,36 @@ export default function Post() {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('sizeSquareMeters')}
+                      {t('sizeSquareMeters')} *
                     </label>
                     <input
                       type="number"
                       min="1"
                       placeholder={t('sizePlaceholder')}
                       value={formData.size_sqm}
-                      onChange={(e) => setFormData(prev => ({ ...prev, size_sqm: e.target.value }))}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      onChange={(e) => {
+                        setFormData(prev => ({ ...prev, size_sqm: e.target.value }))
+                        if (errors.size_sqm) setErrors(prev => ({ ...prev, size_sqm: false }))
+                      }}
+                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        errors.size_sqm ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                      }`}
                     />
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      {t('city')}
+                      {t('city')} *
                     </label>
                     <select
                       value={formData.city}
-                      onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      onChange={(e) => {
+                        setFormData(prev => ({ ...prev, city: e.target.value }))
+                        if (errors.city) setErrors(prev => ({ ...prev, city: false }))
+                      }}
+                      className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+                        errors.city ? 'border-red-500 bg-red-50' : 'border-gray-300'
+                      }`}
                     >
                       {CITIES.map(city => (
                         <option key={city} value={city}>{city.charAt(0).toUpperCase() + city.slice(1)}</option>
@@ -555,7 +620,7 @@ export default function Post() {
                   <div className="space-y-2 text-sm">
                     <div><strong>{t('title')}</strong> {formData.title}</div>
                     <div><strong>{t('type')}</strong> {PROPERTY_TYPES.find(type => type.value === formData.property_type)?.icon} {PROPERTY_TYPES.find(type => type.value === formData.property_type)?.label}</div>
-                    <div><strong>{t('price')}</strong> {formData.price} {formData.currency}{mode === 'rent' ? t('perMonth') : ''}</div>
+                    <div><strong>{t('price')}</strong> {formData.price} ${mode === 'rent' ? t('perMonth') : ''}</div>
                     <div><strong>{t('roomsLabel')}</strong> {formData.rooms}</div>
                     <div><strong>{t('size')}</strong> {formData.size_sqm ? `${formData.size_sqm} m²` : t('notSpecified')}</div>
                     <div><strong>{t('city')}</strong> {formData.city.charAt(0).toUpperCase() + formData.city.slice(1)}</div>
