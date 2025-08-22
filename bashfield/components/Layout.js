@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/router'
 import { useTranslation } from '../contexts/TranslationContext'
 import { supabase } from '../lib/supabase'
@@ -13,9 +13,62 @@ export default function Layout({ children }) {
   const [initialLoad, setInitialLoad] = useState(true)
   const [unreadCount, setUnreadCount] = useState(0)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [navVisible, setNavVisible] = useState(true)
+  const [isMobile, setIsMobile] = useState(false)
+  const lastScrollY = useRef(0)
+  const scrollTimeout = useRef(null)
 
   useEffect(() => {
+    // Check if mobile
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 1024)
+    }
+    
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    
+    // Smart scroll behavior for mobile
+    const handleScroll = () => {
+      if (!isMobile) return
+      
+      const currentScrollY = window.scrollY
+      
+      // Clear existing timeout
+      if (scrollTimeout.current) {
+        clearTimeout(scrollTimeout.current)
+      }
+      
+      // Hide nav when scrolling down, show when scrolling up
+      if (currentScrollY > lastScrollY.current && currentScrollY > 100) {
+        setNavVisible(false)
+      } else if (currentScrollY < lastScrollY.current) {
+        setNavVisible(true)
+      }
+      
+      // Always show nav when at top
+      if (currentScrollY < 50) {
+        setNavVisible(true)
+      }
+      
+      lastScrollY.current = currentScrollY
+      
+      // Show nav after scroll stops
+      scrollTimeout.current = setTimeout(() => {
+        setNavVisible(true)
+      }, 1500)
+    }
+    
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    
     getUser()
+    
+    return () => {
+      window.removeEventListener('resize', checkMobile)
+      window.removeEventListener('scroll', handleScroll)
+      if (scrollTimeout.current) {
+        clearTimeout(scrollTimeout.current)
+      }
+    }
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
@@ -217,7 +270,9 @@ export default function Layout({ children }) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white/95 backdrop-blur-lg shadow-xl border-b border-gray-200/50 sticky top-0 z-50">
+      <nav className={`bg-white/95 backdrop-blur-lg shadow-xl border-b border-gray-200/50 sticky top-0 z-50 transition-transform duration-300 ease-in-out ${
+        isMobile && !navVisible ? '-translate-y-full' : 'translate-y-0'
+      }`}>
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-18">
             <div className="flex items-center">
