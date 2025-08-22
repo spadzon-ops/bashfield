@@ -213,16 +213,7 @@ export default function Favorites() {
           </div>
         ) : (
           <>
-            <div className="mb-8 text-center">
-              <p className="text-gray-600">
-                {t('youHaveFavorite')} <span className="font-semibold text-blue-600">{favorites.length}</span> {favorites.length === 1 ? t('favoriteProperty') : t('favoriteProperties')}
-                {favorites.length > 12 && (
-                  <span className="text-sm text-gray-500 block mt-1">
-                    {t('showing')} {Math.min(displayedFavorites, favorites.length)} {t('of')} {favorites.length}
-                  </span>
-                )}
-              </p>
-            </div>
+
             
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
               {favorites.slice(0, displayedFavorites).map(listing => (

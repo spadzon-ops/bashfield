@@ -740,12 +740,7 @@ export default function Home() {
             </div>
           ) : (
             <>
-              <div className="mb-6 text-center">
-                <p className="text-gray-600">
-                  {t('showingResults')} <span className="font-semibold">{displayedListings.length}</span> {t('of')} <span className="font-semibold">{totalFilteredCount}</span> {mode === 'rent' ? t('rentals') : t('properties')}
-                  {viewMode === 'list' && <span className="ml-2">{t('inListView')}</span>}
-                </p>
-              </div>
+
               
               {/* Grid View */}
               {viewMode === 'grid' && (
