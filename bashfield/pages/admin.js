@@ -42,6 +42,15 @@ export default function AdminPage() {
   const [displayedListings, setDisplayedListings] = useState(12)
   const [loadingMoreListings, setLoadingMoreListings] = useState(false)
   const [hasMoreListings, setHasMoreListings] = useState(true)
+  const [translationModal, setTranslationModal] = useState(null)
+  const [translations, setTranslations] = useState({
+    title_en: '',
+    title_ku: '',
+    title_ar: '',
+    description_en: '',
+    description_ku: '',
+    description_ar: ''
+  })
 
   useEffect(() => {
     ;(async () => {
@@ -169,6 +178,35 @@ export default function AdminPage() {
   const onToggleActive = async (id, to) => {
     await supabase.from('listings').update({ is_active: to }).eq('id', id)
     await loadListings()
+  }
+
+  const openTranslationModal = (listing) => {
+    setTranslationModal(listing)
+    setTranslations({
+      title_en: listing.title_en || '',
+      title_ku: listing.title_ku || '',
+      title_ar: listing.title_ar || '',
+      description_en: listing.description_en || '',
+      description_ku: listing.description_ku || '',
+      description_ar: listing.description_ar || ''
+    })
+  }
+
+  const saveTranslations = async () => {
+    if (!translationModal) return
+    
+    const { error } = await supabase
+      .from('listings')
+      .update(translations)
+      .eq('id', translationModal.id)
+    
+    if (!error) {
+      alert('Translations saved successfully!')
+      setTranslationModal(null)
+      await loadListings()
+    } else {
+      alert('Error saving translations: ' + error.message)
+    }
   }
 
   // BULK ACTIONS (apply to current filtered results)
@@ -725,6 +763,10 @@ export default function AdminPage() {
                               className="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm">
                         Delete
                       </button>
+                      <button onClick={() => openTranslationModal(l)}
+                              className="px-3 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-sm">
+                        Translate
+                      </button>
                       {l.is_active ? (
                         <button onClick={() => onToggleActive(l.id, false)}
                                 className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs">
@@ -776,6 +818,136 @@ export default function AdminPage() {
                 )}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Translation Modal */}
+        {translationModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-2xl font-bold text-gray-900">Translate Listing</h2>
+                  <button
+                    onClick={() => setTranslationModal(null)}
+                    className="text-gray-500 hover:text-gray-700 text-2xl"
+                  >
+                    ×
+                  </button>
+                </div>
+                <p className="text-gray-600 mt-2">Original: {translationModal.title}</p>
+              </div>
+              
+              <div className="p-6 space-y-6">
+                {/* Original Content */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h3 className="font-semibold text-gray-900 mb-2">Original Content</h3>
+                  <div className="space-y-2">
+                    <div>
+                      <span className="font-medium text-gray-700">Title:</span>
+                      <p className="text-gray-600">{translationModal.title}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700">Description:</span>
+                      <p className="text-gray-600">{translationModal.description}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Translations */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* English */}
+                  <div className="space-y-4">
+                    <h3 className="font-semibold text-blue-600">English</h3>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                      <input
+                        type="text"
+                        value={translations.title_en}
+                        onChange={(e) => setTranslations(prev => ({ ...prev, title_en: e.target.value }))}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="English title..."
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                      <textarea
+                        rows={4}
+                        value={translations.description_en}
+                        onChange={(e) => setTranslations(prev => ({ ...prev, description_en: e.target.value }))}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                        placeholder="English description..."
+                      />
+                    </div>
+                  </div>
+
+                  {/* Kurdish */}
+                  <div className="space-y-4">
+                    <h3 className="font-semibold text-green-600">Kurdish</h3>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                      <input
+                        type="text"
+                        value={translations.title_ku}
+                        onChange={(e) => setTranslations(prev => ({ ...prev, title_ku: e.target.value }))}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                        placeholder="Kurdish title..."
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                      <textarea
+                        rows={4}
+                        value={translations.description_ku}
+                        onChange={(e) => setTranslations(prev => ({ ...prev, description_ku: e.target.value }))}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+                        placeholder="Kurdish description..."
+                      />
+                    </div>
+                  </div>
+
+                  {/* Arabic */}
+                  <div className="space-y-4">
+                    <h3 className="font-semibold text-orange-600">Arabic</h3>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                      <input
+                        type="text"
+                        value={translations.title_ar}
+                        onChange={(e) => setTranslations(prev => ({ ...prev, title_ar: e.target.value }))}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                        placeholder="Arabic title..."
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                      <textarea
+                        rows={4}
+                        value={translations.description_ar}
+                        onChange={(e) => setTranslations(prev => ({ ...prev, description_ar: e.target.value }))}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange-500 focus:border-transparent resize-none"
+                        placeholder="Arabic description..."
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">
+                <button
+                  onClick={() => setTranslationModal(null)}
+                  className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={saveTranslations}
+                  className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                >
+                  Save Translations
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>
