@@ -152,9 +152,15 @@ export default function Layout({ children }) {
         setUnreadCount(event.detail.count)
       }
       
+      // Listen for notifications read event
+      const handleNotificationsRead = () => {
+        setNotificationCount(0)
+      }
+      
       window.addEventListener('profileUpdated', handleProfileUpdate)
       window.addEventListener('messagesRead', handleMessagesRead)
       window.addEventListener('unreadCountUpdate', handleUnreadCountUpdate)
+      window.addEventListener('notificationsRead', handleNotificationsRead)
 
       // Listen for notifications
       const notificationChannel = supabase
@@ -243,6 +249,7 @@ export default function Layout({ children }) {
         window.removeEventListener('profileUpdated', handleProfileUpdate)
         window.removeEventListener('messagesRead', handleMessagesRead)
         window.removeEventListener('unreadCountUpdate', handleUnreadCountUpdate)
+        window.removeEventListener('notificationsRead', handleNotificationsRead)
       }
     }
   }, [user])
@@ -506,9 +513,9 @@ export default function Layout({ children }) {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                   )}
                 </svg>
-                {user && unreadCount > 0 && (
+                {user && (unreadCount > 0 || notificationCount > 0) && (
                   <span className="absolute -top-1 -right-1 bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold animate-pulse">
-                    {unreadCount > 9 ? '9+' : unreadCount}
+                    {(unreadCount + notificationCount) > 9 ? '9+' : (unreadCount + notificationCount)}
                   </span>
                 )}
               </button>

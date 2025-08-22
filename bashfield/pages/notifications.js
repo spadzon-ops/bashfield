@@ -14,6 +14,27 @@ export default function Notifications() {
   useEffect(() => {
     loadNotifications()
     
+    // Immediately mark all notifications as read when page loads
+    const markAllAsReadOnLoad = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          await supabase
+            .from('notifications')
+            .update({ read: true })
+            .eq('user_id', user.id)
+            .eq('read', false)
+          
+          // Dispatch event to update Layout notification count immediately
+          window.dispatchEvent(new CustomEvent('notificationsRead'))
+        }
+      } catch (error) {
+        console.error('Error marking notifications as read:', error)
+      }
+    }
+    
+    markAllAsReadOnLoad()
+    
     // Set up real-time subscription
     const channel = supabase
       .channel('user-notifications')
