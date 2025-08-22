@@ -15,6 +15,9 @@ export default function ListingDetail({ listing: initialListing }) {
   const [currentUser, setCurrentUser] = useState(null)
   const [address, setAddress] = useState('')
   const [addressLoading, setAddressLoading] = useState(false)
+  const [showReportModal, setShowReportModal] = useState(false)
+  const [reportData, setReportData] = useState({ reason: '', description: '' })
+  const [reportLoading, setReportLoading] = useState(false)
   const touchStartX = useRef(0)
   const touchEndX = useRef(0)
 
@@ -200,6 +203,40 @@ export default function ListingDetail({ listing: initialListing }) {
       console.error('Error starting conversation:', error)
       alert('Error starting conversation. Please try again.')
     }
+  }
+
+  const submitReport = async () => {
+    if (!currentUser) {
+      alert('Please sign in to report this listing')
+      return
+    }
+    
+    if (!reportData.reason.trim() || !reportData.description.trim()) {
+      alert('Please fill in all fields')
+      return
+    }
+    
+    setReportLoading(true)
+    try {
+      const { error } = await supabase
+        .from('reports')
+        .insert({
+          listing_id: listing.id,
+          reporter_id: currentUser.id,
+          reason: reportData.reason,
+          description: reportData.description
+        })
+      
+      if (error) throw error
+      
+      alert('Report submitted successfully. Thank you for helping keep our platform safe.')
+      setShowReportModal(false)
+      setReportData({ reason: '', description: '' })
+    } catch (error) {
+      console.error('Error submitting report:', error)
+      alert('Error submitting report. Please try again.')
+    }
+    setReportLoading(false)
   }
 
   const handleTouchStart = (e) => {
@@ -524,6 +561,15 @@ export default function ListingDetail({ listing: initialListing }) {
                     </svg>
                     <span>{t('whatsapp')}</span>
                   </button>
+                  <button
+                    onClick={() => setShowReportModal(true)}
+                    className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-bold py-3 px-6 rounded-xl transition-all duration-300 flex items-center justify-center space-x-2 transform hover:scale-105 shadow-lg hover:shadow-xl"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.464 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                    <span>Report Listing</span>
+                  </button>
                 </div>
               </div>
             </div>
@@ -605,6 +651,76 @@ export default function ListingDetail({ listing: initialListing }) {
             </div>
           </div>
         </div>
+        
+        {/* Report Modal */}
+        {showReportModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full">
+              <div className="p-6 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-bold text-gray-900 flex items-center space-x-2">
+                    <svg className="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.464 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                    <span>Report Listing</span>
+                  </h2>
+                  <button
+                    onClick={() => setShowReportModal(false)}
+                    className="text-gray-500 hover:text-gray-700 text-2xl"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+              
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Reason for Report</label>
+                  <select
+                    value={reportData.reason}
+                    onChange={(e) => setReportData(prev => ({ ...prev, reason: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  >
+                    <option value="">Select a reason</option>
+                    <option value="scam">Scam or Fraud</option>
+                    <option value="fake">Fake Listing</option>
+                    <option value="inappropriate">Inappropriate Content</option>
+                    <option value="wrong_info">Wrong Information</option>
+                    <option value="duplicate">Duplicate Listing</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                  <textarea
+                    rows={4}
+                    value={reportData.description}
+                    onChange={(e) => setReportData(prev => ({ ...prev, description: e.target.value }))}
+                    placeholder="Please provide details about the issue..."
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none"
+                  />
+                </div>
+              </div>
+              
+              <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">
+                <button
+                  onClick={() => setShowReportModal(false)}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={submitReport}
+                  disabled={reportLoading}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50"
+                >
+                  {reportLoading ? 'Submitting...' : 'Submit Report'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

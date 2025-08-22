@@ -39,6 +39,8 @@ export default function AdminPage() {
   const [userSearch, setUserSearch] = useState('')
   const [userSort, setUserSort] = useState('newest')
   const [displayedUsers, setDisplayedUsers] = useState(20)
+  const [reports, setReports] = useState([])
+  const [warningFilter, setWarningFilter] = useState('all')
   const [displayedListings, setDisplayedListings] = useState(12)
   const [loadingMoreListings, setLoadingMoreListings] = useState(false)
   const [hasMoreListings, setHasMoreListings] = useState(true)
@@ -69,6 +71,7 @@ export default function AdminPage() {
       await loadListings()
       await loadStats()
       await loadUsers()
+      await loadReports()
       setLoading(false)
     })()
   }, []) // eslint-disable-line
@@ -286,8 +289,42 @@ export default function AdminPage() {
     setUsers(data || [])
   }
 
+  const loadReports = async () => {
+    const { data } = await supabase
+      .from('reports')
+      .select(`
+        *,
+        listings(title, reference_code),
+        user_profiles!reports_reporter_id_fkey(display_name, email)
+      `)
+      .order('created_at', { ascending: false })
+    
+    setReports(data || [])
+  }
+
+  const updateReportStatus = async (reportId, status, adminNotes = '') => {
+    const { error } = await supabase
+      .from('reports')
+      .update({ status, admin_notes: adminNotes })
+      .eq('id', reportId)
+    
+    if (!error) {
+      await loadReports()
+      alert('Report status updated successfully!')
+    }
+  }
+
   const filteredUsers = useMemo(() => {
     let filtered = users
+    
+    // Apply warning filter
+    if (warningFilter === 'warnings') {
+      filtered = filtered.filter(u => u.warning_level === 'yellow' || u.warning_level === 'red')
+    } else if (warningFilter === 'yellow') {
+      filtered = filtered.filter(u => u.warning_level === 'yellow')
+    } else if (warningFilter === 'red') {
+      filtered = filtered.filter(u => u.warning_level === 'red')
+    }
     
     if (userSearch.trim()) {
       const search = userSearch.toLowerCase()
@@ -315,7 +352,7 @@ export default function AdminPage() {
     }
     
     return filtered
-  }, [users, userSearch, userSort])
+  }, [users, userSearch, userSort, warningFilter])
 
   const toggleUserVerification = async (userId, currentStatus) => {
     const { error } = await supabase
@@ -426,6 +463,16 @@ export default function AdminPage() {
               >
                 👥 {t('userManagement')}
               </button>
+              <button
+                onClick={() => setActiveTab('reports')}
+                className={`py-4 px-2 border-b-3 font-semibold text-sm transition-all duration-300 ${
+                  activeTab === 'reports'
+                    ? 'border-blue-600 text-blue-700'
+                    : 'border-transparent text-gray-600 hover:text-blue-600'
+                }`}
+              >
+                🚨 Reports Management
+              </button>
             </nav>
           </div>
           {activeTab === 'listings' && (
@@ -525,7 +572,7 @@ export default function AdminPage() {
           {activeTab === 'users' && (
             <div className="p-8">
               {/* User Search & Filters */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Search Users</label>
                   <input
@@ -547,6 +594,19 @@ export default function AdminPage() {
                     <option value="name">Name A-Z</option>
                     <option value="email">Email A-Z</option>
                     <option value="verified">Verified First</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Warning Filter</label>
+                  <select
+                    value={warningFilter}
+                    onChange={(e) => setWarningFilter(e.target.value)}
+                    className="w-full border border-gray-300 rounded-xl px-4 py-3 transition-all duration-200 bg-gray-50 focus:bg-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="all">All Users</option>
+                    <option value="warnings">With Warnings</option>
+                    <option value="yellow">Yellow Warnings</option>
+                    <option value="red">Red Warnings</option>
                   </select>
                 </div>
               </div>
@@ -657,6 +717,106 @@ export default function AdminPage() {
                   >
                     Load More Users
                   </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'reports' && (
+            <div className="p-8">
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-4">Reports Management</h3>
+                <div className="text-sm text-gray-600 mb-4">
+                  Total Reports: {reports.length}
+                </div>
+              </div>
+
+              {reports.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  No reports found.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {reports.map((report) => (
+                    <div key={report.id} className="bg-gray-50 rounded-xl p-6 border border-gray-200">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-3 mb-2">
+                            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                              report.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                              report.status === 'reviewed' ? 'bg-blue-100 text-blue-800' :
+                              report.status === 'resolved' ? 'bg-green-100 text-green-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {report.status.toUpperCase()}
+                            </span>
+                            <span className="text-sm text-gray-500">
+                              {new Date(report.created_at).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <h4 className="font-semibold text-gray-900 mb-1">
+                            Report for: {report.listings?.title || 'Unknown Listing'}
+                          </h4>
+                          <p className="text-sm text-gray-600 mb-2">
+                            Property Code: #{report.listings?.reference_code}
+                          </p>
+                          <p className="text-sm text-gray-600 mb-2">
+                            Reported by: {report.user_profiles?.display_name} ({report.user_profiles?.email})
+                          </p>
+                          <div className="mb-3">
+                            <span className="font-medium text-gray-700">Reason: </span>
+                            <span className="capitalize">{report.reason.replace('_', ' ')}</span>
+                          </div>
+                          <div className="mb-3">
+                            <span className="font-medium text-gray-700">Description: </span>
+                            <p className="text-gray-600 mt-1">{report.description}</p>
+                          </div>
+                          {report.admin_notes && (
+                            <div className="bg-blue-50 rounded-lg p-3 mt-3">
+                              <span className="font-medium text-blue-800">Admin Notes: </span>
+                              <p className="text-blue-700 mt-1">{report.admin_notes}</p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center space-x-2">
+                        <Link
+                          href={`/listing/${report.listing_id}?admin=true`}
+                          className="px-3 py-2 bg-blue-100 text-blue-700 rounded-lg text-sm hover:bg-blue-200 transition-colors"
+                        >
+                          View Listing
+                        </Link>
+                        <button
+                          onClick={() => {
+                            const notes = prompt('Admin notes (optional):')
+                            updateReportStatus(report.id, 'reviewed', notes || '')
+                          }}
+                          className="px-3 py-2 bg-yellow-100 text-yellow-700 rounded-lg text-sm hover:bg-yellow-200 transition-colors"
+                        >
+                          Mark Reviewed
+                        </button>
+                        <button
+                          onClick={() => {
+                            const notes = prompt('Resolution notes:')
+                            if (notes !== null) updateReportStatus(report.id, 'resolved', notes)
+                          }}
+                          className="px-3 py-2 bg-green-100 text-green-700 rounded-lg text-sm hover:bg-green-200 transition-colors"
+                        >
+                          Mark Resolved
+                        </button>
+                        <button
+                          onClick={() => {
+                            const notes = prompt('Dismissal reason:')
+                            if (notes !== null) updateReportStatus(report.id, 'dismissed', notes)
+                          }}
+                          className="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm hover:bg-gray-200 transition-colors"
+                        >
+                          Dismiss
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
