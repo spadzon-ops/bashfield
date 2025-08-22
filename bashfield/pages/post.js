@@ -208,6 +208,7 @@ export default function Post() {
     if (!formData.rooms) newErrors.rooms = true
     if (!formData.size_sqm?.trim()) newErrors.size_sqm = true
     if (!formData.city?.trim()) newErrors.city = true
+    if (!formData.latitude) newErrors.location = true
     return newErrors
   }
 
@@ -503,12 +504,16 @@ export default function Post() {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    {t('propertyLocation')}
+                    {t('propertyLocation')} *
                   </label>
                   <button
                     type="button"
-                    onClick={() => setShowMap(true)}
+                    onClick={() => {
+                      setShowMap(true)
+                      if (errors.location) setErrors(prev => ({ ...prev, location: false }))
+                    }}
                     className={`w-full p-4 border-2 border-dashed rounded-lg text-center transition-colors ${
+                      errors.location ? 'border-red-500 bg-red-50' :
                       formData.latitude ? 'border-green-300 bg-green-50' : 'border-gray-300 hover:border-blue-400'
                     }`}
                   >
