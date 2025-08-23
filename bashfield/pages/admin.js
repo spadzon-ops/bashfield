@@ -563,8 +563,8 @@ export default function AdminPage() {
       }
       
       alert('Notification sent successfully!')
-      setNotificationModal(false)
       setCustomNotification({ recipient: 'all', title: '', message: '', type: 'info' })
+      setUserSearchModal('')
       await loadNotifications()
     } catch (error) {
       console.error('Error sending notification:', error)
@@ -1274,20 +1274,172 @@ export default function AdminPage() {
 
           {activeTab === 'notifications' && (
             <div className="p-8">
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Notifications Management</h3>
-                  <p className="text-sm text-gray-600">Send notifications to users and view notification history</p>
+              <div className="mb-8">
+                <h3 className="text-2xl font-bold text-gray-900 mb-2 flex items-center space-x-2">
+                  <span className="text-3xl">🔔</span>
+                  <span>Notifications Management</span>
+                </h3>
+                <p className="text-gray-600">Send notifications to users and manage notification history</p>
+              </div>
+
+              {/* Send Notification Form */}
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-6 mb-8 border border-blue-200">
+                <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center space-x-2">
+                  <span className="text-xl">📤</span>
+                  <span>Send New Notification</span>
+                </h4>
+                
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">📋 Notification Type</label>
+                      <select
+                        value={customNotification.type}
+                        onChange={(e) => setCustomNotification(prev => ({ ...prev, type: e.target.value }))}
+                        className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                      >
+                        <option value="info">ℹ️ Info</option>
+                        <option value="success">✅ Success</option>
+                        <option value="warning">⚠️ Warning</option>
+                        <option value="error">❌ Error</option>
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">👥 Recipients</label>
+                      <div className="space-y-3">
+                        <select
+                          value={customNotification.recipient === 'all' ? 'all' : 'specific'}
+                          onChange={(e) => {
+                            if (e.target.value === 'all') {
+                              setCustomNotification(prev => ({ ...prev, recipient: 'all' }))
+                              setUserSearchModal('')
+                            }
+                          }}
+                          className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                        >
+                          <option value="all">🌍 All Users ({users.length} users)</option>
+                          <option value="specific">👤 Specific User</option>
+                        </select>
+                        
+                        {customNotification.recipient !== 'all' && (
+                          <div className="space-y-2">
+                            <input
+                              type="text"
+                              value={userSearchModal}
+                              onChange={(e) => setUserSearchModal(e.target.value)}
+                              placeholder="🔍 Search users by name or email..."
+                              className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                            />
+                            {userSearchModal && (
+                              <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-xl bg-white shadow-lg">
+                                {users
+                                  .filter(user => 
+                                    user.display_name?.toLowerCase().includes(userSearchModal.toLowerCase()) ||
+                                    user.email?.toLowerCase().includes(userSearchModal.toLowerCase())
+                                  )
+                                  .slice(0, 10)
+                                  .map(user => (
+                                    <button
+                                      key={user.user_id}
+                                      type="button"
+                                      onClick={() => {
+                                        setCustomNotification(prev => ({ ...prev, recipient: user.user_id }))
+                                        setUserSearchModal(`${user.display_name} (${user.email})`)
+                                      }}
+                                      className="w-full text-left px-4 py-3 hover:bg-blue-50 border-b border-gray-100 last:border-b-0 transition-colors"
+                                    >
+                                      <div className="flex items-center space-x-3">
+                                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                          <span className="text-blue-700 font-semibold text-sm">
+                                            {user.display_name?.[0]?.toUpperCase() || '?'}
+                                          </span>
+                                        </div>
+                                        <div>
+                                          <div className="font-medium text-gray-900">{user.display_name}</div>
+                                          <div className="text-gray-500 text-sm">{user.email}</div>
+                                        </div>
+                                      </div>
+                                    </button>
+                                  ))
+                                }
+                                {userSearchModal && users.filter(user => 
+                                  user.display_name?.toLowerCase().includes(userSearchModal.toLowerCase()) ||
+                                  user.email?.toLowerCase().includes(userSearchModal.toLowerCase())
+                                ).length === 0 && (
+                                  <div className="px-4 py-3 text-gray-500 text-center">No users found</div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">📝 Title</label>
+                      <input
+                        type="text"
+                        value={customNotification.title}
+                        onChange={(e) => setCustomNotification(prev => ({ ...prev, title: e.target.value }))}
+                        placeholder="Enter notification title..."
+                        className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">💬 Message</label>
+                      <textarea
+                        rows={4}
+                        value={customNotification.message}
+                        onChange={(e) => setCustomNotification(prev => ({ ...prev, message: e.target.value }))}
+                        placeholder="Enter notification message..."
+                        className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white resize-none"
+                      />
+                    </div>
+                    
+                    <div className="flex space-x-3">
+                      <button
+                        onClick={() => {
+                          setCustomNotification({ recipient: 'all', title: '', message: '', type: 'info' })
+                          setUserSearchModal('')
+                        }}
+                        className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-3 rounded-xl font-semibold transition-colors"
+                      >
+                        🗑️ Clear
+                      </button>
+                      <button
+                        onClick={sendCustomNotification}
+                        disabled={!customNotification.title.trim() || !customNotification.message.trim()}
+                        className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-300 text-white px-4 py-3 rounded-xl font-semibold transition-colors flex items-center justify-center space-x-2"
+                      >
+                        <span>🚀</span>
+                        <span>Send Notification</span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                <button
-                  onClick={() => setNotificationModal(true)}
-                  className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center space-x-2 shadow-lg hover:shadow-xl"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                  </svg>
-                  <span>Send Notification</span>
-                </button>
+                
+                {/* Preview */}
+                {(customNotification.title || customNotification.message) && (
+                  <div className="mt-6 p-4 bg-white rounded-xl border border-gray-200">
+                    <h5 className="font-medium text-gray-900 mb-2 flex items-center space-x-2">
+                      <span>👁️</span>
+                      <span>Preview</span>
+                    </h5>
+                    <div className={`p-4 rounded-lg border-l-4 ${
+                      customNotification.type === 'success' ? 'bg-green-50 border-green-400' :
+                      customNotification.type === 'warning' ? 'bg-yellow-50 border-yellow-400' :
+                      customNotification.type === 'error' ? 'bg-red-50 border-red-400' :
+                      'bg-blue-50 border-blue-400'
+                    }`}>
+                      <h6 className="font-semibold text-gray-900">{customNotification.title || 'Notification Title'}</h6>
+                      <p className="text-sm text-gray-600 mt-1">{customNotification.message || 'Notification message will appear here...'}</p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Quick Actions */}
@@ -1743,159 +1895,7 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* Custom Notification Modal */}
-        {notificationModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6 border-b border-gray-200">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-2xl font-bold text-gray-900 flex items-center space-x-2">
-                    <svg className="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-5 5v-5zM11 17H6l5 5v-5zM7 7h10l-5-5L7 7z" />
-                    </svg>
-                    <span>Send Notification</span>
-                  </h2>
-                  <button
-                    onClick={() => setNotificationModal(false)}
-                    className="text-gray-500 hover:text-gray-700 text-2xl"
-                  >
-                    ×
-                  </button>
-                </div>
-              </div>
-              
-              <div className="p-6 space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Recipient</label>
-                    <div className="space-y-2">
-                      <div className="flex space-x-2">
-                        <select
-                          value={customNotification.recipient === 'all' ? 'all' : 'specific'}
-                          onChange={(e) => {
-                            if (e.target.value === 'all') {
-                              setCustomNotification(prev => ({ ...prev, recipient: 'all' }))
-                            }
-                          }}
-                          className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        >
-                          <option value="all">All Users ({users.length} users)</option>
-                          <option value="specific">Specific User</option>
-                        </select>
-                      </div>
-                      
-                      {customNotification.recipient !== 'all' && (
-                        <div className="space-y-2">
-                          <input
-                            type="text"
-                            value={userSearchModal}
-                            onChange={(e) => setUserSearchModal(e.target.value)}
-                            placeholder="Search users by name or email..."
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                          />
-                          <div className="max-h-32 overflow-y-auto border border-gray-200 rounded-lg">
-                            {users
-                              .filter(user => 
-                                user.display_name?.toLowerCase().includes(userSearchModal.toLowerCase()) ||
-                                user.email?.toLowerCase().includes(userSearchModal.toLowerCase())
-                              )
-                              .slice(0, 20)
-                              .map(user => (
-                                <button
-                                  key={user.user_id}
-                                  type="button"
-                                  onClick={() => {
-                                    setCustomNotification(prev => ({ ...prev, recipient: user.user_id }))
-                                    setUserSearchModal(`${user.display_name} (${user.email})`)
-                                  }}
-                                  className="w-full text-left px-3 py-2 hover:bg-gray-50 border-b border-gray-100 last:border-b-0 text-sm"
-                                >
-                                  <div className="font-medium">{user.display_name}</div>
-                                  <div className="text-gray-500 text-xs">{user.email}</div>
-                                </button>
-                              ))
-                            }
-                            {userSearchModal && users.filter(user => 
-                              user.display_name?.toLowerCase().includes(userSearchModal.toLowerCase()) ||
-                              user.email?.toLowerCase().includes(userSearchModal.toLowerCase())
-                            ).length === 0 && (
-                              <div className="px-3 py-2 text-gray-500 text-sm">No users found</div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Type</label>
-                    <select
-                      value={customNotification.type}
-                      onChange={(e) => setCustomNotification(prev => ({ ...prev, type: e.target.value }))}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="info">Info</option>
-                      <option value="success">Success</option>
-                      <option value="warning">Warning</option>
-                      <option value="error">Error</option>
-                    </select>
-                  </div>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Title</label>
-                  <input
-                    type="text"
-                    value={customNotification.title}
-                    onChange={(e) => setCustomNotification(prev => ({ ...prev, title: e.target.value }))}
-                    placeholder="Notification title..."
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Message</label>
-                  <textarea
-                    rows={4}
-                    value={customNotification.message}
-                    onChange={(e) => setCustomNotification(prev => ({ ...prev, message: e.target.value }))}
-                    placeholder="Notification message..."
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                  />
-                </div>
-                
-                {/* Preview */}
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <h4 className="font-medium text-gray-900 mb-2">Preview</h4>
-                  <div className={`p-3 rounded-lg border-l-4 ${
-                    customNotification.type === 'success' ? 'bg-green-50 border-green-400' :
-                    customNotification.type === 'warning' ? 'bg-yellow-50 border-yellow-400' :
-                    customNotification.type === 'error' ? 'bg-red-50 border-red-400' :
-                    'bg-blue-50 border-blue-400'
-                  }`}>
-                    <h5 className="font-semibold text-gray-900">{customNotification.title || 'Notification Title'}</h5>
-                    <p className="text-sm text-gray-600 mt-1">{customNotification.message || 'Notification message will appear here...'}</p>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="p-6 border-t border-gray-200 flex justify-end space-x-3">
-                <button
-                  onClick={() => setNotificationModal(false)}
-                  className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={sendCustomNotification}
-                  className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-                >
-                  Send Notification
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+
       </div>
     </div>
   )

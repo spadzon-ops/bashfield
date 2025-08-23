@@ -191,16 +191,18 @@ export default function Layout({ children }) {
           (payload) => {
             const newNotification = payload.new
             
-            // Don't show notification alert if user is on notifications page
-            if (router.pathname !== '/notifications') {
-              // Update notification count immediately
-              setTimeout(() => getNotificationCount(user), 500)
-              
-              // Dispatch global event for notification received
-              window.dispatchEvent(new CustomEvent('notificationReceived', {
-                detail: { notification: newNotification }
-              }))
-            }
+            // Update notification count immediately
+            setTimeout(() => {
+              // Don't update count if user is on notifications page
+              if (router.pathname !== '/notifications') {
+                getNotificationCount(user)
+              }
+            }, 500)
+            
+            // Dispatch global event for notification received
+            window.dispatchEvent(new CustomEvent('notificationReceived', {
+              detail: { notification: newNotification }
+            }))
           }
         )
         .on('postgres_changes',
