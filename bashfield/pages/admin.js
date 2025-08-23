@@ -1314,6 +1314,8 @@ export default function AdminPage() {
                             if (e.target.value === 'all') {
                               setCustomNotification(prev => ({ ...prev, recipient: 'all' }))
                               setUserSearchModal('')
+                            } else {
+                              setCustomNotification(prev => ({ ...prev, recipient: '' }))
                             }
                           }}
                           className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
@@ -1331,46 +1333,50 @@ export default function AdminPage() {
                               placeholder="🔍 Search users by name or email..."
                               className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
                             />
-                            {userSearchModal && (
-                              <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-xl bg-white shadow-lg">
-                                {users
-                                  .filter(user => 
-                                    user.display_name?.toLowerCase().includes(userSearchModal.toLowerCase()) ||
-                                    user.email?.toLowerCase().includes(userSearchModal.toLowerCase())
-                                  )
-                                  .slice(0, 10)
-                                  .map(user => (
-                                    <button
-                                      key={user.user_id}
-                                      type="button"
-                                      onClick={() => {
-                                        setCustomNotification(prev => ({ ...prev, recipient: user.user_id }))
-                                        setUserSearchModal(`${user.display_name} (${user.email})`)
-                                      }}
-                                      className="w-full text-left px-4 py-3 hover:bg-blue-50 border-b border-gray-100 last:border-b-0 transition-colors"
-                                    >
-                                      <div className="flex items-center space-x-3">
-                                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                                          <span className="text-blue-700 font-semibold text-sm">
-                                            {user.display_name?.[0]?.toUpperCase() || '?'}
-                                          </span>
-                                        </div>
-                                        <div>
-                                          <div className="font-medium text-gray-900">{user.display_name}</div>
-                                          <div className="text-gray-500 text-sm">{user.email}</div>
-                                        </div>
-                                      </div>
-                                    </button>
-                                  ))
-                                }
-                                {userSearchModal && users.filter(user => 
+                            <div className="max-h-40 overflow-y-auto border border-gray-200 rounded-xl bg-white shadow-lg">
+                              {users
+                                .filter(user => 
+                                  !userSearchModal || 
                                   user.display_name?.toLowerCase().includes(userSearchModal.toLowerCase()) ||
                                   user.email?.toLowerCase().includes(userSearchModal.toLowerCase())
-                                ).length === 0 && (
-                                  <div className="px-4 py-3 text-gray-500 text-center">No users found</div>
-                                )}
-                              </div>
-                            )}
+                                )
+                                .slice(0, 15)
+                                .map(user => (
+                                  <button
+                                    key={user.user_id}
+                                    type="button"
+                                    onClick={() => {
+                                      setCustomNotification(prev => ({ ...prev, recipient: user.user_id }))
+                                      setUserSearchModal(`${user.display_name} (${user.email})`)
+                                    }}
+                                    className={`w-full text-left px-4 py-3 hover:bg-blue-50 border-b border-gray-100 last:border-b-0 transition-colors ${
+                                      customNotification.recipient === user.user_id ? 'bg-blue-50 border-blue-200' : ''
+                                    }`}
+                                  >
+                                    <div className="flex items-center space-x-3">
+                                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                                        <span className="text-blue-700 font-semibold text-sm">
+                                          {user.display_name?.[0]?.toUpperCase() || '?'}
+                                        </span>
+                                      </div>
+                                      <div>
+                                        <div className="font-medium text-gray-900">{user.display_name}</div>
+                                        <div className="text-gray-500 text-sm">{user.email}</div>
+                                      </div>
+                                      {customNotification.recipient === user.user_id && (
+                                        <div className="ml-auto text-blue-600">✓</div>
+                                      )}
+                                    </div>
+                                  </button>
+                                ))
+                              }
+                              {userSearchModal && users.filter(user => 
+                                user.display_name?.toLowerCase().includes(userSearchModal.toLowerCase()) ||
+                                user.email?.toLowerCase().includes(userSearchModal.toLowerCase())
+                              ).length === 0 && (
+                                <div className="px-4 py-3 text-gray-500 text-center">No users found</div>
+                              )}
+                            </div>
                           </div>
                         )}
                       </div>

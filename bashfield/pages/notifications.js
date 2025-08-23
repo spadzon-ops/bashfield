@@ -9,13 +9,30 @@ export default function Notifications() {
   const router = useRouter()
   const [notifications, setNotifications] = useState([])
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState('all')
 
   useEffect(() => {
     loadNotifications()
     
-    // Dispatch event to clear notification count in Layout
-    window.dispatchEvent(new CustomEvent('notificationsRead'))
+    // Auto-mark all notifications as read and clear count immediately
+    const markAllAsReadOnLoad = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          await supabase
+            .from('notifications')
+            .update({ read: true })
+            .eq('user_id', user.id)
+            .eq('read', false)
+          
+          // Dispatch event to clear notification count immediately
+          window.dispatchEvent(new CustomEvent('notificationsRead'))
+        }
+      } catch (error) {
+        console.error('Error marking notifications as read:', error)
+      }
+    }
+    
+    markAllAsReadOnLoad()
     
     // Set up real-time subscription
     const channel = supabase
@@ -97,13 +114,7 @@ export default function Notifications() {
     }
   }
 
-  const filteredNotifications = notifications.filter(n => {
-    if (filter === 'unread') return !n.read
-    if (filter === 'read') return n.read
-    return true
-  })
 
-  const unreadCount = notifications.filter(n => !n.read).length
 
   if (loading) {
     return (
@@ -130,7 +141,7 @@ export default function Notifications() {
                   Notifications
                 </h1>
                 <p className="text-gray-600">
-                  {unreadCount > 0 ? `You have ${unreadCount} unread notification${unreadCount !== 1 ? 's' : ''}` : 'All caught up!'}
+                  Your notifications ({notifications.length})
                 </p>
               </div>
               <button
@@ -144,55 +155,12 @@ export default function Notifications() {
               </button>
             </div>
 
-            {/* Filters and Actions */}
-            <div className="flex items-center justify-between">
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => setFilter('all')}
-                  className={`px-4 py-2 rounded-xl font-medium transition-colors ${
-                    filter === 'all' 
-                      ? 'bg-blue-600 text-white' 
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  All ({notifications.length})
-                </button>
-                <button
-                  onClick={() => setFilter('unread')}
-                  className={`px-4 py-2 rounded-xl font-medium transition-colors ${
-                    filter === 'unread' 
-                      ? 'bg-blue-600 text-white' 
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  Unread ({unreadCount})
-                </button>
-                <button
-                  onClick={() => setFilter('read')}
-                  className={`px-4 py-2 rounded-xl font-medium transition-colors ${
-                    filter === 'read' 
-                      ? 'bg-blue-600 text-white' 
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  Read ({notifications.length - unreadCount})
-                </button>
-              </div>
-              
-              {unreadCount > 0 && (
-                <button
-                  onClick={markAllAsRead}
-                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-xl font-medium transition-colors"
-                >
-                  Mark All Read
-                </button>
-              )}
-            </div>
+
           </div>
 
           {/* Notifications List */}
           <div className="space-y-4">
-            {filteredNotifications.length === 0 ? (
+            {notifications.length === 0 ? (
               <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg p-12 text-center border border-gray-200/50">
                 <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-6">
                   <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -201,13 +169,11 @@ export default function Notifications() {
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900 mb-2">No notifications</h3>
                 <p className="text-gray-600">
-                  {filter === 'all' 
-                    ? "You don't have any notifications yet." 
-                    : `No ${filter} notifications found.`}
+                  You don't have any notifications yet.
                 </p>
               </div>
             ) : (
-              filteredNotifications.map((notification) => (
+              notifications.map((notification) => (
                 <div
                   key={notification.id}
                   className={`bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg p-6 border transition-all duration-300 hover:shadow-xl ${
