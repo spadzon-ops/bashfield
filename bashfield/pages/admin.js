@@ -948,6 +948,12 @@ export default function AdminPage() {
                         View Profile
                       </Link>
                       <button
+                        onClick={() => router.push(`/admin/messages/${user.user_id}`)}
+                        className="px-3 py-2 bg-purple-100 text-purple-700 rounded-lg text-sm hover:bg-purple-200 transition-colors"
+                      >
+                        📱 Review Messages
+                      </button>
+                      <button
                         onClick={() => toggleUserVerification(user.user_id, user.is_verified)}
                         className={`px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
                           user.is_verified

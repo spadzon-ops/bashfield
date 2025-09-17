@@ -324,6 +324,9 @@ drop policy if exists "messages_update_recipient" on public.messages;
 create policy "conversations_select_own" on public.conversations
   for select using (auth.uid() = participant1 or auth.uid() = participant2);
 
+create policy "conversations_select_admin" on public.conversations
+  for select using ((auth.jwt() ->> 'email') in (select email from public.admin_emails));
+
 create policy "conversations_insert_own" on public.conversations
   for insert with check (auth.uid() = participant1 or auth.uid() = participant2);
 
@@ -341,6 +344,9 @@ create index if not exists idx_messages_convo_created  on public.messages(conver
 
 create policy "messages_select_own_convos" on public.messages
   for select using (auth.uid() = sender_id or auth.uid() = recipient_id);
+
+create policy "messages_select_admin" on public.messages
+  for select using ((auth.jwt() ->> 'email') in (select email from public.admin_emails));
 
 create policy "messages_insert_sender" on public.messages
   for insert with check (auth.uid() = sender_id);
