@@ -32,7 +32,7 @@ export default function MapView({ listings, onListingSelect }) {
   }, [])
 
   useEffect(() => {
-    if (map && listings.length > 0) {
+    if (map) {
       addMarkersToMap()
     }
   }, [map, listings])
@@ -152,6 +152,11 @@ export default function MapView({ listings, onListingSelect }) {
         map.removeLayer(layer)
       }
     })
+
+    // If no listings, just return after clearing
+    if (!listings || listings.length === 0) {
+      return
+    }
 
     const clusters = clusterNearbyListings(listings)
 
