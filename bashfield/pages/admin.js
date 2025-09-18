@@ -2,7 +2,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
-import dynamic from 'next/dynamic'
 import { supabase } from '../lib/supabase'
 import { useTranslation } from '../contexts/TranslationContext'
 
@@ -19,7 +18,7 @@ function ageThreshold(months) {
   return d.toISOString()
 }
 
-function AdminPage() {
+export default function AdminPage() {
   const router = useRouter()
   const { t } = useTranslation()
   const [user, setUser] = useState(null)
@@ -73,6 +72,46 @@ function AdminPage() {
     description_ku: '',
     description_ar: ''
   })
+
+  const filteredUsers = useMemo(() => {
+    let filtered = users
+    
+    // Apply warning filter
+    if (warningFilter === 'warnings') {
+      filtered = filtered.filter(u => u.warning_level === 'yellow' || u.warning_level === 'red')
+    } else if (warningFilter === 'yellow') {
+      filtered = filtered.filter(u => u.warning_level === 'yellow')
+    } else if (warningFilter === 'red') {
+      filtered = filtered.filter(u => u.warning_level === 'red')
+    }
+    
+    if (userSearch.trim()) {
+      const search = userSearch.toLowerCase()
+      filtered = filtered.filter(u => 
+        u.display_name?.toLowerCase().includes(search) ||
+        u.email?.toLowerCase().includes(search)
+      )
+    }
+    
+    switch (userSort) {
+      case 'oldest':
+        filtered = [...filtered].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+        break
+      case 'name':
+        filtered = [...filtered].sort((a, b) => (a.display_name || '').localeCompare(b.display_name || ''))
+        break
+      case 'email':
+        filtered = [...filtered].sort((a, b) => (a.email || '').localeCompare(b.email || ''))
+        break
+      case 'verified':
+        filtered = [...filtered].sort((a, b) => (b.is_verified ? 1 : 0) - (a.is_verified ? 1 : 0))
+        break
+      default: // newest
+        filtered = [...filtered].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    }
+    
+    return filtered
+  }, [users, userSearch, userSort, warningFilter])
 
   useEffect(() => {
     ;(async () => {
@@ -597,46 +636,6 @@ function AdminPage() {
       console.error('Error sending rejection notification:', error)
     }
   }
-
-  const filteredUsers = useMemo(() => {
-    let filtered = users
-    
-    // Apply warning filter
-    if (warningFilter === 'warnings') {
-      filtered = filtered.filter(u => u.warning_level === 'yellow' || u.warning_level === 'red')
-    } else if (warningFilter === 'yellow') {
-      filtered = filtered.filter(u => u.warning_level === 'yellow')
-    } else if (warningFilter === 'red') {
-      filtered = filtered.filter(u => u.warning_level === 'red')
-    }
-    
-    if (userSearch.trim()) {
-      const search = userSearch.toLowerCase()
-      filtered = filtered.filter(u => 
-        u.display_name?.toLowerCase().includes(search) ||
-        u.email?.toLowerCase().includes(search)
-      )
-    }
-    
-    switch (userSort) {
-      case 'oldest':
-        filtered = [...filtered].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
-        break
-      case 'name':
-        filtered = [...filtered].sort((a, b) => (a.display_name || '').localeCompare(b.display_name || ''))
-        break
-      case 'email':
-        filtered = [...filtered].sort((a, b) => (a.email || '').localeCompare(b.email || ''))
-        break
-      case 'verified':
-        filtered = [...filtered].sort((a, b) => (b.is_verified ? 1 : 0) - (a.is_verified ? 1 : 0))
-        break
-      default: // newest
-        filtered = [...filtered].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-    }
-    
-    return filtered
-  }, [users, userSearch, userSort, warningFilter])
 
   // Reset pagination when filters change
   useEffect(() => {
@@ -1944,7 +1943,3 @@ function AdminPage() {
     </div>
   )
 }
-
-export default dynamic(() => Promise.resolve(AdminPage), {
-  ssr: false
-})
