@@ -386,7 +386,6 @@ export default function AdminUserMessages() {
               )}
             </div>
           </div>
-          </div>
         </div>
       </div>
     </div>
