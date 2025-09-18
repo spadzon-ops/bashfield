@@ -1750,6 +1750,10 @@ export default function AdminPage() {
                               className="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm">
                         Delete
                       </button>
+                      <Link href={`/admin/edit-listing/${l.id}`}
+                            className="px-3 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm inline-block text-center">
+                        Edit
+                      </Link>
                       <button onClick={() => openTranslationModal(l)}
                               className="px-3 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-sm">
                         Translate
