@@ -2,6 +2,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
+import dynamic from 'next/dynamic'
 import { supabase } from '../lib/supabase'
 import { useTranslation } from '../contexts/TranslationContext'
 
@@ -18,7 +19,7 @@ function ageThreshold(months) {
   return d.toISOString()
 }
 
-export default function AdminPage() {
+function AdminPage() {
   const router = useRouter()
   const { t } = useTranslation()
   const [user, setUser] = useState(null)
@@ -634,12 +635,14 @@ export default function AdminPage() {
         filtered = [...filtered].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
     }
     
-    // Reset pagination when filters change
-    setDisplayedUsers(15)
-    setHasMoreUsers(filtered.length > 15)
-    
     return filtered
   }, [users, userSearch, userSort, warningFilter])
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setDisplayedUsers(15)
+    setHasMoreUsers(filteredUsers.length > 15)
+  }, [filteredUsers.length, userSearch, userSort, warningFilter])
 
   const toggleUserVerification = async (userId, currentStatus) => {
     const { error } = await supabase
@@ -1941,3 +1944,7 @@ export default function AdminPage() {
     </div>
   )
 }
+
+export default dynamic(() => Promise.resolve(AdminPage), {
+  ssr: false
+})
