@@ -29,7 +29,7 @@ A modern, multilingual house rental platform for Iraq, especially Erbil. Built w
 
 1. **Clone and install**:
    ```bash
-   git clone [your-repo]
+   git clone [your-repo] 
    cd bashfield
    npm install
    ```
