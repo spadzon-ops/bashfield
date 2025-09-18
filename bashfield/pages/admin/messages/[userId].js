@@ -158,53 +158,53 @@ export default function AdminUserMessages() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center space-x-4 mb-4">
-            <Link 
-              href="/admin" 
-              className="text-blue-600 hover:text-blue-800 flex items-center space-x-2"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-              <span>Back to Admin</span>
-            </Link>
-          </div>
-          
-          <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
-            <div className="flex items-center space-x-4">
-              <div className="w-16 h-16 bg-gradient-to-r from-purple-600 to-purple-700 rounded-2xl flex items-center justify-center">
-                <span className="text-2xl text-white">📱</span>
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-purple-600 to-purple-700 bg-clip-text text-transparent">
-                  Message Review
-                </h1>
-                <p className="text-gray-600 text-lg">
-                  Reviewing conversations for: <span className="font-semibold">{targetUser?.display_name}</span> ({targetUser?.email})
-                </p>
-                <div className="mt-2 text-sm text-red-600 bg-red-50 px-3 py-1 rounded-lg inline-block">
-                  ⚠️ Admin Review Mode - Read Only
-                </div>
+    <div className="h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex flex-col">
+      {/* Header */}
+      <div className="flex-none p-4">
+        <div className="flex items-center space-x-4 mb-4">
+          <Link 
+            href="/admin" 
+            className="text-blue-600 hover:text-blue-800 flex items-center space-x-2"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            <span>Back to Admin</span>
+          </Link>
+        </div>
+        
+        <div className="bg-white rounded-2xl shadow-lg p-4 border border-gray-200">
+          <div className="flex items-center space-x-4">
+            <div className="w-12 h-12 bg-gradient-to-r from-purple-600 to-purple-700 rounded-xl flex items-center justify-center">
+              <span className="text-xl text-white">📱</span>
+            </div>
+            <div>
+              <h1 className="text-xl font-bold bg-gradient-to-r from-purple-600 to-purple-700 bg-clip-text text-transparent">
+                Message Review
+              </h1>
+              <p className="text-gray-600 text-sm">
+                Reviewing: <span className="font-semibold">{targetUser?.display_name}</span> ({targetUser?.email})
+              </p>
+              <div className="mt-1 text-xs text-red-600 bg-red-50 px-2 py-1 rounded inline-block">
+                ⚠️ Admin Review Mode - Read Only
               </div>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Messages Interface */}
-        <div className="bg-white rounded-3xl shadow-2xl h-[calc(100vh-200px)] min-h-0 border border-gray-200 overflow-hidden">
-          <div className="flex h-full min-h-0">
+      {/* Messages Interface */}
+      <div className="flex-1 min-h-0 mx-4 mb-4">
+        <div className="bg-white rounded-2xl shadow-2xl h-full border border-gray-200 overflow-hidden">
+          <div className="flex h-full">
             {/* Conversations List */}
-            <div className="w-1/3 border-r border-gray-200 flex-col min-h-0 bg-gradient-to-b from-white to-gray-50">
-              <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-pink-50">
-                <h2 className="text-xl font-bold text-gray-900">Conversations ({conversations.length})</h2>
-                <p className="text-sm text-gray-600">All conversations involving this user</p>
+            <div className="w-1/3 border-r border-gray-200 flex flex-col bg-gradient-to-b from-white to-gray-50">
+              <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-purple-50 to-pink-50 flex-none">
+                <h2 className="text-lg font-bold text-gray-900">Conversations ({conversations.length})</h2>
+                <p className="text-xs text-gray-600">All conversations involving this user</p>
               </div>
               
-              <div className="flex-1 min-h-0 overflow-y-auto">
+              <div className="flex-1 overflow-y-auto">
                 {conversations.length === 0 ? (
                   <div className="p-8 text-center">
                     <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -266,26 +266,26 @@ export default function AdminUserMessages() {
             </div>
 
             {/* Messages View */}
-            <div className="flex-1 flex-col min-h-0">
+            <div className="flex-1 flex flex-col">
               {activeConversation ? (
                 <>
                   {/* Conversation Header */}
-                  <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-white to-gray-50">
+                  <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-white to-gray-50 flex-none">
                     <div className="flex items-center space-x-4">
-                      <AvatarCircle profile={activeConversation.other_participant} size={48} />
+                      <AvatarCircle profile={activeConversation.other_participant} size={40} />
                       <div className="flex-1">
-                        <h3 className="font-bold text-gray-900 text-lg">
-                          Conversation between {targetUser?.display_name} & {activeConversation.other_participant?.display_name}
+                        <h3 className="font-bold text-gray-900 text-base">
+                          {targetUser?.display_name} & {activeConversation.other_participant?.display_name}
                         </h3>
-                        <p className="text-sm text-purple-600 font-medium">
-                          {activeConversation.listing?.title ? `🏠 Property: ${activeConversation.listing.title} (${activeConversation.listing.reference_code})` : '💬 Direct Message'}
+                        <p className="text-xs text-purple-600 font-medium">
+                          {activeConversation.listing?.title ? `🏠 ${activeConversation.listing.title} (${activeConversation.listing.reference_code})` : '💬 Direct Message'}
                         </p>
                       </div>
                       <div className="text-right">
-                        <div className="text-sm text-gray-500">
+                        <div className="text-xs text-gray-500">
                           Started: {formatDate(activeConversation.created_at)}
                         </div>
-                        <div className="text-sm text-gray-500">
+                        <div className="text-xs text-gray-500">
                           Messages: {messages.length}
                         </div>
                       </div>
@@ -293,7 +293,7 @@ export default function AdminUserMessages() {
                   </div>
 
                   {/* Messages */}
-                  <div ref={messagesContainerRef} className="flex-1 min-h-0 overflow-y-auto p-6 space-y-4 bg-gradient-to-b from-gray-50/50 to-white">
+                  <div ref={messagesContainerRef} className="flex-1 overflow-y-auto p-4 space-y-3 bg-gradient-to-b from-gray-50/50 to-white">
                     {messages.length === 0 ? (
                       <div className="text-center py-8 text-gray-500">
                         No messages in this conversation yet.
@@ -358,12 +358,12 @@ export default function AdminUserMessages() {
                   </div>
 
                   {/* Read-only Notice */}
-                  <div className="p-4 bg-red-50 border-t border-red-200">
+                  <div className="p-3 bg-red-50 border-t border-red-200 flex-none">
                     <div className="flex items-center justify-center space-x-2 text-red-700">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16c-.77.833.192 2.5 1.732 2.5z" />
                       </svg>
-                      <span className="font-semibold">Admin Review Mode - Messages are read-only</span>
+                      <span className="font-semibold text-sm">Admin Review Mode - Messages are read-only</span>
                     </div>
                   </div>
                 </>
@@ -385,6 +385,7 @@ export default function AdminUserMessages() {
                 </div>
               )}
             </div>
+          </div>
           </div>
         </div>
       </div>
