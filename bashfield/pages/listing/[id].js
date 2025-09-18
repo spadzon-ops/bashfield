@@ -470,9 +470,18 @@ export default function ListingDetail({ listing: initialListing }) {
                         <h4 className="text-md font-semibold text-gray-900">Property Location</h4>
                         <button
                           onClick={() => {
-                            const coords = `${listing.latitude},${listing.longitude}`
-                            const googleMapsUrl = `https://www.google.com/maps?q=${coords}&zoom=16`
-                            window.open(googleMapsUrl, '_blank')
+                            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+                            
+                            if (isMobile) {
+                              // On mobile, try to open with system map selector
+                              const coords = `${listing.latitude},${listing.longitude}`
+                              const googleMapsUrl = `https://www.google.com/maps?q=${coords}`
+                              window.open(googleMapsUrl, '_blank')
+                            } else {
+                              // On desktop, open Google Maps
+                              const googleMapsUrl = `https://www.google.com/maps?q=${listing.latitude},${listing.longitude}&zoom=15`
+                              window.open(googleMapsUrl, '_blank')
+                            }
                           }}
                           className="inline-flex items-center space-x-1 bg-blue-100 hover:bg-blue-200 text-blue-700 px-3 py-1 rounded-lg transition-colors text-sm font-medium"
                         >
@@ -480,34 +489,15 @@ export default function ListingDetail({ listing: initialListing }) {
                           <span>Open in Maps</span>
                         </button>
                       </div>
-                      <div className="w-full h-64 rounded-lg overflow-hidden border border-gray-200 relative">
+                      <div className="w-full h-64 rounded-lg overflow-hidden border border-gray-200">
                         <iframe
-                          src={`https://www.openstreetmap.org/export/embed.html?bbox=${parseFloat(listing.longitude)-0.005},${parseFloat(listing.latitude)-0.005},${parseFloat(listing.longitude)+0.005},${parseFloat(listing.latitude)+0.005}&layer=mapnik&marker=${parseFloat(listing.latitude)},${parseFloat(listing.longitude)}`}
+                          src={`https://www.openstreetmap.org/export/embed.html?bbox=${parseFloat(listing.longitude)-0.01},${parseFloat(listing.latitude)-0.01},${parseFloat(listing.longitude)+0.01},${parseFloat(listing.latitude)+0.01}&layer=mapnik&marker=${parseFloat(listing.latitude)},${parseFloat(listing.longitude)}`}
                           width="100%"
                           height="100%"
                           style={{ border: 0 }}
                           title="Property Location"
                           loading="lazy"
-                          onLoad={() => {
-                            // Fallback: Add a custom marker overlay if iframe marker doesn't show
-                            setTimeout(() => {
-                              const mapContainer = document.querySelector('.map-marker-overlay')
-                              if (mapContainer) {
-                                mapContainer.style.display = 'block'
-                              }
-                            }, 1000)
-                          }}
                         />
-                        {/* Fallback marker overlay */}
-                        <div 
-                          className="map-marker-overlay absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none z-10"
-                          style={{ display: 'none' }}
-                        >
-                          <div className="w-8 h-8 bg-red-500 rounded-full border-4 border-white shadow-lg flex items-center justify-center">
-                            <div className="w-2 h-2 bg-white rounded-full"></div>
-                          </div>
-                          <div className="w-1 h-4 bg-red-500 mx-auto"></div>
-                        </div>
                       </div>
                     </div>
                   )}
