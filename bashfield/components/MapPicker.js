@@ -20,11 +20,20 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
     najaf: [32.0000, 44.3333],
     karbala: [32.6160, 44.0242],
     kirkuk: [35.4681, 44.3922],
-    duhok: [36.8617, 42.9789]
+    duhok: [36.8617, 42.9789],
+    fallujah: [33.3506, 43.7844],
+    ramadi: [33.4203, 43.3089],
+    tikrit: [34.6056, 43.6781],
+    samarra: [34.1958, 43.8742],
+    baqubah: [33.7506, 44.6445],
+    hillah: [32.4722, 44.4217],
+    amarah: [31.8356, 47.1444],
+    nasiriyah: [31.0569, 46.2581],
+    kut: [32.5128, 45.8183]
   }
 
   const getCityCenter = () => {
-    return cityCoordinates[selectedCity] || initialCenter
+    return cityCoordinates[selectedCity?.toLowerCase()] || initialCenter
   }
 
   useEffect(() => {
@@ -38,6 +47,19 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
       }
     }
   }, [isOpen])
+
+  // Update map center when city changes
+  useEffect(() => {
+    if (mapInstanceRef.current && mapLoaded) {
+      const center = getCityCenter()
+      mapInstanceRef.current.setView(center, 13)
+      if (markerRef.current) {
+        markerRef.current.setLatLng(center)
+        setSelectedLocation({ lat: center[0], lng: center[1] })
+        setAddress(`${center[0].toFixed(6)}, ${center[1].toFixed(6)}`)
+      }
+    }
+  }, [selectedCity, mapLoaded])
 
   useEffect(() => {
     if (!isOpen && mapInstanceRef.current) {
