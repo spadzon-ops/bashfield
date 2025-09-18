@@ -620,6 +620,7 @@ export default function AdminEditListing() {
         onClose={() => setShowMap(false)}
         onLocationSelect={handleMapClick}
         selectedCity={formData.city}
+        currentLocation={formData.latitude && formData.longitude ? { lat: formData.latitude, lng: formData.longitude } : null}
       />
     </div>
   )

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 
-export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCenter = [36.1911, 44.0093], selectedCity = 'erbil' }) {
+export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCenter = [36.1911, 44.0093], selectedCity = 'erbil', currentLocation = null }) {
   const [selectedLocation, setSelectedLocation] = useState(null)
   const [address, setAddress] = useState('')
   const mapRef = useRef(null)
@@ -33,6 +33,11 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
   }
 
   const getCityCenter = () => {
+    // If there's a current location (previously selected), use that
+    if (currentLocation && currentLocation.lat && currentLocation.lng) {
+      return [currentLocation.lat, currentLocation.lng]
+    }
+    // Otherwise use city center
     return cityCoordinates[selectedCity?.toLowerCase()] || initialCenter
   }
 
@@ -48,9 +53,9 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
     }
   }, [isOpen])
 
-  // Update map center when city changes
+  // Update map center when city changes (only if no current location is set)
   useEffect(() => {
-    if (mapInstanceRef.current && mapLoaded) {
+    if (mapInstanceRef.current && mapLoaded && !currentLocation) {
       const center = getCityCenter()
       mapInstanceRef.current.setView(center, 13)
       if (markerRef.current) {
@@ -59,7 +64,7 @@ export default function MapPicker({ isOpen, onClose, onLocationSelect, initialCe
         setAddress(`${center[0].toFixed(6)}, ${center[1].toFixed(6)}`)
       }
     }
-  }, [selectedCity, mapLoaded])
+  }, [selectedCity, mapLoaded, currentLocation])
 
   useEffect(() => {
     if (!isOpen && mapInstanceRef.current) {
