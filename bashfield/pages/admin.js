@@ -39,7 +39,9 @@ export default function AdminPage() {
   const [users, setUsers] = useState([])
   const [userSearch, setUserSearch] = useState('')
   const [userSort, setUserSort] = useState('newest')
-  const [displayedUsers, setDisplayedUsers] = useState(20)
+  const [displayedUsers, setDisplayedUsers] = useState(15)
+  const [loadingMoreUsers, setLoadingMoreUsers] = useState(false)
+  const [hasMoreUsers, setHasMoreUsers] = useState(true)
   const [reports, setReports] = useState([])
   const [warningFilter, setWarningFilter] = useState('all')
   const [reportStatusFilter, setReportStatusFilter] = useState('all')
@@ -85,11 +87,8 @@ export default function AdminPage() {
 
       if (!adminMatch) { router.push('/'); return }
       setIsAdmin(true)
-      await loadListings()
       await loadStats()
-      await loadUsers()
-      await loadReports()
-      await loadNotifications()
+      if (activeTab === 'listings') await loadListings()
       setLoading(false)
       
       // Set up real-time subscription for reports
@@ -107,17 +106,15 @@ export default function AdminPage() {
   }, []) // eslint-disable-line
 
   useEffect(() => {
-    if (activeTab !== 'listings') return
+    if (activeTab !== 'listings' && activeTab !== 'users') return
     
     const handleScroll = () => {
-      if (loadingMoreListings || !hasMoreListings) return
-      
       const scrollTop = window.pageYOffset || document.documentElement.scrollTop
       const windowHeight = window.innerHeight
       const documentHeight = document.documentElement.scrollHeight
       
       if (scrollTop + windowHeight >= documentHeight - 100) {
-        if (listings.length > displayedListings) {
+        if (activeTab === 'listings' && !loadingMoreListings && hasMoreListings && listings.length > displayedListings) {
           setLoadingMoreListings(true)
           setTimeout(() => {
             setDisplayedListings(prev => {
@@ -128,12 +125,24 @@ export default function AdminPage() {
             setLoadingMoreListings(false)
           }, 500)
         }
+        
+        if (activeTab === 'users' && !loadingMoreUsers && hasMoreUsers && filteredUsers.length > displayedUsers) {
+          setLoadingMoreUsers(true)
+          setTimeout(() => {
+            setDisplayedUsers(prev => {
+              const newCount = prev + 15
+              setHasMoreUsers(filteredUsers.length > newCount)
+              return newCount
+            })
+            setLoadingMoreUsers(false)
+          }, 500)
+        }
       }
     }
 
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
-  }, [activeTab, loadingMoreListings, hasMoreListings, listings, displayedListings])
+  }, [activeTab, loadingMoreListings, hasMoreListings, listings, displayedListings, loadingMoreUsers, hasMoreUsers, filteredUsers, displayedUsers])
 
   const buildQuery = async (q = query, status = statusFilter, active = activeFilter, age = ageFilter, mode = modeFilter) => {
     let r = supabase.from('listings').select('*').order('created_at', { ascending: false })
@@ -625,6 +634,10 @@ export default function AdminPage() {
         filtered = [...filtered].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
     }
     
+    // Reset pagination when filters change
+    setDisplayedUsers(15)
+    setHasMoreUsers(filtered.length > 15)
+    
     return filtered
   }, [users, userSearch, userSort, warningFilter])
 
@@ -718,7 +731,10 @@ export default function AdminPage() {
           <div className="border-b border-gray-200">
             <nav className="flex space-x-8 px-8">
               <button
-                onClick={() => setActiveTab('listings')}
+                onClick={async () => {
+                  setActiveTab('listings')
+                  if (listings.length === 0) await loadListings()
+                }}
                 className={`py-4 px-2 border-b-3 font-semibold text-sm transition-all duration-300 ${
                   activeTab === 'listings'
                     ? 'border-blue-600 text-blue-700'
@@ -728,7 +744,10 @@ export default function AdminPage() {
                 🏠 {t('listingsManagement')}
               </button>
               <button
-                onClick={() => setActiveTab('users')}
+                onClick={async () => {
+                  setActiveTab('users')
+                  if (users.length === 0) await loadUsers()
+                }}
                 className={`py-4 px-2 border-b-3 font-semibold text-sm transition-all duration-300 ${
                   activeTab === 'users'
                     ? 'border-blue-600 text-blue-700'
@@ -738,7 +757,10 @@ export default function AdminPage() {
                 👥 {t('userManagement')}
               </button>
               <button
-                onClick={() => setActiveTab('reports')}
+                onClick={async () => {
+                  setActiveTab('reports')
+                  if (reports.length === 0) await loadReports()
+                }}
                 className={`py-4 px-2 border-b-3 font-semibold text-sm transition-all duration-300 ${
                   activeTab === 'reports'
                     ? 'border-blue-600 text-blue-700'
@@ -748,7 +770,10 @@ export default function AdminPage() {
                 🚨 Reports Management
               </button>
               <button
-                onClick={() => setActiveTab('notifications')}
+                onClick={async () => {
+                  setActiveTab('notifications')
+                  if (notifications.length === 0) await loadNotifications()
+                }}
                 className={`py-4 px-2 border-b-3 font-semibold text-sm transition-all duration-300 ${
                   activeTab === 'notifications'
                     ? 'border-blue-600 text-blue-700'
@@ -897,6 +922,7 @@ export default function AdminPage() {
 
               <div className="mb-4 text-sm text-gray-600">
                 Showing {Math.min(displayedUsers, filteredUsers.length)} of {filteredUsers.length} users
+                {loadingMoreUsers && <span className="ml-2 text-blue-600">Loading more...</span>}
               </div>
 
               {/* Users List */}
@@ -999,14 +1025,17 @@ export default function AdminPage() {
                 ))}
               </div>
 
-              {filteredUsers.length > displayedUsers && (
+              {loadingMoreUsers && (
                 <div className="text-center mt-6">
-                  <button
-                    onClick={() => setDisplayedUsers(prev => prev + 20)}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg transition-colors font-semibold"
-                  >
-                    Load More Users
-                  </button>
+                  <div className="flex items-center justify-center space-x-2">
+                    <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                    <span className="text-gray-600">Loading more users...</span>
+                  </div>
+                </div>
+              )}
+              {!hasMoreUsers && filteredUsers.length > 15 && (
+                <div className="text-center mt-6 text-gray-500">
+                  You've reached the end of the users list
                 </div>
               )}
             </div>
